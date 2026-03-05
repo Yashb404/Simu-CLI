@@ -1,0 +1,23 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: cli_demo_studio
+        ports: ["5432:5432"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --all
+      - run: cargo check --target wasm32-unknown-unknown -p embed
+      - run: cargo test --all
+        env:
+          DATABASE_URL: postgres://postgres:password@localhost:5432/cli_demo_studio
