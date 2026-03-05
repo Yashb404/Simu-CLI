@@ -1,14 +1,21 @@
-use axum::{routing::get, Router};
-use crate::state::AppState;
+use axum::{routing::get, Router, Json};
+use crate::{state::AppState, handlers, auth::AuthUser};
+use shared::models::user::User;
+
 
 pub fn create_router(state: AppState) -> Router {
     Router::new()
         .route("/api/health", get(health_check))
+        .route("/api/me", get(get_me))
+        .nest("/api/auth", handlers::auth::auth_routes())
         .with_state(state)
 }
 
 async fn health_check() -> &'static str {
     "OK"
+}
+async fn get_me(AuthUser(user): AuthUser) -> Json<User> {
+    Json(user)
 }
 
 #[cfg(test)]
