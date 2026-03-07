@@ -112,8 +112,6 @@ impl Config {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_session_secret_validation() {
         // Valid 64-char hex

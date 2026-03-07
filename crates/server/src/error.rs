@@ -5,8 +5,10 @@ use axum::{
 };
 use serde_json::json;
 use shared::error::AppError;
+use validator::ValidationErrors;
 
 pub struct ApiError(pub AppError);
+pub type HandlerResult<T> = Result<T, ApiError>;
 
 // Tell Axum how to convert our domain errors into HTTP responses
 impl IntoResponse for ApiError {
@@ -72,5 +74,12 @@ impl From<serde_json::Error> for ApiError {
     fn from(err: serde_json::Error) -> Self {
         tracing::error!("JSON serialization error: {:?}", err);
         ApiError(AppError::Internal)
+    }
+}
+
+impl From<ValidationErrors> for ApiError {
+    fn from(err: ValidationErrors) -> Self {
+        tracing::warn!("Validation failed: {err}");
+        ApiError(AppError::Validation(err.to_string()))
     }
 }

@@ -4,9 +4,13 @@ mod auth;
 mod handlers;
 mod error;
 mod config;
+mod middleware;
 
+use anyhow::Context;
+use governor::{Quota, RateLimiter};
 use sqlx::postgres::PgPoolOptions;
-use std::net::SocketAddr;
+use std::{net::SocketAddr, num::NonZeroU32, sync::Arc};
+use tower_http::{compression::CompressionLayer, cors::{Any, CorsLayer}};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use tower_sessions::{Expiry, SessionManagerLayer};
 use tower_sessions_sqlx_store::PostgresStore;
@@ -19,16 +23,18 @@ async fn main() -> anyhow::Result<()> {
     let config = config::Config::from_env()?;
 
     // Set up logging with configured level
+    let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .or_else(|_| config.log_level.parse())
+        .context("Invalid RUST_LOG format")?;
+
     tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| config.log_level.parse().expect("Invalid RUST_LOG format")),
-        )
+        .with(env_filter)
         .with(tracing_subscriber::fmt::layer())
         .init();
 
     tracing::info!("Starting CLI Demo Studio server...");
     tracing::debug!("Config: API URL = {}, Port = {}", config.api_url, config.port);
+    tracing::debug!("Session secret loaded ({} hex chars)", config.session_secret.len());
 
     // Create database connection pool
     let db = PgPoolOptions::new()
@@ -48,8 +54,29 @@ async fn main() -> anyhow::Result<()> {
         .with_secure(false) // TODO: Set to true in prod (requires HTTPS)
         .with_expiry(Expiry::OnInactivity(config.session_timeout));
 
-    let state = state::AppState { db, config: config.clone() };
-    let app = router::create_router(state).layer(session_layer);
+    let rate_limit_quota = NonZeroU32::new(config.rate_limit_requests_per_minute)
+        .context("RATE_LIMIT_REQUESTS_PER_MINUTE must be greater than 0")?;
+    let rate_limiter = Arc::new(RateLimiter::keyed(Quota::per_minute(rate_limit_quota)));
+
+    let state = state::AppState {
+        db,
+        config: config.clone(),
+        rate_limiter,
+    };
+
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
+    let app = router::create_router(state.clone())
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            middleware::rate_limit::rate_limit_middleware,
+        ))
+        .layer(CompressionLayer::new())
+        .layer(cors)
+        .layer(session_layer);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
     let listener = tokio::net::TcpListener::bind(addr).await?;
