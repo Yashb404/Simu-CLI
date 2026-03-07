@@ -1,6 +1,2 @@
 [target.wasm32-unknown-unknown]
 runner = "wasm-bindgen-cli"
-
-[build]
-#speeds up compilation if you are on Linux/macOS
-rustflags = ["-C", "link-arg=-fuse-ld=lld"]

@@ -15,6 +15,32 @@ pub struct EmbedEvent {
     pub payload: serde_json::Value,
 }
 
+impl EmbedEvent {
+    pub fn view(demo_id: impl Into<String>) -> Self {
+        Self {
+            event_type: EmbedEventType::View,
+            demo_id: demo_id.into(),
+            payload: serde_json::json!({}),
+        }
+    }
+
+    pub fn interaction(demo_id: impl Into<String>, command: &str) -> Self {
+        Self {
+            event_type: EmbedEventType::Interaction,
+            demo_id: demo_id.into(),
+            payload: serde_json::json!({ "command": command }),
+        }
+    }
+
+    pub fn completion(demo_id: impl Into<String>) -> Self {
+        Self {
+            event_type: EmbedEventType::Completion,
+            demo_id: demo_id.into(),
+            payload: serde_json::json!({}),
+        }
+    }
+}
+
 #[cfg(target_arch = "wasm32")]
 pub fn post_event_to_parent(event: &EmbedEvent) -> Result<(), String> {
     use wasm_bindgen::JsValue;

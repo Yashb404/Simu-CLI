@@ -2,9 +2,10 @@ use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, sqlx::Type)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(sqlx::Type))]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
-#[sqlx(rename_all = "snake_case")]
+#[cfg_attr(not(target_arch = "wasm32"), sqlx(rename_all = "snake_case"))]
 pub enum EngineMode { Sequential, FreePlay }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -139,6 +140,7 @@ pub struct Demo {
 }
 
 /// Database model for Demo - what's stored & retrieved from Postgres
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct DemoDb {
     pub id: Uuid,
@@ -156,6 +158,7 @@ pub struct DemoDb {
     pub updated_at: OffsetDateTime,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl DemoDb {
     /// Convert database model to domain model
     pub fn to_domain(self) -> Result<Demo, String> {

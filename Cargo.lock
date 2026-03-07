@@ -53,11 +53,14 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 name = "app"
 version = "0.1.0"
 dependencies = [
+ "getrandom 0.2.17",
  "leptos",
  "leptos_meta",
  "leptos_router",
  "serde",
+ "serde_json",
  "shared",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -684,12 +687,14 @@ dependencies = [
 name = "embed"
 version = "0.1.0"
 dependencies = [
+ "getrandom 0.2.17",
  "gloo-net",
  "js-sys",
  "leptos",
  "serde",
  "serde_json",
  "shared",
+ "uuid",
  "wasm-bindgen",
  "web-sys",
 ]
@@ -2880,6 +2885,7 @@ dependencies = [
  "dashmap",
  "dotenvy",
  "governor",
+ "html-escape",
  "oauth2",
  "reqwest",
  "serde",

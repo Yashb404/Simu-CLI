@@ -2,7 +2,7 @@ use axum::{
     extract::{Query, State},
     http::StatusCode,
     response::{IntoResponse, Redirect, Response},
-    routing::get,
+    routing::{get, post},
     Router,
 };
 use oauth2::{AuthorizationCode, CsrfToken, Scope, TokenResponse};
@@ -15,7 +15,7 @@ pub fn auth_routes() -> Router<AppState> {
     Router::new()
         .route("/github", get(github_login))
         .route("/github/callback", get(github_callback))
-        .route("/logout", get(logout))
+        .route("/logout", post(logout))
 }
 
 async fn github_login(State(state): State<AppState>, session: Session) -> Result<Redirect, Response> {
@@ -71,6 +71,10 @@ async fn github_callback(
         return Err((StatusCode::UNAUTHORIZED, "CSRF token mismatch").into_response());
     }
 
+    if let Err(err) = session.remove::<String>("csrf_token").await {
+        tracing::warn!("Failed to clear CSRF token from session: {err:?}");
+    }
+
     let client = github_oauth_client(&state.config)
         .map_err(|e| {
             tracing::error!("Failed to create GitHub OAuth client: {:?}", e);
@@ -108,8 +112,7 @@ async fn github_callback(
         })?;
 
     // Upsert user in database
-    let user = sqlx::query_as!(
-        User,
+    let user = sqlx::query_as::<_, User>(
         r#"
         INSERT INTO users (github_id, username, email, avatar_url)
         VALUES ($1, $2, $3, $4)
@@ -120,11 +123,11 @@ async fn github_callback(
             updated_at = NOW()
         RETURNING id, github_id, username, email, avatar_url, created_at, updated_at
         "#,
-        github_user.id,
-        github_user.login,
-        github_user.email,
-        github_user.avatar_url
     )
+    .bind(github_user.id)
+    .bind(github_user.login)
+    .bind(github_user.email)
+    .bind(github_user.avatar_url)
     .fetch_one(&state.db)
     .await
     .map_err(|e| {

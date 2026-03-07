@@ -4,6 +4,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use serde::Serialize;
 use sqlx::types::Json as SqlxJson;
 use tower_sessions::Session;
 use uuid::Uuid;
@@ -12,6 +13,7 @@ use validator::Validate;
 use crate::{
     auth::{AuthUser, USER_SESSION_KEY},
     error::{ApiError, HandlerResult},
+    services,
     state::AppState,
 };
 use shared::{
@@ -54,6 +56,28 @@ fn to_engine_mode_db(engine_mode: &EngineMode) -> &'static str {
         EngineMode::Sequential => "sequential",
         EngineMode::FreePlay => "free_play",
     }
+}
+
+fn slugify(value: &str) -> String {
+    let mut slug = value
+        .to_ascii_lowercase()
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect::<String>();
+
+    while slug.contains("--") {
+        slug = slug.replace("--", "-");
+    }
+
+    slug.trim_matches('-').chars().take(60).collect()
+}
+
+#[derive(Serialize)]
+pub struct PublishDemoResponse {
+    pub id: Uuid,
+    pub slug: String,
+    pub version: i32,
+    pub public_url: String,
 }
 
 pub async fn create_demo(
@@ -304,6 +328,98 @@ pub async fn get_public_demo(
     if let Ok(header_value) = HeaderValue::from_str(&etag) {
         response.headers_mut().insert(header::ETAG, header_value);
     }
+
+    Ok(response)
+}
+
+pub async fn publish_demo(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    AuthUser(user): AuthUser,
+) -> HandlerResult<Json<PublishDemoResponse>> {
+    let existing = sqlx::query_as::<_, DemoDb>(
+        r#"
+        SELECT id, owner_id, project_id, slug, title, engine_mode, theme, settings, steps,
+               published, version, created_at, updated_at
+        FROM demos
+        WHERE id = $1 AND owner_id = $2
+        "#,
+    )
+    .bind(id)
+    .bind(user.id)
+    .fetch_optional(&state.db)
+    .await?
+    .ok_or(ApiError(AppError::NotFound))?;
+
+    let slug = existing
+        .slug
+        .clone()
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or_else(|| {
+            let base = slugify(&existing.title);
+            if base.is_empty() {
+                format!("demo-{}", existing.id.simple())
+            } else {
+                format!("{}-{}", base, &existing.id.simple().to_string()[..8])
+            }
+        });
+
+    let updated = sqlx::query_as::<_, DemoDb>(
+        r#"
+        UPDATE demos
+        SET published = TRUE,
+            slug = $1,
+            version = version + 1,
+            updated_at = NOW()
+        WHERE id = $2 AND owner_id = $3
+        RETURNING id, owner_id, project_id, slug, title, engine_mode, theme, settings, steps,
+                  published, version, created_at, updated_at
+        "#,
+    )
+    .bind(&slug)
+    .bind(id)
+    .bind(user.id)
+    .fetch_one(&state.db)
+    .await?;
+
+    let public_url = format!("{}/d/{}", state.config.frontend_url, slug);
+
+    Ok(Json(PublishDemoResponse {
+        id: updated.id,
+        slug,
+        version: updated.version,
+        public_url,
+    }))
+}
+
+pub async fn get_demo_og_image(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> HandlerResult<Response> {
+    let demo = sqlx::query_as::<_, DemoDb>(
+        r#"
+        SELECT id, owner_id, project_id, slug, title, engine_mode, theme, settings, steps,
+               published, version, created_at, updated_at
+        FROM demos
+        WHERE id = $1 AND published = TRUE
+        "#,
+    )
+    .bind(id)
+    .fetch_optional(&state.db)
+    .await?
+    .ok_or(ApiError(AppError::NotFound))?;
+
+        let svg = services::og_image::generate_og_svg(&demo.title, demo.version);
+
+    let mut response = (StatusCode::OK, svg).into_response();
+    response.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("image/svg+xml; charset=utf-8"),
+    );
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("public, max-age=3600"),
+    );
 
     Ok(response)
 }

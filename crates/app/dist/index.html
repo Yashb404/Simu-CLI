@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CLI Demo Studio Dashboard</title>
+    
+<script type="module" nonce="hgUFRDi6n4/WzAWOV6t8tg==">
+import init, * as bindings from '/app-356c14232523ca02.js';
+const wasm = await init({ module_or_path: '/app-356c14232523ca02_bg.wasm' });
+
+
+window.wasmBindings = bindings;
+
+
+dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
+
+</script>
+  <link rel="modulepreload" href="/app-356c14232523ca02.js" crossorigin=anonymous integrity="sha384-AeZvwRAh8LxYuA1xNyDWAS+BAOWwznCH2HjZHhY8FCvbwiS8Cz0KCwOBuYg6KxvV"><link rel="preload" href="/app-356c14232523ca02_bg.wasm" crossorigin=anonymous integrity="sha384-9oG8Uph6QwBZjcrkaiFhdbrwHMVYqBF5U8m3f8dnTBaT8wpiW8yfG83gH+osp5Ak" as="fetch" type="application/wasm"></head>
+  <body></body>
+</html>

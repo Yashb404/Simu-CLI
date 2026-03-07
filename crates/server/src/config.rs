@@ -32,16 +32,18 @@ pub struct Config {
     /// Session timeout duration
     pub session_timeout: Duration,
 
+    /// Whether session cookies must be marked secure
+    pub session_cookie_secure: bool,
+
     /// Logging level (defaults to "server=debug,tower_sessions=debug")
     pub log_level: String,
 }
 
 impl Config {
     /// Load configuration from environment variables
-    /// 
-    /// # Panics
-    /// Panics if any required environment variable is missing or invalid.
-    /// This is intentional: configuration errors should fail at startup, not at runtime.
+    ///
+    /// Returns an error when required environment variables are missing or invalid.
+    /// The caller should fail startup on error so configuration problems are caught early.
     pub fn from_env() -> Result<Self> {
         let database_url = env::var("DATABASE_URL")
             .context("DATABASE_URL must be set")?;
@@ -87,6 +89,11 @@ impl Config {
             .parse::<i64>()
             .context("SESSION_TIMEOUT_DAYS must be a valid i64")?;
 
+        let session_cookie_secure = env::var("SESSION_COOKIE_SECURE")
+            .unwrap_or_else(|_| "false".to_string())
+            .parse::<bool>()
+            .context("SESSION_COOKIE_SECURE must be true or false")?;
+
         let log_level = env::var("RUST_LOG")
             .unwrap_or_else(|_| "server=debug,tower_sessions=debug".to_string());
 
@@ -100,6 +107,7 @@ impl Config {
             port,
             rate_limit_requests_per_minute,
             session_timeout: Duration::days(session_timeout_days),
+            session_cookie_secure,
             log_level,
         })
     }

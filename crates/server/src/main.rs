@@ -5,6 +5,7 @@ mod handlers;
 mod error;
 mod config;
 mod middleware;
+mod services;
 
 use anyhow::Context;
 use governor::{Quota, RateLimiter};
@@ -51,7 +52,7 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("Session store initialized");
 
     let session_layer = SessionManagerLayer::new(session_store)
-        .with_secure(false) // TODO: Set to true in prod (requires HTTPS)
+        .with_secure(config.session_cookie_secure)
         .with_expiry(Expiry::OnInactivity(config.session_timeout));
 
     let rate_limit_quota = NonZeroU32::new(config.rate_limit_requests_per_minute)
@@ -70,6 +71,15 @@ async fn main() -> anyhow::Result<()> {
         .allow_headers(Any);
 
     let app = router::create_router(state.clone())
+        .layer(axum::middleware::from_fn(
+            middleware::logging::logging_middleware,
+        ))
+        .layer(axum::middleware::from_fn(
+            middleware::metrics::metrics_middleware,
+        ))
+        .layer(axum::middleware::from_fn(
+            middleware::security_headers::security_headers_middleware,
+        ))
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             middleware::rate_limit::rate_limit_middleware,

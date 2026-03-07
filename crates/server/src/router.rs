@@ -2,13 +2,14 @@ use axum::{
     routing::{get, patch, post},
     Json, Router,
 };
-use crate::{state::AppState, handlers, auth::AuthUser};
+use crate::{state::AppState, handlers, auth::AuthUser, middleware};
 use shared::models::user::User;
 
 
 pub fn create_router(state: AppState) -> Router {
     Router::new()
         .route("/api/health", get(health_check))
+        .route("/metrics", get(middleware::metrics::metrics_handler))
         .route("/api/me", get(get_me))
         .route("/api/demos", post(handlers::demos::create_demo))
         .route("/api/me/demos", get(handlers::demos::list_my_demos))
@@ -21,6 +22,50 @@ pub fn create_router(state: AppState) -> Router {
         .route(
             "/api/demos/{id}/public",
             get(handlers::demos::get_public_demo),
+        )
+        .route(
+            "/api/demos/{id}/publish",
+            post(handlers::demos::publish_demo),
+        )
+        .route(
+            "/api/demos/{id}/og-image",
+            get(handlers::demos::get_demo_og_image),
+        )
+        .route(
+            "/api/demos/{id}/analytics",
+            get(handlers::analytics::get_demo_analytics),
+        )
+        .route(
+            "/api/demos/{id}/analytics/referrers",
+            get(handlers::analytics::get_demo_referrers),
+        )
+        .route(
+            "/api/demos/{id}/analytics/funnel",
+            get(handlers::analytics::get_demo_funnel),
+        )
+        .route(
+            "/api/demos/{id}/analytics/export",
+            get(handlers::analytics::export_demo_analytics_csv),
+        )
+        .route(
+            "/api/demos/{id}/common-errors",
+            get(handlers::common_errors::get_common_errors),
+        )
+        .route(
+            "/api/analytics/events",
+            post(handlers::analytics::post_event),
+        )
+        .route(
+            "/api/analytics/common-errors",
+            post(handlers::common_errors::record_common_error),
+        )
+        .route(
+            "/api/billing/status",
+            get(handlers::billing::get_billing_status),
+        )
+        .route(
+            "/api/billing/subscribe",
+            post(handlers::billing::subscribe),
         )
         .route("/api/projects", post(handlers::projects::create_project))
         .route("/api/me/projects", get(handlers::projects::list_my_projects))
@@ -83,6 +128,7 @@ mod tests {
                 port: 3001,
                 rate_limit_requests_per_minute: 100,
                 session_timeout: time::Duration::days(7),
+                session_cookie_secure: false,
                 log_level: "server=debug".to_string(),
             },
             rate_limiter: Arc::new(RateLimiter::keyed(Quota::per_minute(per_minute))),

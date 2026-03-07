@@ -9,7 +9,9 @@ serde_json = { workspace = true }
 uuid = { workspace = true }
 time = { workspace = true }
 thiserror = { workspace = true }
-sqlx = { workspace = true }
 
 # Validation
 validator = { version = "0.20.0", features = ["derive"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+sqlx = { workspace = true }

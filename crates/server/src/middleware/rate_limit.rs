@@ -82,6 +82,7 @@ mod tests {
             port: 3001,
             rate_limit_requests_per_minute: 1,
             session_timeout: time::Duration::days(7),
+            session_cookie_secure: false,
             log_level: "server=debug".to_string(),
         }
     }

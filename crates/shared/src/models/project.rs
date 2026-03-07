@@ -13,7 +13,8 @@ pub struct Project {
 }
 
 /// Database model for Project
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(sqlx::FromRow))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectDb {
     pub id: Uuid,
     pub owner_id: Uuid,

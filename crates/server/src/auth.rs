@@ -45,11 +45,10 @@ impl FromRequestParts<AppState> for AuthUser {
             .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Session error"))?
             .ok_or((StatusCode::UNAUTHORIZED, "Not logged in"))?;
 
-        let user = sqlx::query_as!(
-            User,
+        let user = sqlx::query_as::<_, User>(
             r#"SELECT id, github_id, username, email, avatar_url, created_at, updated_at FROM users WHERE id = $1"#,
-            user_id
         )
+        .bind(user_id)
         .fetch_optional(&state.db)
         .await
         .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?

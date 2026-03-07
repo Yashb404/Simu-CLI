@@ -31,3 +31,4 @@ reqwest = { workspace = true }
 validator = { version = "0.20.0" }
 governor = { workspace = true }
 dashmap = { workspace = true }
+html-escape = "0.2"
