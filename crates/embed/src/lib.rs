@@ -1,14 +1,20 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+pub mod animation;
+pub mod api;
+pub mod components;
+pub mod input_handler;
+pub mod matching;
+pub mod messaging;
+
+use leptos::prelude::*;
+
+#[component]
+pub fn EmbedApp() -> impl IntoView {
+    view! {
+        <components::terminal::TerminalUI />
+    }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+#[cfg(target_arch = "wasm32")]
+pub fn mount() {
+    leptos::mount::mount_to_body(EmbedApp);
 }

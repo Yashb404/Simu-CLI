@@ -4,6 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+leptos = { workspace = true }
+leptos_router = { workspace = true }
+leptos_meta = { workspace = true }
+serde = { workspace = true }
+shared = { path = "../shared" }
 
 [lib]
 crate-type = ["cdylib", "rlib"]
