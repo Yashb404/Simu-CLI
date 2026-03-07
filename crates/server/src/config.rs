@@ -72,7 +72,7 @@ impl Config {
             .unwrap_or_else(|_| "http://localhost:3001".to_string());
 
         let frontend_url = env::var("FRONTEND_URL")
-            .unwrap_or_else(|_| "http://localhost:3000".to_string());
+            .unwrap_or_else(|_| "http://localhost:8080".to_string());
 
         let port = env::var("PORT")
             .unwrap_or_else(|_| "3001".to_string())

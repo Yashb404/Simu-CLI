@@ -1,7 +1,7 @@
 use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, Title};
 use leptos_router::{
-    components::{Route, Router, Routes},
+    components::{A, Route, Router, Routes},
     path,
 };
 
@@ -15,6 +15,7 @@ use crate::pages::{
     projects::ProjectsPage,
     settings::SettingsPage,
 };
+use crate::api;
 
 #[component]
 pub fn App() -> impl IntoView {
@@ -25,9 +26,19 @@ pub fn App() -> impl IntoView {
         <Router>
             <main class="app-shell">
                 <header class="app-header">
-                    <h1>"CLI Demo Studio"</h1>
-                    <p>"Scriptless terminal demo builder"</p>
+                    <div>
+                        <p class="kicker">"CLI Demo Studio"</p>
+                        <h1>"Terminal Demo Dashboard"</h1>
+                        <p>"Build, publish, and track CLI walkthroughs."</p>
+                    </div>
+                    <a class="button ghost" href={api::login_url()}>"Login with GitHub"</a>
                 </header>
+
+                <nav class="app-nav">
+                    <A href="/dashboard/projects">"Projects"</A>
+                    <A href="/dashboard/demos">"Demos"</A>
+                </nav>
+
                 <Routes fallback=|| view! { <p>"Not Found"</p> }>
                     <Route path=path!("/") view=ProjectsPage />
                     <Route path=path!("/dashboard") view=ProjectsPage />

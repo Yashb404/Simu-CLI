@@ -124,7 +124,7 @@ mod tests {
                 github_client_secret: "test-secret".to_string(),
                 session_secret: "a".repeat(64),
                 api_url: "http://localhost:3001".to_string(),
-                frontend_url: "http://localhost:3000".to_string(),
+                frontend_url: "http://localhost:8080".to_string(),
                 port: 3001,
                 rate_limit_requests_per_minute: 100,
                 session_timeout: time::Duration::days(7),
