@@ -36,7 +36,7 @@ mod tests {
             .connect_lazy("postgres://dummy:dummy@localhost/dummy")
             .unwrap();
             
-        let state = AppState { db: pool };
+        let state = AppState {db:pool, config: todo!() };
         let app = create_router(state);
 
         let response = app
