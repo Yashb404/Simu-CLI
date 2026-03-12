@@ -1,14 +1,18 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+pub mod app;
+pub mod api;
+pub mod components;
+pub mod pages;
+pub mod utils;
+
+pub use app::App;
+
+#[cfg(target_arch = "wasm32")]
+pub fn mount() {
+    leptos::mount::mount_to_body(App);
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen::prelude::wasm_bindgen(start)]
+pub fn start() {
+    mount();
 }

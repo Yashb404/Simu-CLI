@@ -1,2 +1,9 @@
 /target
 .env
+.github/prompts
+/dist
+
+node_modules/
+dist/
+build/
+target/

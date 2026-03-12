@@ -4,6 +4,16 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+leptos = { workspace = true }
+leptos_router = { workspace = true }
+leptos_meta = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+shared = { path = "../shared" }
+wasm-bindgen = "0.2"
+getrandom = { version = "0.2", features = ["js"] }
+gloo-net = { version = "0.6", features = ["http"] }
+web-sys = { version = "0.3", features = ["RequestCredentials", "Window", "Location"] }
 
 [lib]
 crate-type = ["cdylib", "rlib"]

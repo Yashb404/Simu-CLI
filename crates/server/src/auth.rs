@@ -5,27 +5,25 @@ use axum::{
 use oauth2::{basic::BasicClient, AuthUrl, ClientId, ClientSecret, RedirectUrl, TokenUrl};
 use tower_sessions::Session;
 use shared::models::user::User;
-use crate::state::AppState;
-use std::env;
+use crate::{state::AppState, config::Config};
 use oauth2::{
     EndpointSet, EndpointNotSet
 };
+
 pub const USER_SESSION_KEY: &str = "user_id";
 
-pub fn github_oauth_client() -> BasicClient<
+pub fn github_oauth_client(config: &Config) -> Result<BasicClient<
     EndpointSet,    // HasAuthUrl
     EndpointNotSet, // HasDeviceAuthUrl
     EndpointNotSet, // HasIntrospectionUrl
     EndpointNotSet, // HasRevocationUrl
     EndpointSet     // HasTokenUrl
-> {
-    BasicClient::new(ClientId::new(env::var("GITHUB_CLIENT_ID").unwrap_or_default()))
-        .set_client_secret(ClientSecret::new(env::var("GITHUB_CLIENT_SECRET").unwrap_or_default()))
-        .set_auth_uri(AuthUrl::new("https://github.com/login/oauth/authorize".to_string()).unwrap())
-        .set_token_uri(TokenUrl::new("https://github.com/login/oauth/access_token".to_string()).unwrap())
-        .set_redirect_uri(RedirectUrl::new(
-            format!("{}/api/auth/github/callback", env::var("API_URL").unwrap_or_else(|_| "http://localhost:3001".to_string()))
-        ).unwrap())
+>, anyhow::Error> {
+    Ok(BasicClient::new(ClientId::new(config.github_client_id.clone()))
+        .set_client_secret(ClientSecret::new(config.github_client_secret.clone()))
+        .set_auth_uri(AuthUrl::new("https://github.com/login/oauth/authorize".to_string())?)
+        .set_token_uri(TokenUrl::new("https://github.com/login/oauth/access_token".to_string())?)
+        .set_redirect_uri(RedirectUrl::new(config.github_redirect_uri())?))
 }
 
 // The Extractor we will use to protect routes
@@ -47,11 +45,10 @@ impl FromRequestParts<AppState> for AuthUser {
             .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Session error"))?
             .ok_or((StatusCode::UNAUTHORIZED, "Not logged in"))?;
 
-        let user = sqlx::query_as!(
-            User,
+        let user = sqlx::query_as::<_, User>(
             r#"SELECT id, github_id, username, email, avatar_url, created_at, updated_at FROM users WHERE id = $1"#,
-            user_id
         )
+        .bind(user_id)
         .fetch_optional(&state.db)
         .await
         .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?
