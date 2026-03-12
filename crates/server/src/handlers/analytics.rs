@@ -1,6 +1,7 @@
 use axum::{
     extract::{Path, Query, State},
-    http::{HeaderMap, StatusCode},
+    http::{header, HeaderMap, HeaderValue, StatusCode},
+    response::{IntoResponse, Response},
     Json,
 };
 use serde::{Deserialize, Serialize};
@@ -14,6 +15,11 @@ use crate::{
 };
 use shared::error::AppError;
 
+const DEFAULT_EXPORT_DAYS: i64 = 30;
+const MAX_EXPORT_DAYS: i64 = 365;
+const DEFAULT_EXPORT_LIMIT: i64 = 2000;
+const MAX_EXPORT_LIMIT: i64 = 5000;
+
 #[derive(Debug, Deserialize)]
 pub struct AnalyticsEventRequest {
     pub demo_id: Uuid,
@@ -24,6 +30,12 @@ pub struct AnalyticsEventRequest {
 #[derive(Debug, Deserialize)]
 pub struct AnalyticsWindowQuery {
     pub days: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AnalyticsExportQuery {
+    pub days: Option<i64>,
+    pub limit: Option<i64>,
 }
 
 #[derive(Debug, Serialize, FromRow)]
@@ -47,6 +59,14 @@ pub struct FunnelPoint {
 
 fn is_valid_event_type(value: &str) -> bool {
     matches!(value, "view" | "interaction" | "completion")
+}
+
+fn sanitize_export_bounds(days: Option<i64>, limit: Option<i64>) -> (i64, i64) {
+    let days = days.unwrap_or(DEFAULT_EXPORT_DAYS).clamp(1, MAX_EXPORT_DAYS);
+    let limit = limit
+        .unwrap_or(DEFAULT_EXPORT_LIMIT)
+        .clamp(1, MAX_EXPORT_LIMIT);
+    (days, limit)
 }
 
 async fn ensure_demo_owner(state: &AppState, demo_id: Uuid, owner_id: Uuid) -> HandlerResult<()> {
@@ -188,20 +208,27 @@ pub async fn get_demo_funnel(
 pub async fn export_demo_analytics_csv(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    Query(query): Query<AnalyticsExportQuery>,
     AuthUser(user): AuthUser,
-) -> HandlerResult<(StatusCode, String)> {
+) -> HandlerResult<Response> {
     ensure_demo_owner(&state, id, user.id).await?;
+
+    let (days, limit) = sanitize_export_bounds(query.days, query.limit);
 
     let rows = sqlx::query_as::<_, AnalyticsSeriesPoint>(
         r#"
         SELECT date_trunc('day', created_at) AS bucket, event_type, COUNT(*)::bigint AS total
         FROM analytics_events
         WHERE demo_id = $1
+          AND created_at >= NOW() - ($2 * INTERVAL '1 day')
         GROUP BY bucket, event_type
         ORDER BY bucket ASC
+        LIMIT $3
         "#,
     )
     .bind(id)
+    .bind(days)
+    .bind(limit)
     .fetch_all(&state.db)
     .await?;
 
@@ -210,5 +237,28 @@ pub async fn export_demo_analytics_csv(
         csv.push_str(&format!("{},{},{}\n", row.bucket.date(), row.event_type, row.total));
     }
 
-    Ok((StatusCode::OK, csv))
+    let mut response = (StatusCode::OK, csv).into_response();
+    response.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("text/csv; charset=utf-8"),
+    );
+    response.headers_mut().insert(
+        header::CONTENT_DISPOSITION,
+        HeaderValue::from_static("attachment; filename=analytics.csv"),
+    );
+
+    Ok(response)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sanitize_export_bounds_applies_defaults_and_limits() {
+        assert_eq!(sanitize_export_bounds(None, None), (30, 2000));
+        assert_eq!(sanitize_export_bounds(Some(7), Some(500)), (7, 500));
+        assert_eq!(sanitize_export_bounds(Some(0), Some(0)), (1, 1));
+        assert_eq!(sanitize_export_bounds(Some(900), Some(999999)), (365, 5000));
+    }
 }

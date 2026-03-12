@@ -8,10 +8,14 @@ mod middleware;
 mod services;
 
 use anyhow::Context;
+use axum::http::{header, HeaderValue, Method};
 use governor::{Quota, RateLimiter};
 use sqlx::postgres::PgPoolOptions;
 use std::{net::SocketAddr, num::NonZeroU32, sync::Arc};
-use tower_http::{compression::CompressionLayer, cors::{Any, CorsLayer}};
+use tower_http::{
+    compression::CompressionLayer,
+    cors::{AllowOrigin, CorsLayer},
+};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use tower_sessions::{Expiry, SessionManagerLayer};
 use tower_sessions_sqlx_store::PostgresStore;
@@ -65,10 +69,24 @@ async fn main() -> anyhow::Result<()> {
         rate_limiter,
     };
 
+    let cors_origins: Vec<HeaderValue> = config
+        .cors_allowed_origins
+        .iter()
+        .map(|origin| HeaderValue::from_str(origin))
+        .collect::<Result<_, _>>()
+        .context("Invalid CORS origin header value")?;
+
     let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+        .allow_origin(AllowOrigin::list(cors_origins))
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PATCH,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
+        .allow_headers([header::CONTENT_TYPE, header::ACCEPT, header::AUTHORIZATION])
+        .allow_credentials(true);
 
     let app = router::create_router(state.clone())
         .layer(axum::middleware::from_fn(

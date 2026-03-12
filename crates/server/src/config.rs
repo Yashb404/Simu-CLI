@@ -37,6 +37,45 @@ pub struct Config {
 
     /// Logging level (defaults to "server=debug,tower_sessions=debug")
     pub log_level: String,
+
+    /// Allowed CORS origins for browser clients.
+    pub cors_allowed_origins: Vec<String>,
+}
+
+fn normalize_origin(url: &str) -> Result<String> {
+    let parsed = reqwest::Url::parse(url)
+        .with_context(|| format!("invalid URL for origin: {url}"))?;
+
+    let scheme = parsed.scheme();
+    let host = parsed
+        .host_str()
+        .context("origin URL must include a host")?;
+
+    let origin = match parsed.port() {
+        Some(port) => format!("{scheme}://{host}:{port}"),
+        None => format!("{scheme}://{host}"),
+    };
+
+    Ok(origin)
+}
+
+fn parse_cors_allowed_origins(raw: &str) -> Result<Vec<String>> {
+    let mut origins = Vec::new();
+    for item in raw.split(',') {
+        let value = item.trim();
+        if value.is_empty() {
+            continue;
+        }
+        origins.push(normalize_origin(value)?);
+    }
+
+    if origins.is_empty() {
+        anyhow::bail!("CORS_ALLOWED_ORIGINS must include at least one origin");
+    }
+
+    origins.sort();
+    origins.dedup();
+    Ok(origins)
 }
 
 impl Config {
@@ -74,6 +113,13 @@ impl Config {
         let frontend_url = env::var("FRONTEND_URL")
             .unwrap_or_else(|_| "http://localhost:8080".to_string());
 
+        let cors_allowed_origins = match env::var("CORS_ALLOWED_ORIGINS") {
+            Ok(value) => parse_cors_allowed_origins(&value)
+                .context("CORS_ALLOWED_ORIGINS must be a comma-separated list of valid origins")?,
+            Err(_) => vec![normalize_origin(&frontend_url)
+                .context("FRONTEND_URL must be a valid origin URL")?],
+        };
+
         let port = env::var("PORT")
             .unwrap_or_else(|_| "3001".to_string())
             .parse::<u16>()
@@ -109,6 +155,7 @@ impl Config {
             session_timeout: Duration::days(session_timeout_days),
             session_cookie_secure,
             log_level,
+            cors_allowed_origins,
         })
     }
 

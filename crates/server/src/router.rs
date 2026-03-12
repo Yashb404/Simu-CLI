@@ -130,6 +130,7 @@ mod tests {
                 session_timeout: time::Duration::days(7),
                 session_cookie_secure: false,
                 log_level: "server=debug".to_string(),
+                cors_allowed_origins: vec!["http://localhost:8080".to_string()],
             },
             rate_limiter: Arc::new(RateLimiter::keyed(Quota::per_minute(per_minute))),
         };

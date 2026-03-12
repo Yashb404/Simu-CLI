@@ -8,6 +8,20 @@ fn api_url(path: &str) -> String {
     format!("{API_BASE}{path}")
 }
 
+fn build_query_path(path: &str, params: Vec<(&str, String)>) -> String {
+    if params.is_empty() {
+        return api_url(path);
+    }
+
+    let query = params
+        .into_iter()
+        .map(|(key, value)| format!("{key}={value}"))
+        .collect::<Vec<_>>()
+        .join("&");
+
+    api_url(&format!("{path}?{query}"))
+}
+
 async fn send_json_builder<T: for<'de> Deserialize<'de>>(request: RequestBuilder) -> Result<T, String> {
     let response = request
         .credentials(RequestCredentials::Include)
@@ -111,7 +125,23 @@ pub fn login_url() -> String {
 }
 
 pub async fn list_projects() -> Result<Vec<DashboardProject>, String> {
-    send_json_builder(Request::get(&api_url("/api/me/projects"))).await
+    list_projects_with_paging(None, None).await
+}
+
+pub async fn list_projects_with_paging(
+    limit: Option<u32>,
+    offset: Option<u32>,
+) -> Result<Vec<DashboardProject>, String> {
+    let mut params = Vec::new();
+    if let Some(limit) = limit {
+        params.push(("limit", limit.to_string()));
+    }
+    if let Some(offset) = offset {
+        params.push(("offset", offset.to_string()));
+    }
+
+    let url = build_query_path("/api/me/projects", params);
+    send_json_builder(Request::get(&url)).await
 }
 
 pub async fn create_project(name: &str, description: Option<&str>) -> Result<DashboardProject, String> {
@@ -127,7 +157,31 @@ pub async fn create_project(name: &str, description: Option<&str>) -> Result<Das
 }
 
 pub async fn list_demos() -> Result<Vec<DashboardDemo>, String> {
-    send_json_builder(Request::get(&api_url("/api/me/demos"))).await
+    list_demos_with_filters(None, None, None, None).await
+}
+
+pub async fn list_demos_with_filters(
+    limit: Option<u32>,
+    offset: Option<u32>,
+    project_id: Option<&str>,
+    published: Option<bool>,
+) -> Result<Vec<DashboardDemo>, String> {
+    let mut params = Vec::new();
+    if let Some(limit) = limit {
+        params.push(("limit", limit.to_string()));
+    }
+    if let Some(offset) = offset {
+        params.push(("offset", offset.to_string()));
+    }
+    if let Some(project_id) = project_id {
+        params.push(("project_id", project_id.to_string()));
+    }
+    if let Some(published) = published {
+        params.push(("published", published.to_string()));
+    }
+
+    let url = build_query_path("/api/me/demos", params);
+    send_json_builder(Request::get(&url)).await
 }
 
 pub async fn get_demo(id: &str) -> Result<DashboardDemo, String> {

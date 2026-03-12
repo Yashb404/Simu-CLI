@@ -1,10 +1,10 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{header, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
     Json,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sqlx::types::Json as SqlxJson;
 use tower_sessions::Session;
 use uuid::Uuid;
@@ -23,6 +23,25 @@ use shared::{
         Demo, DemoDb, DemoSettings, EngineMode, Step, Theme, WindowStyle,
     },
 };
+
+const DEFAULT_PAGE_LIMIT: i64 = 50;
+const MAX_PAGE_LIMIT: i64 = 100;
+
+#[derive(Debug, Deserialize)]
+pub struct ListMyDemosQuery {
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+    pub project_id: Option<Uuid>,
+    pub published: Option<bool>,
+}
+
+fn sanitize_pagination(limit: Option<i64>, offset: Option<i64>) -> (i64, i64) {
+    let clamped_limit = limit
+        .unwrap_or(DEFAULT_PAGE_LIMIT)
+        .clamp(1, MAX_PAGE_LIMIT);
+    let clamped_offset = offset.unwrap_or(0).max(0);
+    (clamped_limit, clamped_offset)
+}
 
 fn default_theme() -> Theme {
     Theme {
@@ -267,17 +286,27 @@ pub async fn delete_demo(
 pub async fn list_my_demos(
     State(state): State<AppState>,
     AuthUser(user): AuthUser,
+    Query(query): Query<ListMyDemosQuery>,
 ) -> HandlerResult<Json<Vec<Demo>>> {
+    let (limit, offset) = sanitize_pagination(query.limit, query.offset);
+
     let rows = sqlx::query_as::<_, DemoDb>(
         r#"
         SELECT id, owner_id, project_id, slug, title, engine_mode, theme, settings, steps,
                published, version, created_at, updated_at
         FROM demos
         WHERE owner_id = $1
+          AND ($2::uuid IS NULL OR project_id = $2)
+          AND ($3::bool IS NULL OR published = $3)
         ORDER BY updated_at DESC
+        LIMIT $4 OFFSET $5
         "#,
     )
     .bind(user.id)
+    .bind(query.project_id)
+    .bind(query.published)
+    .bind(limit)
+    .bind(offset)
     .fetch_all(&state.db)
     .await?;
 
@@ -461,5 +490,12 @@ mod tests {
         assert!(theme.bg_color.starts_with('#'));
         assert!(theme.fg_color.starts_with('#'));
         assert!(theme.cursor_color.starts_with('#'));
+    }
+
+    #[test]
+    fn sanitize_pagination_applies_bounds() {
+        assert_eq!(sanitize_pagination(None, None), (50, 0));
+        assert_eq!(sanitize_pagination(Some(1), Some(0)), (1, 0));
+        assert_eq!(sanitize_pagination(Some(1000), Some(-20)), (100, 0));
     }
 }
