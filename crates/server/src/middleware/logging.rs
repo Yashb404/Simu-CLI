@@ -18,7 +18,6 @@ tokio::task_local! {
 pub fn current_request_id() -> Option<String> {
     REQUEST_ID_CONTEXT.try_with(|id| id.clone()).ok()
 }
-
 fn resolve_request_id(req: &Request<Body>) -> String {
     let incoming = req
         .headers()

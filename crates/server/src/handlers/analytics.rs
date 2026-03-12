@@ -9,8 +9,8 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    handlers::owned_demo::OwnedDemo,
     error::{ApiError, HandlerResult},
+    handlers::owned_demo::OwnedDemo,
     state::AppState,
 };
 use shared::{
@@ -40,6 +40,7 @@ pub struct AnalyticsReferrerQuery {
 pub struct AnalyticsFunnelQuery {
     pub limit: Option<i64>,
 }
+
 fn sanitize_export_bounds(days: Option<i64>, limit: Option<i64>) -> (i64, i64) {
     let days = days.unwrap_or(DEFAULT_EXPORT_DAYS).clamp(1, MAX_EXPORT_DAYS);
     let limit = limit
@@ -59,6 +60,7 @@ fn sanitize_funnel_limit(limit: Option<i64>) -> i64 {
         .unwrap_or(DEFAULT_FUNNEL_LIMIT)
         .clamp(1, MAX_FUNNEL_LIMIT)
 }
+
 pub async fn post_event(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -132,6 +134,7 @@ pub async fn get_demo_referrers(
     Query(query): Query<AnalyticsReferrerQuery>,
 ) -> HandlerResult<Json<Vec<ReferrerCount>>> {
     let limit = sanitize_referrer_limit(query.limit);
+
     let rows = sqlx::query_as::<_, ReferrerCount>(
         r#"
         SELECT COALESCE(referrer, 'direct') AS referrer, COUNT(*)::bigint AS total
@@ -156,6 +159,7 @@ pub async fn get_demo_funnel(
     Query(query): Query<AnalyticsFunnelQuery>,
 ) -> HandlerResult<Json<Vec<FunnelPoint>>> {
     let limit = sanitize_funnel_limit(query.limit);
+
     let rows = sqlx::query_as::<_, FunnelPoint>(
         r#"
         SELECT COALESCE(step_index, -1) AS step_index, COUNT(*)::bigint AS total
