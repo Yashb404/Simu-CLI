@@ -19,6 +19,10 @@ const DEFAULT_EXPORT_DAYS: i64 = 30;
 const MAX_EXPORT_DAYS: i64 = 365;
 const DEFAULT_EXPORT_LIMIT: i64 = 2000;
 const MAX_EXPORT_LIMIT: i64 = 5000;
+const DEFAULT_REFERRER_LIMIT: i64 = 10;
+const MAX_REFERRER_LIMIT: i64 = 100;
+const DEFAULT_FUNNEL_LIMIT: i64 = 100;
+const MAX_FUNNEL_LIMIT: i64 = 500;
 
 #[derive(Debug, Deserialize)]
 pub struct AnalyticsEventRequest {
@@ -35,6 +39,16 @@ pub struct AnalyticsWindowQuery {
 #[derive(Debug, Deserialize)]
 pub struct AnalyticsExportQuery {
     pub days: Option<i64>,
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AnalyticsReferrerQuery {
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AnalyticsFunnelQuery {
     pub limit: Option<i64>,
 }
 
@@ -67,6 +81,18 @@ fn sanitize_export_bounds(days: Option<i64>, limit: Option<i64>) -> (i64, i64) {
         .unwrap_or(DEFAULT_EXPORT_LIMIT)
         .clamp(1, MAX_EXPORT_LIMIT);
     (days, limit)
+}
+
+fn sanitize_referrer_limit(limit: Option<i64>) -> i64 {
+    limit
+        .unwrap_or(DEFAULT_REFERRER_LIMIT)
+        .clamp(1, MAX_REFERRER_LIMIT)
+}
+
+fn sanitize_funnel_limit(limit: Option<i64>) -> i64 {
+    limit
+        .unwrap_or(DEFAULT_FUNNEL_LIMIT)
+        .clamp(1, MAX_FUNNEL_LIMIT)
 }
 
 async fn ensure_demo_owner(state: &AppState, demo_id: Uuid, owner_id: Uuid) -> HandlerResult<()> {
@@ -160,9 +186,12 @@ pub async fn get_demo_analytics(
 pub async fn get_demo_referrers(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    Query(query): Query<AnalyticsReferrerQuery>,
     AuthUser(user): AuthUser,
 ) -> HandlerResult<Json<Vec<ReferrerCount>>> {
     ensure_demo_owner(&state, id, user.id).await?;
+
+    let limit = sanitize_referrer_limit(query.limit);
 
     let rows = sqlx::query_as::<_, ReferrerCount>(
         r#"
@@ -171,10 +200,11 @@ pub async fn get_demo_referrers(
         WHERE demo_id = $1
         GROUP BY referrer
         ORDER BY total DESC
-        LIMIT 10
+        LIMIT $2
         "#,
     )
     .bind(id)
+    .bind(limit)
     .fetch_all(&state.db)
     .await?;
 
@@ -184,9 +214,12 @@ pub async fn get_demo_referrers(
 pub async fn get_demo_funnel(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    Query(query): Query<AnalyticsFunnelQuery>,
     AuthUser(user): AuthUser,
 ) -> HandlerResult<Json<Vec<FunnelPoint>>> {
     ensure_demo_owner(&state, id, user.id).await?;
+
+    let limit = sanitize_funnel_limit(query.limit);
 
     let rows = sqlx::query_as::<_, FunnelPoint>(
         r#"
@@ -196,9 +229,11 @@ pub async fn get_demo_funnel(
           AND event_type = 'interaction'
         GROUP BY step_index
         ORDER BY step_index ASC
+        LIMIT $2
         "#,
     )
     .bind(id)
+    .bind(limit)
     .fetch_all(&state.db)
     .await?;
 
@@ -260,5 +295,19 @@ mod tests {
         assert_eq!(sanitize_export_bounds(Some(7), Some(500)), (7, 500));
         assert_eq!(sanitize_export_bounds(Some(0), Some(0)), (1, 1));
         assert_eq!(sanitize_export_bounds(Some(900), Some(999999)), (365, 5000));
+    }
+
+    #[test]
+    fn sanitize_referrer_limit_applies_bounds() {
+        assert_eq!(sanitize_referrer_limit(None), 10);
+        assert_eq!(sanitize_referrer_limit(Some(1)), 1);
+        assert_eq!(sanitize_referrer_limit(Some(999)), 100);
+    }
+
+    #[test]
+    fn sanitize_funnel_limit_applies_bounds() {
+        assert_eq!(sanitize_funnel_limit(None), 100);
+        assert_eq!(sanitize_funnel_limit(Some(1)), 1);
+        assert_eq!(sanitize_funnel_limit(Some(9999)), 500);
     }
 }

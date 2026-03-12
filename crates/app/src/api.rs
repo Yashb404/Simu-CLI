@@ -217,13 +217,52 @@ pub async fn publish_demo(id: &str) -> Result<PublishResponse, String> {
 }
 
 pub async fn get_analytics_series(id: &str) -> Result<Vec<AnalyticsSeriesPoint>, String> {
-    send_json_builder(Request::get(&api_url(&format!("/api/demos/{id}/analytics")))).await
+    get_analytics_series_with_days(id, None).await
+}
+
+pub async fn get_analytics_series_with_days(
+    id: &str,
+    days: Option<u32>,
+) -> Result<Vec<AnalyticsSeriesPoint>, String> {
+    let mut params = Vec::new();
+    if let Some(days) = days {
+        params.push(("days", days.to_string()));
+    }
+
+    let url = build_query_path(&format!("/api/demos/{id}/analytics"), params);
+    send_json_builder(Request::get(&url)).await
 }
 
 pub async fn get_analytics_referrers(id: &str) -> Result<Vec<ReferrerCount>, String> {
-    send_json_builder(Request::get(&api_url(&format!("/api/demos/{id}/analytics/referrers")))).await
+    get_analytics_referrers_with_limit(id, None).await
+}
+
+pub async fn get_analytics_referrers_with_limit(
+    id: &str,
+    limit: Option<u32>,
+) -> Result<Vec<ReferrerCount>, String> {
+    let mut params = Vec::new();
+    if let Some(limit) = limit {
+        params.push(("limit", limit.to_string()));
+    }
+
+    let url = build_query_path(&format!("/api/demos/{id}/analytics/referrers"), params);
+    send_json_builder(Request::get(&url)).await
 }
 
 pub async fn get_analytics_funnel(id: &str) -> Result<Vec<FunnelPoint>, String> {
-    send_json_builder(Request::get(&api_url(&format!("/api/demos/{id}/analytics/funnel")))).await
+    get_analytics_funnel_with_limit(id, None).await
+}
+
+pub async fn get_analytics_funnel_with_limit(
+    id: &str,
+    limit: Option<u32>,
+) -> Result<Vec<FunnelPoint>, String> {
+    let mut params = Vec::new();
+    if let Some(limit) = limit {
+        params.push(("limit", limit.to_string()));
+    }
+
+    let url = build_query_path(&format!("/api/demos/{id}/analytics/funnel"), params);
+    send_json_builder(Request::get(&url)).await
 }
