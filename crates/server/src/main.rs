@@ -1,13 +1,5 @@
-mod router;
-mod state;
-mod auth;
-mod handlers;
-mod error;
-mod config;
-mod middleware;
-mod services;
-
 use anyhow::Context;
+use server::{config, middleware, router, state};
 use axum::http::{header, HeaderValue, Method};
 use governor::{Quota, RateLimiter};
 use sqlx::postgres::PgPoolOptions;
