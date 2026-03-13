@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use shared::{
-    client::{fetch, HttpMethod},
+    client::{fetch, send, HttpMethod},
     dto::UpdateDemoRequest,
     models::demo::{Demo, DemoSettings, Step, Theme},
 };
@@ -240,6 +240,16 @@ pub async fn update_demo(id: &str, title: Option<&str>, slug: Option<&str>) -> R
 pub async fn update_demo_payload(id: &str, payload: &UpdateDemoRequest) -> Result<DashboardDemo, String> {
     let body = serde_json::to_string(payload).map_err(|e| format!("serialize body: {e}"))?;
     fetch(HttpMethod::Patch, &api_url(&format!("/api/demos/{id}")), Some(&body), true).await
+}
+
+pub async fn delete_demo(id: &str) -> Result<(), String> {
+    send(
+        HttpMethod::Delete,
+        &api_url(&format!("/api/demos/{id}")),
+        None,
+        true,
+    )
+    .await
 }
 
 pub async fn publish_demo(id: &str) -> Result<PublishResponse, String> {

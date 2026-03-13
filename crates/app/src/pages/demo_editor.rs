@@ -38,7 +38,10 @@ pub fn DemoEditorPage() -> impl IntoView {
         spawn_local({
             let set_title = set_title;
             let set_slug = set_slug;
+            let set_steps = set_steps;
             let set_status = set_status;
+            let set_settings = set_settings;
+            let set_theme = set_theme;
             async move {
                 match api::get_demo_detail(&id).await {
                     Ok(demo) => {
@@ -75,6 +78,7 @@ pub fn DemoEditorPage() -> impl IntoView {
 
         spawn_local({
             let set_status = set_status;
+            let set_steps = set_steps;
             async move {
                 match api::update_demo_payload(
                     &id,
