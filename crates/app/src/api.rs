@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use shared::{
-    client::{fetch, HttpMethod},
+    client::{fetch, send, HttpMethod},
     dto::UpdateDemoRequest,
     models::demo::{Demo, DemoSettings, Step, Theme},
 };
@@ -248,7 +248,7 @@ pub async fn update_demo_payload(id: &str, payload: &UpdateDemoRequest) -> Resul
 }
 
 pub async fn delete_demo(id: &str) -> Result<(), String> {
-    shared::client::send(
+    send(
         HttpMethod::Delete,
         &api_url(&format!("/api/demos/{id}")),
         None,
