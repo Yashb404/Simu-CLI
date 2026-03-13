@@ -238,7 +238,6 @@ async fn api_error_response_includes_request_id_when_header_present() {
         "ApiError responses should carry request_id in JSON body"
     );
 }
-
 // ─── Correlation ID header ────────────────────────────────────────────────────
 
 #[tokio::test]

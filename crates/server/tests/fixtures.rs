@@ -21,7 +21,6 @@ pub struct DbFixture {
     pub state: AppState,
     pub user: User,
 }
-
 /// Build a [`Config`] suitable for tests.
 pub fn test_config() -> Config {
     Config {
@@ -128,7 +127,6 @@ async fn seed_user(pool: &PgPool) -> User {
     .await
     .expect("user seed should succeed")
 }
-
 /// Lazy (not-yet-connected) pool for tests that do not touch Postgres.
 pub fn dummy_pool() -> PgPool {
     sqlx::postgres::PgPoolOptions::new()
