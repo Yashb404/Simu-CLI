@@ -1,5 +1,6 @@
 use gloo_net::http::{Request, RequestBuilder};
 use serde::{Deserialize, Serialize};
+use shared::models::demo::Step;
 use web_sys::RequestCredentials;
 
 const API_BASE: &str = "http://localhost:3001";
@@ -59,6 +60,21 @@ async fn send_json_request<T: for<'de> Deserialize<'de>>(request: Request) -> Re
         .map_err(|e| format!("invalid response payload: {e}"))
 }
 
+async fn send_no_content_request(request: Request) -> Result<(), String> {
+    let response = request
+        .send()
+        .await
+        .map_err(|e| format!("request failed: {e}"))?;
+
+    if !response.ok() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_else(|_| "".to_string());
+        return Err(format!("request failed with status {status}: {body}"));
+    }
+
+    Ok(())
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DashboardProject {
     pub id: String,
@@ -73,6 +89,16 @@ pub struct DashboardDemo {
     pub slug: Option<String>,
     pub published: bool,
     pub version: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardDemoDetail {
+    pub id: String,
+    pub title: String,
+    pub slug: Option<String>,
+    pub published: bool,
+    pub version: i32,
+    pub steps: Vec<Step>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -118,6 +144,7 @@ struct CreateDemoRequest<'a> {
 struct UpdateDemoRequest<'a> {
     title: Option<&'a str>,
     slug: Option<&'a str>,
+    steps: Option<Vec<Step>>,
 }
 
 pub fn login_url() -> String {
@@ -184,7 +211,7 @@ pub async fn list_demos_with_filters(
     send_json_builder(Request::get(&url)).await
 }
 
-pub async fn get_demo(id: &str) -> Result<DashboardDemo, String> {
+pub async fn get_demo(id: &str) -> Result<DashboardDemoDetail, String> {
     send_json_builder(Request::get(&api_url(&format!("/api/demos/{id}")))).await
 }
 
@@ -200,13 +227,28 @@ pub async fn create_demo(title: &str, project_id: Option<&str>) -> Result<Dashbo
     .await
 }
 
-pub async fn update_demo(id: &str, title: Option<&str>, slug: Option<&str>) -> Result<DashboardDemo, String> {
-    let payload = UpdateDemoRequest { title, slug };
+pub async fn update_demo(
+    id: &str,
+    title: Option<&str>,
+    slug: Option<&str>,
+    steps: Option<Vec<Step>>,
+) -> Result<DashboardDemo, String> {
+    let payload = UpdateDemoRequest { title, slug, steps };
     send_json_request(
         Request::patch(&api_url(&format!("/api/demos/{id}")))
             .credentials(RequestCredentials::Include)
             .header("content-type", "application/json")
             .body(serde_json::to_string(&payload).map_err(|e| format!("serialize body: {e}"))?)
+            .map_err(|e| format!("build request: {e}"))?,
+    )
+    .await
+}
+
+pub async fn delete_demo(id: &str) -> Result<(), String> {
+    send_no_content_request(
+        Request::delete(&api_url(&format!("/api/demos/{id}")))
+            .credentials(RequestCredentials::Include)
+            .build()
             .map_err(|e| format!("build request: {e}"))?,
     )
     .await
