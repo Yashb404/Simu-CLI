@@ -11,6 +11,14 @@ use uuid::Uuid;
 const REQUEST_ID_HEADER: HeaderName = HeaderName::from_static("x-request-id");
 const MAX_REQUEST_ID_LEN: usize = 128;
 
+tokio::task_local! {
+    static REQUEST_ID_CONTEXT: String;
+}
+
+pub fn current_request_id() -> Option<String> {
+    REQUEST_ID_CONTEXT.try_with(|id| id.clone()).ok()
+}
+
 fn resolve_request_id(req: &Request<Body>) -> String {
     let incoming = req
         .headers()
@@ -32,7 +40,7 @@ pub async fn logging_middleware(mut req: Request<Body>, next: Next) -> Response 
     let path = req.uri().path().to_string();
     let start = Instant::now();
 
-    let mut response = next.run(req).await;
+    let mut response = REQUEST_ID_CONTEXT.scope(request_id.clone(), next.run(req)).await;
     let elapsed_ms = start.elapsed().as_millis();
 
     if let Ok(header_value) = HeaderValue::from_str(&request_id) {

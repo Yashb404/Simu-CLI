@@ -7,7 +7,9 @@ use axum::{
 use serde_json::json;
 use shared::error::AppError;
 use validator::ValidationErrors;
+use crate::middleware::logging;
 
+#[derive(Debug)]
 pub struct ApiError(pub AppError);
 pub type HandlerResult<T> = Result<T, ApiError>;
 
@@ -27,7 +29,11 @@ fn error_status_and_message(err: &AppError) -> (StatusCode, String) {
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let (status, message) = error_status_and_message(&self.0);
-        (status, Json(json!({ "error": message }))).into_response()
+        let body = match logging::current_request_id() {
+            Some(request_id) => json!({ "error": message, "request_id": request_id }),
+            None => json!({ "error": message }),
+        };
+        (status, Json(body)).into_response()
     }
 }
 
