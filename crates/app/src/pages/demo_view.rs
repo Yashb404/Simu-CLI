@@ -2,6 +2,8 @@ use leptos::prelude::*;
 use leptos_router::hooks::use_query_map;
 use shared::services::embed_generator::{generate_iframe_snippet, generate_script_snippet};
 
+use crate::api;
+
 #[component]
 pub fn DemoViewPage() -> impl IntoView {
     let query = use_query_map();
@@ -12,8 +14,10 @@ pub fn DemoViewPage() -> impl IntoView {
             .unwrap_or_else(|| "demo-id".to_string())
     });
     let (demo_id, set_demo_id) = signal(initial_demo_id.get());
-    // TODO: Use runtime config/env for API base; localhost is MVP-only default.
-    let (api_base, set_api_base) = signal("http://localhost:3001".to_string());
+    let (api_base, set_api_base) = signal(api::api_base());
+    let page_origin = api::browser_origin();
+    let iframe_origin = page_origin.clone();
+    let script_origin = page_origin.clone();
     let embed_src = Signal::derive(move || {
         format!(
             "/embed/index.html?demo_id={}&api_base={}",
@@ -23,17 +27,15 @@ pub fn DemoViewPage() -> impl IntoView {
     });
 
     let iframe_snippet = Signal::derive(move || {
-        // FIXME: Derive host dynamically so generated snippets work outside local dev.
         generate_iframe_snippet(
-            &format!("http://localhost:8080/demo/view?id={}", demo_id.get()),
+            &format!("{}/demo/view?id={}", iframe_origin, demo_id.get()),
             "100%",
             "480px",
         )
     });
 
     let script_snippet = Signal::derive(move || {
-        // FIXME: Derive host dynamically so generated snippets work outside local dev.
-        generate_script_snippet("http://localhost:8080/embed/index.html", &demo_id.get())
+        generate_script_snippet(&format!("{}/embed/index.html", script_origin), &demo_id.get())
     });
 
     view! {

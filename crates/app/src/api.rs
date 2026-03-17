@@ -6,10 +6,78 @@ use shared::{
 };
 use web_sys::RequestCredentials;
 
-const API_BASE: &str = "http://localhost:3001";
+fn normalize_base(base: &str) -> String {
+    let trimmed = base.trim().trim_end_matches('/');
+    let Ok(parsed) = web_sys::Url::new(trimmed) else {
+        return trimmed.to_string();
+    };
+
+    let protocol = parsed.protocol();
+    let host = parsed.hostname();
+    let host = host.trim_end_matches('.');
+    if host.is_empty() {
+        return trimmed.to_string();
+    }
+
+    let port = parsed.port();
+    if port.is_empty() {
+        format!("{}//{}", protocol, host)
+    } else {
+        format!("{}//{}:{}", protocol, host, port)
+    }
+}
+
+pub fn browser_origin() -> String {
+    web_sys::window()
+        .and_then(|window| window.location().origin().ok())
+        .unwrap_or_default()
+}
+
+fn derived_api_base_from_location() -> Option<String> {
+    let window = web_sys::window()?;
+    let location = window.location();
+
+    let protocol = location.protocol().ok()?;
+    let hostname = location.hostname().ok()?;
+    let hostname = hostname.trim_end_matches('.').to_string();
+    let port = location.port().ok().unwrap_or_default();
+
+    if hostname.is_empty() {
+        return None;
+    }
+
+    let scheme = protocol.trim_end_matches(':');
+    let target_port = if port == "8080" { "3001" } else { &port };
+
+    if target_port.is_empty() {
+        Some(format!("{scheme}://{hostname}"))
+    } else {
+        Some(format!("{scheme}://{hostname}:{target_port}"))
+    }
+}
+
+pub fn api_base() -> String {
+    if let Some(base) = option_env!("APP_API_BASE_URL") {
+        return normalize_base(base);
+    }
+    derived_api_base_from_location()
+        .or_else(|| {
+            let origin = browser_origin();
+            if origin.is_empty() {
+                None
+            } else {
+                Some(origin)
+            }
+        })
+        .unwrap_or_default()
+}
 
 fn api_url(path: &str) -> String {
-    format!("{API_BASE}{path}")
+    let base = api_base();
+    if base.is_empty() {
+        return path.to_string();
+    }
+    format!("{base}{path}")
 }
 
 fn build_query_path(path: &str, params: Vec<(&str, String)>) -> String {
@@ -36,6 +104,9 @@ async fn send_json_builder<T: for<'de> Deserialize<'de>>(request: RequestBuilder
     if !response.ok() {
         let status = response.status();
         let body = response.text().await.unwrap_or_else(|_| "".to_string());
+        if status == 401 {
+            return Err("Not logged in. Click Login with GitHub and retry.".to_string());
+        }
         return Err(format!("request failed with status {status}: {body}"));
     }
 
@@ -54,6 +125,9 @@ async fn send_json_request<T: for<'de> Deserialize<'de>>(request: Request) -> Re
     if !response.ok() {
         let status = response.status();
         let body = response.text().await.unwrap_or_else(|_| "".to_string());
+        if status == 401 {
+            return Err("Not logged in. Click Login with GitHub and retry.".to_string());
+        }
         return Err(format!("request failed with status {status}: {body}"));
     }
 

@@ -17,7 +17,7 @@ use tower_http::{
     cors::{AllowOrigin, CorsLayer},
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use tower_sessions::{Expiry, SessionManagerLayer};
+use tower_sessions::{cookie::SameSite, Expiry, SessionManagerLayer};
 use tower_sessions_sqlx_store::PostgresStore;
 
 #[tokio::main]
@@ -49,6 +49,14 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("Connected to database!");
 
+    let migrations_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../migrations");
+    sqlx::migrate::Migrator::new(migrations_path.clone())
+        .await?
+        .run(&db)
+        .await?;
+    tracing::info!("Database migrations applied from {}", migrations_path.display());
+
     // Set up the session store backed by our Postgres database
     let session_store = PostgresStore::new(db.clone());
     session_store.migrate().await?;
@@ -57,6 +65,7 @@ async fn main() -> anyhow::Result<()> {
 
     let session_layer = SessionManagerLayer::new(session_store)
         .with_secure(config.session_cookie_secure)
+        .with_same_site(SameSite::Lax)
         .with_expiry(Expiry::OnInactivity(config.session_timeout));
 
     let rate_limit_quota = NonZeroU32::new(config.rate_limit_requests_per_minute)

@@ -50,6 +50,10 @@ fn normalize_origin(url: &str) -> Result<String> {
     let host = parsed
         .host_str()
         .context("origin URL must include a host")?;
+    let host = host.trim_end_matches('.');
+    if host.is_empty() {
+        anyhow::bail!("origin URL host is empty after normalization");
+    }
 
     let origin = match parsed.port() {
         Some(port) => format!("{scheme}://{host}:{port}"),
@@ -59,6 +63,36 @@ fn normalize_origin(url: &str) -> Result<String> {
     Ok(origin)
 }
 
+fn loopback_aliases(origin: &str) -> Result<Vec<String>> {
+    let parsed = reqwest::Url::parse(origin)
+        .with_context(|| format!("invalid origin URL: {origin}"))?;
+
+    let scheme = parsed.scheme();
+    let host = parsed
+        .host_str()
+        .context("origin URL must include a host")?;
+    let host = host.trim_end_matches('.');
+
+    let port_suffix = parsed
+        .port()
+        .map(|port| format!(":{port}"))
+        .unwrap_or_default();
+
+    let mut aliases = vec![origin.to_string()];
+
+    if host == "localhost" {
+        aliases.push(format!("{scheme}://localhost.{port_suffix}"));
+        aliases.push(format!("{scheme}://127.0.0.1{port_suffix}"));
+        aliases.push(format!("{scheme}://[::1]{port_suffix}"));
+    } else if host == "127.0.0.1" || host == "::1" || host == "[::1]" {
+        aliases.push(format!("{scheme}://localhost{port_suffix}"));
+    }
+
+    aliases.sort();
+    aliases.dedup();
+    Ok(aliases)
+}
+
 fn parse_cors_allowed_origins(raw: &str) -> Result<Vec<String>> {
     let mut origins = Vec::new();
     for item in raw.split(',') {
@@ -66,7 +100,8 @@ fn parse_cors_allowed_origins(raw: &str) -> Result<Vec<String>> {
         if value.is_empty() {
             continue;
         }
-        origins.push(normalize_origin(value)?);
+        let normalized = normalize_origin(value)?;
+        origins.extend(loopback_aliases(&normalized)?);
     }
 
     if origins.is_empty() {
@@ -108,16 +143,19 @@ impl Config {
         }
 
         let api_url = env::var("API_URL")
-            .unwrap_or_else(|_| "http://localhost:3001".to_string());
+            .context("API_URL must be set")?;
 
         let frontend_url = env::var("FRONTEND_URL")
-            .unwrap_or_else(|_| "http://localhost:8080".to_string());
+            .context("FRONTEND_URL must be set")?;
 
         let cors_allowed_origins = match env::var("CORS_ALLOWED_ORIGINS") {
             Ok(value) => parse_cors_allowed_origins(&value)
                 .context("CORS_ALLOWED_ORIGINS must be a comma-separated list of valid origins")?,
-            Err(_) => vec![normalize_origin(&frontend_url)
-                .context("FRONTEND_URL must be a valid origin URL")?],
+            Err(_) => {
+                let normalized = normalize_origin(&frontend_url)
+                    .context("FRONTEND_URL must be a valid origin URL")?;
+                loopback_aliases(&normalized)?
+            }
         };
 
         let port = env::var("PORT")

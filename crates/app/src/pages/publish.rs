@@ -58,7 +58,7 @@ pub fn PublishPage() -> impl IntoView {
                     view! {
                         <EmbedCodeGenerator
                             demo_url=public_url.get()
-                            script_url="http://localhost:3001/embed/bootstrap.js".to_string()
+                            script_url=format!("{}/embed/bootstrap.js", api::browser_origin())
                             demo_id=published_slug.get()
                         />
                     }

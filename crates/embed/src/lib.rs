@@ -39,7 +39,8 @@ pub fn EmbedApp() -> impl IntoView {
         };
 
         let api_base = query_param_value("api_base")
-            .unwrap_or_else(|| "http://localhost:3001".to_string());
+            .or_else(|| web_sys::window().and_then(|window| window.location().origin().ok()))
+            .unwrap_or_default();
         let endpoint = format!("{api_base}/api/demos/{demo_id}/public");
 
         leptos::task::spawn_local({

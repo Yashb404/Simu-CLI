@@ -17,7 +17,7 @@ tower = { version = "0.5", features = ["full"] }
 tower-http = { version = "0.6", features = ["cors", "fs", "trace", "compression-gzip"] }
 
 # Leptos
-leptos = { version = "0.8.17", features = [] }
+leptos = { version = "0.8.17", features = ["csr"] }
 leptos_router = { version = "0.8.12" }
 leptos_meta = { version = "0.8.6" }
 leptos_axum = { version = "0.8.8" }
