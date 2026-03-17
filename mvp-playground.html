@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CLI Demo Studio MVP Playground</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #111827;
+        --text: #e5e7eb;
+        --muted: #94a3b8;
+        --accent: #22c55e;
+        --border: #334155;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        background: radial-gradient(circle at top, #1e293b, var(--bg) 60%);
+        color: var(--text);
+        min-height: 100vh;
+      }
+      .wrap {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+      .panel {
+        background: color-mix(in srgb, var(--panel) 92%, black);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+      label {
+        display: grid;
+        gap: 6px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      input, button {
+        font: inherit;
+        border-radius: 8px;
+      }
+      input {
+        border: 1px solid var(--border);
+        background: #0b1220;
+        color: var(--text);
+        padding: 10px;
+      }
+      button {
+        border: 1px solid #166534;
+        background: #14532d;
+        color: #dcfce7;
+        padding: 10px 14px;
+        cursor: pointer;
+        align-self: end;
+      }
+      iframe {
+        width: 100%;
+        height: 520px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        margin-top: 16px;
+        background: #020617;
+      }
+      .hint {
+        margin-top: 10px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      code { color: var(--accent); }
+      @media (max-width: 860px) {
+        .grid { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>CLI Demo Studio MVP Playground</h1>
+      <p class="hint">Use this to test embed runtime quickly. Fallback commands: <code>help</code>, <code>run demo</code>.</p>
+
+      <div class="panel grid">
+        <label>
+          Demo ID
+          <input id="demoId" value="demo-id" />
+        </label>
+        <label>
+          API Base
+          <input id="apiBase" value="http://localhost:3001" />
+        </label>
+        <button id="reload">Reload Embed</button>
+      </div>
+
+      <iframe id="embedFrame" title="Embed Runtime"></iframe>
+      <p class="hint">Expected runtime URL: <code id="runtimeUrl"></code></p>
+    </div>
+
+    <script>
+      // TODO: Keep this as a local smoke-test harness only.
+      // FIXME: If promoted beyond MVP, move into app routes and source config from server/env.
+      const frame = document.getElementById('embedFrame');
+      const demoIdInput = document.getElementById('demoId');
+      const apiBaseInput = document.getElementById('apiBase');
+      const runtimeUrl = document.getElementById('runtimeUrl');
+      const reloadBtn = document.getElementById('reload');
+
+      function reloadEmbed() {
+        const demoId = encodeURIComponent(demoIdInput.value.trim() || 'demo-id');
+        const apiBase = encodeURIComponent(apiBaseInput.value.trim() || 'http://localhost:3001');
+        const src = `/embed/index.html?demo_id=${demoId}&api_base=${apiBase}`;
+        frame.src = src;
+        runtimeUrl.textContent = src;
+      }
+
+      reloadBtn.addEventListener('click', reloadEmbed);
+      demoIdInput.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') reloadEmbed(); });
+      apiBaseInput.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') reloadEmbed(); });
+      reloadEmbed();
+    </script>
+  </body>
+</html>

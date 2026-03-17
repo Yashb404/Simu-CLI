@@ -6,10 +6,10 @@ pub mod matching;
 pub mod messaging;
 
 use leptos::prelude::*;
-use leptos::task::spawn_local;
 
 use shared::dto::PublicDemoResponse;
 
+#[cfg(target_arch = "wasm32")]
 fn query_param_value(key: &str) -> Option<String> {
     #[cfg(target_arch = "wasm32")]
     {
@@ -38,8 +38,8 @@ use wasm_bindgen::prelude::*;
 
 #[component]
 pub fn EmbedApp() -> impl IntoView {
-    let (demo, set_demo) = signal(Option::<PublicDemoResponse>::None);
-    let (status, set_status) = signal(String::new());
+    let (demo, _set_demo) = signal(Option::<PublicDemoResponse>::None);
+    let (status, _set_status) = signal(String::new());
 
     #[cfg(target_arch = "wasm32")]
     Effect::new(move |_| {
@@ -51,9 +51,9 @@ pub fn EmbedApp() -> impl IntoView {
             .unwrap_or_else(|| "http://localhost:3001".to_string());
         let endpoint = format!("{api_base}/api/demos/{demo_id}/public");
 
-        spawn_local({
-            let set_demo = set_demo;
-            let set_status = set_status;
+        leptos::task::spawn_local({
+            let set_demo = _set_demo;
+            let set_status = _set_status;
             async move {
                 match api::fetch_public_demo(&endpoint).await {
                     Ok(public_demo) => {

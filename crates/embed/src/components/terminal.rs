@@ -14,6 +14,8 @@ fn indexed_lines(lines: Vec<String>) -> Vec<(usize, String)> {
     lines.into_iter().enumerate().collect::<Vec<(usize, String)>>()
 }
 
+// TODO: Replace this local fallback with a structured loading/error state once
+// embed fetch reliability and retry behavior are finalized.
 fn demo_fallback() -> PublicDemoResponse {
     PublicDemoResponse {
         id: Uuid::new_v4(),
@@ -193,35 +195,44 @@ fn playback_after_command(steps: &[Step], command_idx: usize) -> (Vec<String>, u
     (lines, idx)
 }
 
+fn run_terminal_command(
+    demo: ReadSignal<Option<PublicDemoResponse>>,
+    input: ReadSignal<String>,
+    set_input: WriteSignal<String>,
+    history: WriteSignal<Vec<String>>,
+    cursor: ReadSignal<usize>,
+    set_cursor: WriteSignal<usize>,
+) {
+    let raw_input = input.get();
+    let command = normalize_input(&raw_input);
+    if command.is_empty() {
+        return;
+    }
+
+    // FIXME: This silently falls back to sample data when public demo loading fails.
+    // Keep for MVP tonight, but convert to explicit error UI before production release.
+    let loaded = demo.get().unwrap_or_else(demo_fallback);
+    let mut next_lines = vec![format!("{} {}", loaded.theme.prompt_string, command.clone())];
+
+    if let Some(command_idx) =
+        next_command_index(&loaded.steps, &command, cursor.get(), loaded.settings.engine_mode)
+    {
+        let (playback_lines, next_cursor) = playback_after_command(&loaded.steps, command_idx);
+        next_lines.extend(playback_lines);
+        set_cursor.set(next_cursor);
+    } else {
+        next_lines.push(loaded.settings.not_found_message);
+    }
+
+    history.update(|lines| lines.extend(next_lines));
+    set_input.set(String::new());
+}
+
 #[component]
 pub fn TerminalUI(demo: ReadSignal<Option<PublicDemoResponse>>) -> impl IntoView {
     let (input, set_input) = signal(String::new());
     let (history, set_history) = signal(vec!["Preview runtime initialized.".to_string()]);
     let (cursor, set_cursor) = signal(0usize);
-
-    let run_command = move |_| {
-        let raw_input = input.get();
-        let command = normalize_input(&raw_input);
-        if command.is_empty() {
-            return;
-        }
-
-        let loaded = demo.get().unwrap_or_else(demo_fallback);
-        let mut next_lines = vec![format!("{} {}", loaded.theme.prompt_string, command.clone())];
-
-        if let Some(command_idx) =
-            next_command_index(&loaded.steps, &command, cursor.get(), loaded.settings.engine_mode)
-        {
-            let (playback_lines, next_cursor) = playback_after_command(&loaded.steps, command_idx);
-            next_lines.extend(playback_lines);
-            set_cursor.set(next_cursor);
-        } else {
-            next_lines.push(loaded.settings.not_found_message);
-        }
-
-        set_history.update(|lines| lines.extend(next_lines));
-        set_input.set(String::new());
-    };
 
     view! {
         <section class="terminal-ui" aria-label="CLI simulator terminal">
@@ -239,9 +250,19 @@ pub fn TerminalUI(demo: ReadSignal<Option<PublicDemoResponse>>) -> impl IntoView
                 type="text"
                 prop:value=input
                 on:input=move |ev| set_input.set(event_target_value(&ev))
+                on:keydown=move |ev: leptos::ev::KeyboardEvent| {
+                    if ev.key() == "Enter" {
+                        run_terminal_command(demo, input, set_input, set_history, cursor, set_cursor);
+                    }
+                }
                 placeholder="Type a command"
             />
-            <button type="button" on:click=run_command>
+            <button
+                type="button"
+                on:click=move |_| {
+                    run_terminal_command(demo, input, set_input, set_history, cursor, set_cursor);
+                }
+            >
                 "Run"
             </button>
         </section>
