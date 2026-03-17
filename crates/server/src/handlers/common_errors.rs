@@ -3,28 +3,18 @@ use axum::{
     http::StatusCode,
     Json,
 };
-use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
 use uuid::Uuid;
+use validator::Validate;
 
 use crate::{
     auth::AuthUser,
     error::{ApiError, HandlerResult},
     state::AppState,
 };
-use shared::error::AppError;
-
-#[derive(Debug, Deserialize)]
-pub struct RecordCommonErrorRequest {
-    pub demo_id: Uuid,
-    pub command_text: String,
-}
-
-#[derive(Debug, Serialize, FromRow)]
-pub struct CommonErrorRow {
-    pub command_text: String,
-    pub count: i64,
-}
+use shared::{
+    dto::{CommonErrorRow, RecordCommonErrorRequest},
+    error::AppError,
+};
 
 async fn ensure_demo_owner(state: &AppState, demo_id: Uuid, owner_id: Uuid) -> HandlerResult<()> {
     let exists: Option<Uuid> = sqlx::query_scalar("SELECT id FROM demos WHERE id = $1 AND owner_id = $2")
@@ -44,12 +34,8 @@ pub async fn record_common_error(
     State(state): State<AppState>,
     Json(payload): Json<RecordCommonErrorRequest>,
 ) -> HandlerResult<StatusCode> {
-    let command_text = payload.command_text.trim();
-    if command_text.is_empty() {
-        return Err(ApiError(AppError::Validation(
-            "command_text cannot be empty".to_string(),
-        )));
-    }
+    payload.validate()?;
+    let command_text = payload.command_text.trim().to_string();
 
     sqlx::query(
         r#"

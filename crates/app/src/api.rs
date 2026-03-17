@@ -1,5 +1,9 @@
 use gloo_net::http::{Request, RequestBuilder};
 use serde::{Deserialize, Serialize};
+use shared::{
+    dto::UpdateDemoRequest,
+    models::demo::{Demo, DemoSettings, Step, Theme},
+};
 use web_sys::RequestCredentials;
 
 const API_BASE: &str = "http://localhost:3001";
@@ -73,6 +77,9 @@ pub struct DashboardDemo {
     pub slug: Option<String>,
     pub published: bool,
     pub version: i32,
+    pub theme: Theme,
+    pub settings: DemoSettings,
+    pub steps: Vec<Step>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -112,12 +119,6 @@ struct CreateProjectRequest<'a> {
 struct CreateDemoRequest<'a> {
     title: &'a str,
     project_id: Option<&'a str>,
-}
-
-#[derive(Debug, Serialize)]
-struct UpdateDemoRequest<'a> {
-    title: Option<&'a str>,
-    slug: Option<&'a str>,
 }
 
 pub fn login_url() -> String {
@@ -188,6 +189,10 @@ pub async fn get_demo(id: &str) -> Result<DashboardDemo, String> {
     send_json_builder(Request::get(&api_url(&format!("/api/demos/{id}")))).await
 }
 
+pub async fn get_demo_detail(id: &str) -> Result<Demo, String> {
+    send_json_builder(Request::get(&api_url(&format!("/api/demos/{id}")))).await
+}
+
 pub async fn create_demo(title: &str, project_id: Option<&str>) -> Result<DashboardDemo, String> {
     let payload = CreateDemoRequest { title, project_id };
     send_json_request(
@@ -201,12 +206,25 @@ pub async fn create_demo(title: &str, project_id: Option<&str>) -> Result<Dashbo
 }
 
 pub async fn update_demo(id: &str, title: Option<&str>, slug: Option<&str>) -> Result<DashboardDemo, String> {
-    let payload = UpdateDemoRequest { title, slug };
+    update_demo_payload(
+        id,
+        &UpdateDemoRequest {
+            title: title.map(ToString::to_string),
+            slug: slug.map(ToString::to_string),
+            theme: None,
+            settings: None,
+            steps: None,
+        },
+    )
+    .await
+}
+
+pub async fn update_demo_payload(id: &str, payload: &UpdateDemoRequest) -> Result<DashboardDemo, String> {
     send_json_request(
         Request::patch(&api_url(&format!("/api/demos/{id}")))
             .credentials(RequestCredentials::Include)
             .header("content-type", "application/json")
-            .body(serde_json::to_string(&payload).map_err(|e| format!("serialize body: {e}"))?)
+            .body(serde_json::to_string(payload).map_err(|e| format!("serialize body: {e}"))?)
             .map_err(|e| format!("build request: {e}"))?,
     )
     .await

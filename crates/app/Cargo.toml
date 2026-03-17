@@ -9,6 +9,7 @@ leptos_router = { workspace = true }
 leptos_meta = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+uuid = { workspace = true }
 shared = { path = "../shared" }
 wasm-bindgen = "0.2"
 getrandom = { version = "0.2", features = ["js"] }

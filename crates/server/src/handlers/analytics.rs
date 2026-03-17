@@ -4,62 +4,27 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
 use uuid::Uuid;
+use validator::Validate;
 
 use crate::{
     auth::AuthUser,
     error::{ApiError, HandlerResult},
     state::AppState,
 };
-use shared::error::AppError;
+use shared::{
+    dto::{
+        AnalyticsEventRequest, AnalyticsExportQuery, AnalyticsSeriesPoint,
+        AnalyticsWindowQuery, FunnelPoint, ReferrerCount,
+    },
+    error::AppError,
+    models::analytics::AnalyticsEventType,
+};
 
 const DEFAULT_EXPORT_DAYS: i64 = 30;
 const MAX_EXPORT_DAYS: i64 = 365;
 const DEFAULT_EXPORT_LIMIT: i64 = 2000;
 const MAX_EXPORT_LIMIT: i64 = 5000;
-
-#[derive(Debug, Deserialize)]
-pub struct AnalyticsEventRequest {
-    pub demo_id: Uuid,
-    pub event_type: String,
-    pub step_index: Option<i32>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct AnalyticsWindowQuery {
-    pub days: Option<i64>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct AnalyticsExportQuery {
-    pub days: Option<i64>,
-    pub limit: Option<i64>,
-}
-
-#[derive(Debug, Serialize, FromRow)]
-pub struct AnalyticsSeriesPoint {
-    pub bucket: time::OffsetDateTime,
-    pub event_type: String,
-    pub total: i64,
-}
-
-#[derive(Debug, Serialize, FromRow)]
-pub struct ReferrerCount {
-    pub referrer: String,
-    pub total: i64,
-}
-
-#[derive(Debug, Serialize, FromRow)]
-pub struct FunnelPoint {
-    pub step_index: i32,
-    pub total: i64,
-}
-
-fn is_valid_event_type(value: &str) -> bool {
-    matches!(value, "view" | "interaction" | "completion")
-}
 
 fn sanitize_export_bounds(days: Option<i64>, limit: Option<i64>) -> (i64, i64) {
     let days = days.unwrap_or(DEFAULT_EXPORT_DAYS).clamp(1, MAX_EXPORT_DAYS);
@@ -88,11 +53,7 @@ pub async fn post_event(
     headers: HeaderMap,
     Json(payload): Json<AnalyticsEventRequest>,
 ) -> HandlerResult<StatusCode> {
-    if !is_valid_event_type(&payload.event_type) {
-        return Err(ApiError(AppError::Validation(
-            "event_type must be one of: view, interaction, completion".to_string(),
-        )));
-    }
+    payload.validate()?;
 
     let demo_exists: Option<Uuid> = sqlx::query_scalar("SELECT id FROM demos WHERE id = $1")
         .bind(payload.demo_id)
@@ -193,12 +154,13 @@ pub async fn get_demo_funnel(
         SELECT COALESCE(step_index, -1) AS step_index, COUNT(*)::bigint AS total
         FROM analytics_events
         WHERE demo_id = $1
-          AND event_type = 'interaction'
+                    AND event_type = $2
         GROUP BY step_index
         ORDER BY step_index ASC
         "#,
     )
     .bind(id)
+        .bind(AnalyticsEventType::Interaction)
     .fetch_all(&state.db)
     .await?;
 
@@ -234,7 +196,12 @@ pub async fn export_demo_analytics_csv(
 
     let mut csv = String::from("bucket,event_type,total\n");
     for row in rows {
-        csv.push_str(&format!("{},{},{}\n", row.bucket.date(), row.event_type, row.total));
+        csv.push_str(&format!(
+            "{},{},{}\n",
+            row.bucket.date(),
+            row.event_type.as_str(),
+            row.total
+        ));
     }
 
     let mut response = (StatusCode::OK, csv).into_response();
