@@ -4,11 +4,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>CLI Demo Studio Dashboard</title>
-    <link rel="stylesheet" href="/global-34255a73d03b990.css" integrity="sha384&#x2D;nBgFYKo5lbnXsTG&#x2F;XhyryG23&#x2B;8v&#x2F;mh29VHldXdqGrjLgD089q9k69T6&#x2F;yijE1xwP"/>
+    <link rel="stylesheet" href="/global-f67dcf3376e84a67.css" integrity="sha384-9cjEolCgJKs2sTfhFywsDa6siArIbn5t+glE9GEI7ztaRza0W+FUdpOISyLLJA6m"/>
     
-<script type="module" nonce="/ou4nRUBNXCOaMVzPFF4Lg==">
-import init, * as bindings from '/app-e577278bed45744c.js';
-const wasm = await init({ module_or_path: '/app-e577278bed45744c_bg.wasm' });
+<script type="module">
+import init, * as bindings from '/app-ab5fb7fecf2ec177.js';
+const wasm = await init({ module_or_path: '/app-ab5fb7fecf2ec177_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -17,7 +17,7 @@ window.wasmBindings = bindings;
 dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
 
 </script>
-  <link rel="modulepreload" href="/app-e577278bed45744c.js" crossorigin=anonymous integrity="sha384-tCjPcV+VM87gwN+4p6HPg2ALaT1qIQAHPFdpPk+SPLifjgwGz7SI6AwAciGmHbJ0"><link rel="preload" href="/app-e577278bed45744c_bg.wasm" crossorigin=anonymous integrity="sha384-2uIwiA5+tUJm8fRfW8x737jLy8y90AwChv3yfKAJi8mVQEDHSTphhMgBaAPsqlg4" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="/app-ab5fb7fecf2ec177.js" crossorigin="anonymous" integrity="sha384-/CIsDaCOpHlmtgZDN9xHXiDjo4Q1dOmmUfGeF0V76mJovygXGDIapriOBhfRIjjH"><link rel="preload" href="/app-ab5fb7fecf2ec177_bg.wasm" crossorigin="anonymous" integrity="sha384-fy0iDxuoREsBRwj6GCcdpdzPaAPCP8uJwH/RWGZjnh/9A20IkOD1lrQxrdXyx084" as="fetch" type="application/wasm"></head>
   <body><script>"use strict";
 
 (function () {
@@ -110,7 +110,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
                         break;
                 }
             };
-            ws.onclose = this.onclose;
+            ws.onclose = () => this.onclose();
         }
 
         onclose() {
@@ -122,7 +122,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
                     // rebuilt on restart)
                     const ws = new WebSocket(this.url);
                     ws.onopen = () => window.location.reload();
-                    ws.onclose = this.onclose;
+                    ws.onclose = () => this.onclose();
                 },
                 this.poll_interval);
         }

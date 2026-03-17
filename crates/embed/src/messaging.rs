@@ -46,7 +46,9 @@ pub fn post_event_to_parent(event: &EmbedEvent) -> Result<(), String> {
     use wasm_bindgen::JsValue;
 
     let window = web_sys::window().ok_or_else(|| "window is not available".to_string())?;
-    let js_value = JsValue::from_serde(event).map_err(|e| format!("serialize event: {e}"))?;
+    // TODO: Switch to structured JsValue payload once we standardize postMessage contracts.
+    let payload = serde_json::to_string(event).map_err(|e| format!("serialize event: {e}"))?;
+    let js_value = JsValue::from_str(&payload);
 
     window
         .post_message(&js_value, "*")

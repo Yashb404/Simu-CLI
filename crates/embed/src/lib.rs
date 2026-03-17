@@ -11,26 +11,17 @@ use shared::dto::PublicDemoResponse;
 
 #[cfg(target_arch = "wasm32")]
 fn query_param_value(key: &str) -> Option<String> {
-    #[cfg(target_arch = "wasm32")]
-    {
-        let search = web_sys::window()?.location().search().ok()?;
-        let query = search.trim_start_matches('?');
-        for pair in query.split('&') {
-            let Some((k, v)) = pair.split_once('=') else {
-                continue;
-            };
-            if k == key {
-                return Some(v.to_string());
-            }
+    let search = web_sys::window()?.location().search().ok()?;
+    let query = search.trim_start_matches('?');
+    for pair in query.split('&') {
+        let Some((k, v)) = pair.split_once('=') else {
+            continue;
+        };
+        if k == key {
+            return Some(v.to_string());
         }
-        None
     }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        let _ = key;
-        None
-    }
+    None
 }
 
 #[cfg(target_arch = "wasm32")]
