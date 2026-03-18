@@ -29,13 +29,15 @@ use wasm_bindgen::prelude::*;
 
 #[component]
 pub fn EmbedApp() -> impl IntoView {
-    let (demo, _set_demo) = signal(Option::<Result<PublicDemoResponse, String>>::None);
+    let (demo, _set_demo) = signal(Option::<PublicDemoResponse>::None);
+    let (status, _set_status) = signal(String::new());
 
     #[cfg(target_arch = "wasm32")]
     Effect::new(move |_| {
         let set_demo = _set_demo;
+        let set_status = _set_status;
         let Some(demo_id) = query_param_value("demo_id") else {
-            set_demo.set(Some(Err("Missing demo_id query parameter".to_string())));
+            set_status.set("Missing demo_id query parameter".to_string());
             return;
         };
 
@@ -45,13 +47,16 @@ pub fn EmbedApp() -> impl IntoView {
         let endpoint = format!("{api_base}/api/demos/{demo_id}/public");
 
         leptos::task::spawn_local({
+            let set_demo = set_demo;
+            let set_status = set_status;
             async move {
                 match api::fetch_public_demo(&endpoint).await {
                     Ok(public_demo) => {
-                        set_demo.set(Some(Ok(public_demo)));
+                        set_demo.set(Some(public_demo));
+                        set_status.set(String::new());
                     }
                     Err(err) => {
-                        set_demo.set(Some(Err(err.to_string())));
+                        set_status.set(err.to_string());
                     }
                 }
             }
@@ -59,7 +64,26 @@ pub fn EmbedApp() -> impl IntoView {
     });
 
     view! {
-        <components::terminal::TerminalUI demo=demo />
+        <main class="embed-wrapper" style="width: 100%; height: 100%; background: #000; color: #fff;">
+            <Show
+                when=move || demo.get().is_some()
+                fallback=move || {
+                    view! {
+                        <div class="terminal-booting" style="padding: 20px; font-family: monospace;">
+                            <p>"> Initializing virtual environment..."</p>
+                            <Show when=move || !status.get().is_empty()>
+                                <p style="color: #ff4444;">{move || status.get()}</p>
+                            </Show>
+                        </div>
+                    }
+                }
+            >
+                {move || {
+                    let demo_data = demo.get().unwrap();
+                    view! { <components::terminal::TerminalUI demo=demo_data /> }
+                }}
+            </Show>
+        </main>
     }
 }
 

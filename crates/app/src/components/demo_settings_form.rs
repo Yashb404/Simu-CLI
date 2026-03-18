@@ -11,7 +11,6 @@ pub fn DemoSettingsForm(
     set_settings: WriteSignal<Option<DemoSettings>>,
     theme: ReadSignal<Option<Theme>>,
     set_theme: WriteSignal<Option<Theme>>,
-    on_save: Callback<()>,
 ) -> impl IntoView {
     let prompt_string = Signal::derive(move || {
         theme
@@ -71,9 +70,6 @@ pub fn DemoSettingsForm(
                     }
                 />
             </label>
-            <button type="button" on:click=move |_| on_save.run(())>
-                "Save Demo"
-            </button>
         </section>
     }
 }
