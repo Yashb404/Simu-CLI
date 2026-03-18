@@ -92,7 +92,6 @@ fn build_query_path(path: &str, params: Vec<(&str, String)>) -> String {
 
     api_url(&format!("{path}?{query}"))
 }
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DashboardProject {
     pub id: String,
@@ -109,6 +108,16 @@ pub struct DashboardDemo {
     pub version: i32,
     pub theme: Theme,
     pub settings: DemoSettings,
+    pub steps: Vec<Step>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardDemoDetail {
+    pub id: String,
+    pub title: String,
+    pub slug: Option<String>,
+    pub published: bool,
+    pub version: i32,
     pub steps: Vec<Step>,
 }
 
@@ -150,7 +159,6 @@ struct CreateDemoRequest<'a> {
     title: &'a str,
     project_id: Option<&'a str>,
 }
-
 pub fn login_url() -> String {
     api_url("/api/auth/github")
 }
@@ -208,7 +216,6 @@ pub async fn list_demos_with_filters(
     let url = build_query_path("/api/me/demos", params);
     fetch(HttpMethod::Get, &url, None, true).await
 }
-
 pub async fn get_demo(id: &str) -> Result<DashboardDemo, String> {
     fetch(HttpMethod::Get, &api_url(&format!("/api/demos/{id}")), None, true).await
 }
@@ -222,7 +229,6 @@ pub async fn create_demo(title: &str, project_id: Option<&str>) -> Result<Dashbo
     let body = serde_json::to_string(&payload).map_err(|e| format!("serialize body: {e}"))?;
     fetch(HttpMethod::Post, &api_url("/api/demos"), Some(&body), true).await
 }
-
 pub async fn update_demo(id: &str, title: Option<&str>, slug: Option<&str>) -> Result<DashboardDemo, String> {
     update_demo_payload(
         id,
@@ -236,10 +242,19 @@ pub async fn update_demo(id: &str, title: Option<&str>, slug: Option<&str>) -> R
     )
     .await
 }
-
 pub async fn update_demo_payload(id: &str, payload: &UpdateDemoRequest) -> Result<DashboardDemo, String> {
     let body = serde_json::to_string(payload).map_err(|e| format!("serialize body: {e}"))?;
     fetch(HttpMethod::Patch, &api_url(&format!("/api/demos/{id}")), Some(&body), true).await
+}
+
+pub async fn delete_demo(id: &str) -> Result<(), String> {
+    shared::client::send(
+        HttpMethod::Delete,
+        &api_url(&format!("/api/demos/{id}")),
+        None,
+        true,
+    )
+    .await
 }
 
 pub async fn publish_demo(id: &str) -> Result<PublishResponse, String> {
@@ -253,31 +268,52 @@ pub async fn publish_demo(id: &str) -> Result<PublishResponse, String> {
 }
 
 pub async fn get_analytics_series(id: &str) -> Result<Vec<AnalyticsSeriesPoint>, String> {
-    fetch(
-        HttpMethod::Get,
-        &api_url(&format!("/api/demos/{id}/analytics")),
-        None,
-        true,
-    )
-    .await
+    get_analytics_series_with_days(id, None).await
+}
+
+pub async fn get_analytics_series_with_days(
+    id: &str,
+    days: Option<u32>,
+) -> Result<Vec<AnalyticsSeriesPoint>, String> {
+    let mut params = Vec::new();
+    if let Some(days) = days {
+        params.push(("days", days.to_string()));
+    }
+
+    let url = build_query_path(&format!("/api/demos/{id}/analytics"), params);
+    fetch(HttpMethod::Get, &url, None, true).await
 }
 
 pub async fn get_analytics_referrers(id: &str) -> Result<Vec<ReferrerCount>, String> {
-    fetch(
-        HttpMethod::Get,
-        &api_url(&format!("/api/demos/{id}/analytics/referrers")),
-        None,
-        true,
-    )
-    .await
+    get_analytics_referrers_with_limit(id, None).await
+}
+
+pub async fn get_analytics_referrers_with_limit(
+    id: &str,
+    limit: Option<u32>,
+) -> Result<Vec<ReferrerCount>, String> {
+    let mut params = Vec::new();
+    if let Some(limit) = limit {
+        params.push(("limit", limit.to_string()));
+    }
+
+    let url = build_query_path(&format!("/api/demos/{id}/analytics/referrers"), params);
+    fetch(HttpMethod::Get, &url, None, true).await
 }
 
 pub async fn get_analytics_funnel(id: &str) -> Result<Vec<FunnelPoint>, String> {
-    fetch(
-        HttpMethod::Get,
-        &api_url(&format!("/api/demos/{id}/analytics/funnel")),
-        None,
-        true,
-    )
-    .await
+    get_analytics_funnel_with_limit(id, None).await
+}
+
+pub async fn get_analytics_funnel_with_limit(
+    id: &str,
+    limit: Option<u32>,
+) -> Result<Vec<FunnelPoint>, String> {
+    let mut params = Vec::new();
+    if let Some(limit) = limit {
+        params.push(("limit", limit.to_string()));
+    }
+
+    let url = build_query_path(&format!("/api/demos/{id}/analytics/funnel"), params);
+    fetch(HttpMethod::Get, &url, None, true).await
 }

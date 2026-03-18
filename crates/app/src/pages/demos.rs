@@ -46,6 +46,22 @@ pub fn DemosPage() -> impl IntoView {
         });
     };
 
+    let delete_demo = move |id: String| {
+        spawn_local({
+            let set_demos = set_demos;
+            let set_status = set_status;
+            async move {
+                match api::delete_demo(&id).await {
+                    Ok(()) => {
+                        set_demos.update(|items| items.retain(|d| d.id != id));
+                        set_status.set("Demo deleted".to_string());
+                    }
+                    Err(err) => set_status.set(format!("Delete failed: {err}")),
+                }
+            }
+        });
+    };
+
     view! {
         <section class="page demos-page">
             <h2>"Demos"</h2>
@@ -79,6 +95,9 @@ pub fn DemosPage() -> impl IntoView {
                                         <a href={format!("/dashboard/demos/{}", demo.id)}>"Editor"</a>
                                         <a href={format!("/dashboard/demos/{}/publish", demo.id)}>"Publish"</a>
                                         <a href={format!("/dashboard/demos/{}/analytics", demo.id)}>"Analytics"</a>
+                                        <button type="button" on:click=move |_| delete_demo(demo.id.clone())>
+                                            "Delete"
+                                        </button>
                                     </div>
                                 </li>
                             }

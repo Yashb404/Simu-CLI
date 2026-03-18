@@ -10,14 +10,27 @@ jobs:
           POSTGRES_PASSWORD: password
           POSTGRES_DB: cli_demo_studio
         ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres:password@localhost:5432/cli_demo_studio
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
-      - run: cargo check --all
-      - run: cargo check --target wasm32-unknown-unknown -p embed
-      - run: cargo test --all
-        env:
-          DATABASE_URL: postgres://postgres:password@localhost:5432/cli_demo_studio
+      # Check server-side and shared crates for the host target
+      - name: Check (native)
+        run: cargo check -p server -p shared
+      # Check frontend and embed crates for the WASM target
+      - name: Check app (WASM)
+        run: cargo check --target wasm32-unknown-unknown -p app
+      - name: Check embed (WASM)
+        run: cargo check --target wasm32-unknown-unknown -p embed
+      # Run unit tests; WASM crates can't run natively
+      - name: Test
+        run: cargo test -p server -p shared

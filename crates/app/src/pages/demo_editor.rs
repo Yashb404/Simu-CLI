@@ -37,6 +37,7 @@ pub fn DemoEditorPage() -> impl IntoView {
         spawn_local({
             let set_title = set_title;
             let set_slug = set_slug;
+            let set_steps = set_steps;
             let set_status = set_status;
             async move {
                 match api::get_demo_detail(&id).await {
@@ -67,13 +68,12 @@ pub fn DemoEditorPage() -> impl IntoView {
             set_status.set("Invalid demo id".to_string());
             return;
         }
-        if next_title.trim().is_empty() {
-            set_status.set("Title is required".to_string());
-            return;
-        }
+
+        set_status.set("Saving...".to_string());
 
         spawn_local({
             let set_status = set_status;
+            let set_steps = set_steps;
             async move {
                 match api::update_demo_payload(
                     &id,

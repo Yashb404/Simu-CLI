@@ -3,7 +3,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::models::demo::{DemoSettings, Step, Theme};
-use crate::validation::{is_valid_slug, MAX_STEPS};
+use crate::validation::{is_valid_hex_color, is_valid_slug, MAX_OUTPUT_LINES_PER_STEP, MAX_STEPS};
 
 fn validate_slug(value: &str) -> Result<(), validator::ValidationError> {
     if is_valid_slug(value) {
@@ -16,13 +16,88 @@ fn validate_slug(value: &str) -> Result<(), validator::ValidationError> {
 }
 
 fn validate_steps(value: &Vec<Step>) -> Result<(), validator::ValidationError> {
-    if value.len() <= MAX_STEPS {
-        Ok(())
-    } else {
+    if value.len() > MAX_STEPS {
         let mut err = validator::ValidationError::new("too_many_steps");
         err.message = Some(format!("steps cannot exceed {} entries", MAX_STEPS).into());
-        Err(err)
+        return Err(err);
     }
+
+    for step in value {
+        if let Some(input) = &step.input {
+            if input.trim().is_empty() || input.len() > 200 {
+                let mut err = validator::ValidationError::new("invalid_step_input");
+                err.message = Some("step input must be non-empty and <= 200 chars".into());
+                return Err(err);
+            }
+        }
+
+        if let Some(output_lines) = &step.output {
+            if output_lines.len() > MAX_OUTPUT_LINES_PER_STEP {
+                let mut err = validator::ValidationError::new("too_many_output_lines");
+                err.message = Some(
+                    format!(
+                        "each step output cannot exceed {} lines",
+                        MAX_OUTPUT_LINES_PER_STEP
+                    )
+                    .into(),
+                );
+                return Err(err);
+            }
+
+            for output_line in output_lines {
+                if output_line.text.len() > 500 {
+                    let mut err = validator::ValidationError::new("output_line_too_long");
+                    err.message = Some("output line text must be <= 500 chars".into());
+                    return Err(err);
+                }
+
+                if let Some(color) = &output_line.color {
+                    if !is_valid_hex_color(color) {
+                        let mut err = validator::ValidationError::new("invalid_output_color");
+                        err.message = Some("output line color must be a valid hex color".into());
+                        return Err(err);
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_theme(value: &Theme) -> Result<(), validator::ValidationError> {
+    if !is_valid_hex_color(&value.bg_color)
+        || !is_valid_hex_color(&value.fg_color)
+        || !is_valid_hex_color(&value.cursor_color)
+    {
+        let mut err = validator::ValidationError::new("invalid_theme_color");
+        err.message = Some("theme colors must be valid hex values".into());
+        return Err(err);
+    }
+
+    if value.font_size < 8 || value.font_size > 32 {
+        let mut err = validator::ValidationError::new("invalid_font_size");
+        err.message = Some("theme font_size must be between 8 and 32".into());
+        return Err(err);
+    }
+
+    Ok(())
+}
+
+fn validate_settings(value: &DemoSettings) -> Result<(), validator::ValidationError> {
+    if value.loop_delay_ms > 60_000 {
+        let mut err = validator::ValidationError::new("invalid_loop_delay");
+        err.message = Some("loop_delay_ms must be <= 60000".into());
+        return Err(err);
+    }
+
+    if value.not_found_message.trim().is_empty() || value.not_found_message.len() > 200 {
+        let mut err = validator::ValidationError::new("invalid_not_found_message");
+        err.message = Some("not_found_message must be non-empty and <= 200 chars".into());
+        return Err(err);
+    }
+
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Validate)]
@@ -38,7 +113,9 @@ pub struct UpdateDemoRequest {
     pub title: Option<String>,
     #[validate(custom(function = "validate_slug"))]
     pub slug: Option<String>,
+    #[validate(custom(function = "validate_theme"))]
     pub theme: Option<Theme>,
+    #[validate(custom(function = "validate_settings"))]
     pub settings: Option<DemoSettings>,
     #[validate(custom(function = "validate_steps"))]
     pub steps: Option<Vec<Step>>,
@@ -57,7 +134,10 @@ pub struct PublicDemoResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::validation::MAX_STEPS;
+    use crate::{
+        models::demo::{EngineMode, OutputLine, OutputStyle, WindowStyle},
+        validation::MAX_STEPS,
+    };
 
     #[test]
     fn create_demo_request_rejects_empty_title() {
@@ -115,5 +195,79 @@ mod tests {
 
         let result = request.validate();
         assert!(result.is_err(), "too many steps should fail validation");
+    }
+
+    #[test]
+    fn update_demo_request_rejects_invalid_theme_color() {
+        let request = UpdateDemoRequest {
+            title: None,
+            slug: Some("valid-slug".to_string()),
+            theme: Some(Theme {
+                window_style: WindowStyle::MacOs,
+                window_title: "Terminal".to_string(),
+                preset: None,
+                bg_color: "not-a-color".to_string(),
+                fg_color: "#ffffff".to_string(),
+                cursor_color: "#00ff00".to_string(),
+                font_family: "JetBrains Mono".to_string(),
+                font_size: 14,
+                line_height: 1.4,
+                prompt_string: "$".to_string(),
+            }),
+            settings: None,
+            steps: None,
+        };
+
+        let result = request.validate();
+        assert!(result.is_err(), "invalid theme colors should fail validation");
+    }
+
+    #[test]
+    fn update_demo_request_rejects_too_many_output_lines_in_step() {
+        let output = (0..(MAX_OUTPUT_LINES_PER_STEP + 1))
+            .map(|_| OutputLine {
+                text: "line".to_string(),
+                style: OutputStyle::Normal,
+                color: None,
+                prefix: None,
+                indent: 0,
+            })
+            .collect::<Vec<_>>();
+
+        let steps = vec![Step {
+            id: Uuid::new_v4(),
+            step_type: crate::models::demo::StepType::Output,
+            order: 1,
+            input: None,
+            match_mode: None,
+            match_pattern: None,
+            description: Some("output".to_string()),
+            output: Some(output),
+            prompt_config: None,
+            spinner_config: None,
+            cta_config: None,
+            delay_ms: 0,
+            typing_speed_ms: 0,
+            skippable: true,
+        }];
+
+        let request = UpdateDemoRequest {
+            title: None,
+            slug: Some("valid-slug".to_string()),
+            theme: None,
+            settings: Some(DemoSettings {
+                engine_mode: EngineMode::Sequential,
+                autoplay: false,
+                loop_demo: false,
+                loop_delay_ms: 500,
+                show_restart_button: true,
+                show_hints: false,
+                not_found_message: "command not found".to_string(),
+            }),
+            steps: Some(steps),
+        };
+
+        let result = request.validate();
+        assert!(result.is_err(), "too many output lines should fail validation");
     }
 }
