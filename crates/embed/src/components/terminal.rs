@@ -124,7 +124,7 @@ impl<'a> CliEngine<'a> {
 }
 
 fn run_terminal_command(
-    demo: ReadSignal<Option<Result<PublicDemoResponse, String>>>,
+    demo: &PublicDemoResponse,
     input: ReadSignal<String>,
     set_input: WriteSignal<String>,
     history: WriteSignal<Vec<String>>,
@@ -133,20 +133,7 @@ fn run_terminal_command(
 ) {
     let raw_input = input.get();
 
-    let Some(state) = demo.get() else {
-        history.update(|lines| lines.push("Demo is still loading. Try again in a moment.".to_string()));
-        return;
-    };
-
-    let loaded = match state {
-        Ok(value) => value,
-        Err(error) => {
-            history.update(|lines| lines.push(format!("Unable to run command: {error}")));
-            return;
-        }
-    };
-
-    let mut engine = CliEngine::new(&loaded, cursor.get());
+    let mut engine = CliEngine::new(demo, cursor.get());
     let Some(next_lines) = engine.run_command(&raw_input) else {
         return;
     };
@@ -157,7 +144,7 @@ fn run_terminal_command(
 }
 
 #[component]
-pub fn TerminalUI(demo: ReadSignal<Option<Result<PublicDemoResponse, String>>>) -> impl IntoView {
+pub fn TerminalUI(demo: PublicDemoResponse) -> impl IntoView {
     let (input, set_input) = signal(String::new());
     let (history, set_history) = signal(vec!["Preview runtime initialized.".to_string()]);
     let (cursor, set_cursor) = signal(0usize);
@@ -165,53 +152,40 @@ pub fn TerminalUI(demo: ReadSignal<Option<Result<PublicDemoResponse, String>>>) 
     view! {
         <section class="terminal-ui" aria-label="CLI simulator terminal">
             <header class="terminal-header">"CLI Demo Runtime"</header>
-            <Show
-                when=move || matches!(demo.get(), Some(Ok(_)))
-                fallback=move || {
-                    view! {
-                        <div class="terminal-output">
-                            <p>
-                                {move || {
-                                    match demo.get() {
-                                        None => "Loading demo...".to_string(),
-                                        Some(Err(error)) => format!("Unable to load demo: {error}"),
-                                        Some(Ok(_)) => String::new(),
-                                    }
-                                }}
-                            </p>
-                        </div>
+            <div class="terminal-output">
+                <For
+                    each=move || indexed_lines(history.get())
+                    key=|entry| entry.0
+                    children=move |(_, line)| view! { <p>{line}</p> }
+                />
+            </div>
+            <label class="sr-only" for="terminal-input">"Terminal input"</label>
+            <input
+                id="terminal-input"
+                type="text"
+                prop:value=input
+                on:input=move |ev| set_input.set(event_target_value(&ev))
+                on:keydown={
+                    let demo = demo.clone();
+                    move |ev: leptos::ev::KeyboardEvent| {
+                        if ev.key() == "Enter" {
+                            run_terminal_command(&demo, input, set_input, set_history, cursor, set_cursor);
+                        }
+                    }
+                }
+                placeholder="Type a command"
+            />
+            <button
+                type="button"
+                on:click={
+                    let demo = demo.clone();
+                    move |_| {
+                        run_terminal_command(&demo, input, set_input, set_history, cursor, set_cursor);
                     }
                 }
             >
-                <div class="terminal-output">
-                    <For
-                        each=move || indexed_lines(history.get())
-                        key=|entry| entry.0
-                        children=move |(_, line)| view! { <p>{line}</p> }
-                    />
-                </div>
-                <label class="sr-only" for="terminal-input">"Terminal input"</label>
-                <input
-                    id="terminal-input"
-                    type="text"
-                    prop:value=input
-                    on:input=move |ev| set_input.set(event_target_value(&ev))
-                    on:keydown=move |ev: leptos::ev::KeyboardEvent| {
-                        if ev.key() == "Enter" {
-                            run_terminal_command(demo, input, set_input, set_history, cursor, set_cursor);
-                        }
-                    }
-                    placeholder="Type a command"
-                />
-                <button
-                    type="button"
-                    on:click=move |_| {
-                        run_terminal_command(demo, input, set_input, set_history, cursor, set_cursor);
-                    }
-                >
-                    "Run"
-                </button>
-            </Show>
+                "Run"
+            </button>
         </section>
     }
 }

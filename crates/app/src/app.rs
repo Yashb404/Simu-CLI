@@ -20,6 +20,7 @@ use crate::api;
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
+    let (is_logging_in, set_logging_in) = signal(false);
 
     view! {
         <Title text="CLI Demo Studio" />
@@ -31,7 +32,13 @@ pub fn App() -> impl IntoView {
                         <h1>"Terminal Demo Dashboard"</h1>
                         <p>"Build, publish, and track CLI walkthroughs."</p>
                     </div>
-                    <a class="button ghost" href={api::login_url()}>"Login with GitHub"</a>
+                    <a
+                        class="button btn-primary"
+                        href={api::login_url()}
+                        on:click=move |_| set_logging_in.set(true)
+                    >
+                        {move || if is_logging_in.get() { "Redirecting..." } else { "Login via GitHub" }}
+                    </a>
                 </header>
 
                 <nav class="app-nav">

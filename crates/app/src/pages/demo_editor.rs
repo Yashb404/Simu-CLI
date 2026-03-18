@@ -27,6 +27,7 @@ pub fn DemoEditorPage() -> impl IntoView {
     let (settings, set_settings) = signal(Option::<DemoSettings>::None);
     let (theme, set_theme) = signal(Option::<Theme>::None);
     let (status, set_status) = signal(String::new());
+    let (published_slug, set_published_slug) = signal(String::new());
 
     Effect::new(move |_| {
         let id = demo_id();
@@ -55,7 +56,7 @@ pub fn DemoEditorPage() -> impl IntoView {
         });
     });
 
-    let save_demo = move || {
+    let save_demo = move |_| {
         let id = demo_id();
         let next_title = title.get();
         let next_slug = slug.get();
@@ -101,9 +102,60 @@ pub fn DemoEditorPage() -> impl IntoView {
         });
     };
 
-    let on_save = Callback::new(move |_| {
-        save_demo();
-    });
+    let publish_demo = move |_| {
+        let id = demo_id();
+        let next_title = title.get();
+        let next_slug = slug.get();
+        let next_steps = steps.get();
+        let next_settings = settings.get();
+        let next_theme = theme.get();
+
+        if id == "unknown" {
+            set_status.set("Invalid demo id".to_string());
+            return;
+        }
+        if next_title.trim().is_empty() {
+            set_status.set("Title is required".to_string());
+            return;
+        }
+
+        spawn_local({
+            let set_status = set_status;
+            let set_steps = set_steps;
+            let set_published_slug = set_published_slug;
+            async move {
+                let update_result = api::update_demo_payload(
+                    &id,
+                    &UpdateDemoRequest {
+                        title: Some(next_title.trim().to_string()),
+                        slug: if next_slug.trim().is_empty() {
+                            None
+                        } else {
+                            Some(next_slug.trim().to_string())
+                        },
+                        theme: next_theme,
+                        settings: next_settings,
+                        steps: Some(next_steps),
+                    },
+                )
+                .await;
+
+                match update_result {
+                    Ok(updated_demo) => {
+                        set_steps.set(updated_demo.steps);
+                        match api::publish_demo(&id).await {
+                            Ok(published) => {
+                                set_published_slug.set(published.slug);
+                                set_status.set("Published and embed code ready".to_string());
+                            }
+                            Err(err) => set_status.set(format!("Publish failed: {err}")),
+                        }
+                    }
+                    Err(err) => set_status.set(format!("Save failed: {err}")),
+                }
+            }
+        });
+    };
 
     let add_command_step = move |_| {
         set_steps.update(|items| {
@@ -152,8 +204,16 @@ pub fn DemoEditorPage() -> impl IntoView {
                 set_settings=set_settings
                 theme=theme
                 set_theme=set_theme
-                on_save=on_save
             />
+
+            <div class="action-bar">
+                <button type="button" class="btn-primary" on:click=save_demo>
+                    "Save Draft"
+                </button>
+                <button type="button" class="btn-outline" on:click=publish_demo>
+                    "Publish & Get Code"
+                </button>
+            </div>
 
             <div class="editor-grid">
                 <section class="step-column">
@@ -172,6 +232,22 @@ pub fn DemoEditorPage() -> impl IntoView {
                     not_found_message=not_found_message
                 />
             </div>
+
+            <Show when=move || !published_slug.get().is_empty()>
+                <section class="panel embed-panel">
+                    <h3>"Embed Snippet"</h3>
+                    <p class="text-muted">"Copy and paste this into your documentation or website."</p>
+                    <textarea readonly rows="3" class="code-block">
+                        {move || {
+                            format!(
+                                "<script src=\"{}/embed.js\" data-demo=\"{}\"></script>",
+                                api::api_base(),
+                                published_slug.get(),
+                            )
+                        }}
+                    </textarea>
+                </section>
+            </Show>
         </section>
     }
 }
