@@ -8,16 +8,35 @@ pub fn ProjectsPage() -> impl IntoView {
     let (projects, set_projects) = signal(Vec::<api::DashboardProject>::new());
     let (name, set_name) = signal(String::new());
     let (description, set_description) = signal(String::new());
-    let (status, set_status) = signal(String::new());
+    let (status, set_status) = signal("Loading projects...".to_string());
+    let (requires_login, set_requires_login) = signal(false);
 
     Effect::new(move |_| {
         spawn_local({
             let set_projects = set_projects;
             let set_status = set_status;
+            let set_requires_login = set_requires_login;
             async move {
                 match api::list_projects().await {
-                    Ok(list) => set_projects.set(list),
-                    Err(err) => set_status.set(format!("Failed to load projects: {err}")),
+                    Ok(list) => {
+                        let count = list.len();
+                        set_projects.set(list);
+                        set_requires_login.set(false);
+                        if count == 0 {
+                            set_status.set("No projects yet. Create your first project below.".to_string());
+                        } else {
+                            set_status.set(format!("Loaded {} project(s).", count));
+                        }
+                    }
+                    Err(err) => {
+                        let unauthorized = err.contains("Not logged in");
+                        set_requires_login.set(unauthorized);
+                        if unauthorized {
+                            set_status.set("You are not logged in. Sign in with GitHub to view projects.".to_string());
+                        } else {
+                            set_status.set(format!("Failed to load projects: {err}"));
+                        }
+                    }
                 }
             }
         });
@@ -65,6 +84,16 @@ pub fn ProjectsPage() -> impl IntoView {
             <p>"Create project groups and organize your CLI demos."</p>
             <p class="status">{move || status.get()}</p>
 
+            <Show when=move || requires_login.get()>
+                <div class="panel">
+                    <h3>"Authentication Required"</h3>
+                    <p>"Sign in to load and create projects."</p>
+                    <a class="button btn-primary" href={api::login_url()}>
+                        "Login with GitHub"
+                    </a>
+                </div>
+            </Show>
+
             <div class="panel">
                 <h3>"New Project"</h3>
                 <input
@@ -100,8 +129,10 @@ pub fn ProjectsPage() -> impl IntoView {
                 </ul>
             </div>
 
-            <a class="action-link" href={api::login_url()}>"Login with GitHub"</a>
-            <a class="action-link" href="/dashboard/demos">"Open Demos"</a>
+            <div class="inline-actions">
+                <a class="button" href={api::login_url()}>"Login with GitHub"</a>
+                <a class="button" href="/dashboard/demos">"Open Demos"</a>
+            </div>
         </section>
     }
 }

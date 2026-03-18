@@ -92,6 +92,7 @@ struct GithubUser {
 
 async fn github_callback(
     State(state): State<AppState>,
+    headers: HeaderMap,
     session: Session,
     Query(query): Query<AuthRequest>,
 ) -> Result<Redirect, Response> {
@@ -195,8 +196,9 @@ async fn github_callback(
 
     tracing::info!("User {} authenticated successfully", user.username);
 
-    let frontend_url = &state.config.frontend_url;
-    Ok(Redirect::to(&format!("{}/dashboard", frontend_url)))
+    let frontend_host = headers.get("host").and_then(|value| value.to_str().ok());
+    let frontend_origin = request_origin(frontend_host, &headers, &state.config.frontend_url);
+    Ok(Redirect::to(&format!("{}/dashboard", frontend_origin)))
 }
 
 async fn logout(session: Session) -> Result<Redirect, StatusCode> {

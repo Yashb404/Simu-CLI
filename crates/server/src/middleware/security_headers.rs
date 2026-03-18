@@ -14,7 +14,7 @@ pub async fn security_headers_middleware(req: Request<Body>, next: Next) -> Resp
     headers.insert("referrer-policy", HeaderValue::from_static("strict-origin-when-cross-origin"));
     headers.insert(
         "content-security-policy",
-        HeaderValue::from_static("default-src 'self'; frame-ancestors 'self' *; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"),
+        HeaderValue::from_static("default-src 'self'; frame-ancestors 'self' *; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com"),
     );
     headers.insert(
         header::STRICT_TRANSPORT_SECURITY,

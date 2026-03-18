@@ -117,8 +117,7 @@ async fn main() -> anyhow::Result<()> {
 
     let app = router::create_router(state.clone())
         .route_service("/embed-runtime", ServeFile::new(&embed_index))
-        .route_service("/embed-runtime/", ServeFile::new(&embed_index))
-        .nest_service("/embed-runtime", embed_static)
+        .nest_service("/embed-runtime/", embed_static)
         .nest_service("/static", static_assets)
         .fallback_service(app_static)
         .layer(axum::middleware::from_fn(
