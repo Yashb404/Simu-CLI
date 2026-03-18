@@ -1,14 +1,14 @@
 @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
 
 :root {
-  --bg: #f3f3f1;
-  --surface: #ffffff;
-  --surface-alt: #ececea;
-  --ink: #121212;
-  --muted: #595959;
-  --line: #d8d8d6;
-  --line-strong: #1f1f1f;
-  --shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+  --bg: #090909;
+  --surface: #111111;
+  --surface-2: #161616;
+  --ink: #f5f5f5;
+  --muted: #b6b6b6;
+  --line: #2a2a2a;
+  --line-strong: #f5f5f5;
+  --focus: #ffffff;
 }
 
 * {
@@ -20,10 +20,11 @@ body {
   min-height: 100vh;
   font-family: "Space Grotesk", sans-serif;
   color: var(--ink);
-  background:
-    radial-gradient(circle at 84% 6%, #ffffff 0%, transparent 26%),
-    radial-gradient(circle at 10% 18%, #dcdcd9 0%, transparent 34%),
-    linear-gradient(165deg, #f8f8f7 0%, #e8e8e5 100%);
+  background: var(--bg);
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
 a {
@@ -36,19 +37,18 @@ a {
   padding: 20px;
   display: grid;
   gap: 16px;
-  animation: shell-in 220ms ease-out;
+  animation: shell-in 180ms ease-out;
 }
 
 .app-header {
-  border: 1px solid var(--line-strong);
-  border-radius: 18px;
-  background: linear-gradient(120deg, #ffffff, #efefed);
-  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  padding: 20px;
   display: flex;
   justify-content: space-between;
   gap: 12px;
   align-items: center;
-  box-shadow: var(--shadow);
 }
 
 .app-header h1 {
@@ -67,7 +67,7 @@ a {
   font-size: 0.75rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #3e3e3e;
+  color: var(--muted);
 }
 
 .app-nav {
@@ -82,21 +82,19 @@ a {
   text-decoration: none;
   font-size: 0.92rem;
   padding: 8px 14px;
-  background: #fefefe;
-  transition: transform 150ms ease, border-color 150ms ease;
+  background: var(--surface-2);
+  transition: border-color 140ms ease;
 }
 
 .app-nav a:hover {
-  transform: translateY(-1px);
   border-color: var(--line-strong);
 }
 
 .page {
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 16px;
   background: var(--surface);
-  box-shadow: var(--shadow);
-  padding: clamp(16px, 3vw, 26px);
+  padding: clamp(16px, 3vw, 24px);
   display: grid;
   gap: 14px;
   animation: page-in 180ms ease-out;
@@ -104,27 +102,24 @@ a {
 
 .page h2,
 .page h3,
-.page h4 {
-  margin: 0;
-}
-
+.page h4,
 .page p {
   margin: 0;
 }
 
 .panel {
   border: 1px solid var(--line);
-  border-radius: 14px;
-  background: linear-gradient(180deg, #ffffff, #f4f4f3);
+  border-radius: 12px;
+  background: var(--surface-2);
   padding: 14px;
   display: grid;
   gap: 10px;
 }
 
 .status {
-  border-left: 3px solid #222;
-  background: #f0f0f0;
-  color: #333;
+  border-left: 3px solid var(--line-strong);
+  background: #0f0f0f;
+  color: var(--ink);
   padding: 8px 10px;
   border-radius: 8px;
 }
@@ -149,10 +144,20 @@ button {
 input,
 textarea,
 select {
-  border: 1px solid #c8c8c8;
-  background: #fff;
+  border: 1px solid var(--line);
+  background: #0b0b0b;
+  color: var(--ink);
   border-radius: 10px;
   padding: 10px 11px;
+}
+
+input:focus,
+textarea:focus,
+select:focus,
+button:focus,
+.button:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 textarea {
@@ -162,9 +167,9 @@ textarea {
 
 button,
 .button {
-  border: 1px solid #1f1f1f;
-  background: #1a1a1a;
-  color: #f5f5f5;
+  border: 1px solid var(--line-strong);
+  background: #000000;
+  color: var(--ink);
   border-radius: 10px;
   text-decoration: none;
   display: inline-flex;
@@ -172,18 +177,19 @@ button,
   justify-content: center;
   padding: 9px 14px;
   cursor: pointer;
-  transition: transform 120ms ease, background 120ms ease;
+  transition: background 120ms ease, color 120ms ease;
 }
 
 button:hover,
 .button:hover {
-  transform: translateY(-1px);
-  background: #000;
+  background: #ffffff;
+  color: #000000;
 }
 
 .button.ghost {
-  background: #fff;
-  color: #1a1a1a;
+  background: transparent;
+  border-color: var(--line);
+  color: var(--ink);
 }
 
 .list {
@@ -202,7 +208,7 @@ button:hover,
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 10px;
-  background: #fff;
+  background: #0f0f0f;
 }
 
 .list li p {
@@ -222,12 +228,12 @@ button:hover,
   text-decoration: none;
   padding: 6px 10px;
   font-size: 0.85rem;
-  background: #fff;
+  background: #0f0f0f;
 }
 
 .inline-actions a:hover,
 .action-link:hover {
-  border-color: #111;
+  border-color: var(--line-strong);
 }
 
 .editor-grid,
@@ -238,6 +244,8 @@ button:hover,
 }
 
 .form-grid {
+  display: grid;
+  gap: 10px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -255,26 +263,43 @@ button:hover,
 .live-preview-panel,
 .embed-code-generator,
 .chart,
-.settings-page label {
+.settings-page label,
+.terminal-ui {
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: #fff;
+  background: #0f0f0f;
   padding: 12px;
+}
+
+.terminal-header {
+  font-family: "IBM Plex Mono", monospace;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.terminal-output {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #090909;
+  padding: 10px;
+  min-height: 180px;
+  font-family: "IBM Plex Mono", monospace;
+  display: grid;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.terminal-output p {
+  margin: 0;
 }
 
 .chart-placeholder,
 .preview-canvas,
 .demo-frame-placeholder {
-  border: 1px dashed #acacac;
+  border: 1px dashed var(--line);
   border-radius: 10px;
-  background: repeating-linear-gradient(
-    -45deg,
-    #f8f8f8,
-    #f8f8f8 10px,
-    #efefef 10px,
-    #efefef 20px
-  );
-  color: #4e4e4e;
+  background: #090909;
+  color: var(--muted);
   padding: 20px;
   font-family: "IBM Plex Mono", monospace;
 }

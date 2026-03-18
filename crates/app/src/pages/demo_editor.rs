@@ -7,6 +7,7 @@ use shared::{
 };
 
 use crate::api;
+use crate::components::demo_settings_form::DemoSettingsForm;
 use crate::components::live_preview::LivePreviewPanel;
 use crate::components::step_editors::{add_default_step, StepListEditor};
 
@@ -54,7 +55,7 @@ pub fn DemoEditorPage() -> impl IntoView {
         });
     });
 
-    let save_demo = move |_| {
+    let save_demo = move || {
         let id = demo_id();
         let next_title = title.get();
         let next_slug = slug.get();
@@ -100,6 +101,10 @@ pub fn DemoEditorPage() -> impl IntoView {
         });
     };
 
+    let on_save = Callback::new(move |_| {
+        save_demo();
+    });
+
     let add_command_step = move |_| {
         set_steps.update(|items| {
             add_default_step(items, StepType::Command);
@@ -138,23 +143,17 @@ pub fn DemoEditorPage() -> impl IntoView {
             <p>{move || format!("Editing demo: {}", demo_id())}</p>
             <p class="status">{move || status.get()}</p>
 
-            <section class="panel form-grid">
-                <label>
-                    "Title"
-                    <input
-                        prop:value=move || title.get()
-                        on:input=move |ev| set_title.set(event_target_value(&ev))
-                    />
-                </label>
-                <label>
-                    "Slug"
-                    <input
-                        prop:value=move || slug.get()
-                        on:input=move |ev| set_slug.set(event_target_value(&ev))
-                    />
-                </label>
-                <button type="button" on:click=save_demo>"Save Demo"</button>
-            </section>
+            <DemoSettingsForm
+                title=title
+                set_title=set_title
+                slug=slug
+                set_slug=set_slug
+                settings=settings
+                set_settings=set_settings
+                theme=theme
+                set_theme=set_theme
+                on_save=on_save
+            />
 
             <div class="editor-grid">
                 <section class="step-column">

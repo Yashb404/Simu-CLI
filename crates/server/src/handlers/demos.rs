@@ -13,6 +13,7 @@ use validator::Validate;
 use crate::{
     auth::{AuthUser, USER_SESSION_KEY},
     error::{ApiError, HandlerResult},
+    handlers::owned_demo::OwnedDemo,
     services,
     state::AppState,
 };
@@ -180,25 +181,10 @@ pub async fn get_demo(
 
 pub async fn update_demo(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
-    AuthUser(user): AuthUser,
+    OwnedDemo(existing): OwnedDemo,
     Json(payload): Json<UpdateDemoRequest>,
 ) -> HandlerResult<Json<Demo>> {
     payload.validate()?;
-
-    let existing = sqlx::query_as::<_, Demo>(
-        r#"
-        SELECT id, owner_id, project_id, slug, title, engine_mode, theme, settings, steps,
-               published, version, created_at, updated_at
-        FROM demos
-        WHERE id = $1 AND owner_id = $2
-        "#,
-    )
-    .bind(id)
-    .bind(user.id)
-    .fetch_optional(&state.db)
-    .await?
-    .ok_or(ApiError(AppError::NotFound))?;
 
     let mut title = existing.title;
     let mut slug = existing.slug;
@@ -243,8 +229,8 @@ pub async fn update_demo(
     .bind(SqlxJson(theme))
     .bind(SqlxJson(settings))
     .bind(SqlxJson(steps))
-    .bind(id)
-    .bind(user.id)
+    .bind(existing.id)
+    .bind(existing.owner_id)
     .fetch_one(&state.db)
     .await?;
 
@@ -253,12 +239,11 @@ pub async fn update_demo(
 
 pub async fn delete_demo(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
-    AuthUser(user): AuthUser,
+    OwnedDemo(demo): OwnedDemo,
 ) -> HandlerResult<StatusCode> {
     let result = sqlx::query("DELETE FROM demos WHERE id = $1 AND owner_id = $2")
-        .bind(id)
-        .bind(user.id)
+        .bind(demo.id)
+        .bind(demo.owner_id)
         .execute(&state.db)
         .await?;
 
@@ -341,23 +326,8 @@ pub async fn get_public_demo(
 
 pub async fn publish_demo(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
-    AuthUser(user): AuthUser,
+    OwnedDemo(existing): OwnedDemo,
 ) -> HandlerResult<Json<PublishDemoResponse>> {
-    let existing = sqlx::query_as::<_, Demo>(
-        r#"
-        SELECT id, owner_id, project_id, slug, title, engine_mode, theme, settings, steps,
-               published, version, created_at, updated_at
-        FROM demos
-        WHERE id = $1 AND owner_id = $2
-        "#,
-    )
-    .bind(id)
-    .bind(user.id)
-    .fetch_optional(&state.db)
-    .await?
-    .ok_or(ApiError(AppError::NotFound))?;
-
     let slug = existing
         .slug
         .clone()
@@ -384,8 +354,8 @@ pub async fn publish_demo(
         "#,
     )
     .bind(&slug)
-    .bind(id)
-    .bind(user.id)
+    .bind(existing.id)
+    .bind(existing.owner_id)
     .fetch_one(&state.db)
     .await?;
 

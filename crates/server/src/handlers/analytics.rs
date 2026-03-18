@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Query, State},
     http::{header, HeaderMap, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
     Json,
@@ -8,7 +8,7 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    auth::AuthUser,
+    handlers::owned_demo::OwnedDemo,
     error::{ApiError, HandlerResult},
     state::AppState,
 };
@@ -32,20 +32,6 @@ fn sanitize_export_bounds(days: Option<i64>, limit: Option<i64>) -> (i64, i64) {
         .unwrap_or(DEFAULT_EXPORT_LIMIT)
         .clamp(1, MAX_EXPORT_LIMIT);
     (days, limit)
-}
-
-async fn ensure_demo_owner(state: &AppState, demo_id: Uuid, owner_id: Uuid) -> HandlerResult<()> {
-    let exists: Option<Uuid> = sqlx::query_scalar("SELECT id FROM demos WHERE id = $1 AND owner_id = $2")
-        .bind(demo_id)
-        .bind(owner_id)
-        .fetch_optional(&state.db)
-        .await?;
-
-    if exists.is_none() {
-        return Err(ApiError(AppError::NotFound));
-    }
-
-    Ok(())
 }
 
 pub async fn post_event(
@@ -92,12 +78,9 @@ pub async fn post_event(
 
 pub async fn get_demo_analytics(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    OwnedDemo(demo): OwnedDemo,
     Query(query): Query<AnalyticsWindowQuery>,
-    AuthUser(user): AuthUser,
 ) -> HandlerResult<Json<Vec<AnalyticsSeriesPoint>>> {
-    ensure_demo_owner(&state, id, user.id).await?;
-
     let days = query.days.unwrap_or(30).clamp(1, 365);
 
     let rows = sqlx::query_as::<_, AnalyticsSeriesPoint>(
@@ -110,7 +93,7 @@ pub async fn get_demo_analytics(
         ORDER BY bucket ASC
         "#,
     )
-    .bind(id)
+    .bind(demo.id)
     .bind(days)
     .fetch_all(&state.db)
     .await?;
@@ -120,11 +103,8 @@ pub async fn get_demo_analytics(
 
 pub async fn get_demo_referrers(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
-    AuthUser(user): AuthUser,
+    OwnedDemo(demo): OwnedDemo,
 ) -> HandlerResult<Json<Vec<ReferrerCount>>> {
-    ensure_demo_owner(&state, id, user.id).await?;
-
     let rows = sqlx::query_as::<_, ReferrerCount>(
         r#"
         SELECT COALESCE(referrer, 'direct') AS referrer, COUNT(*)::bigint AS total
@@ -135,7 +115,7 @@ pub async fn get_demo_referrers(
         LIMIT 10
         "#,
     )
-    .bind(id)
+    .bind(demo.id)
     .fetch_all(&state.db)
     .await?;
 
@@ -144,11 +124,8 @@ pub async fn get_demo_referrers(
 
 pub async fn get_demo_funnel(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
-    AuthUser(user): AuthUser,
+    OwnedDemo(demo): OwnedDemo,
 ) -> HandlerResult<Json<Vec<FunnelPoint>>> {
-    ensure_demo_owner(&state, id, user.id).await?;
-
     let rows = sqlx::query_as::<_, FunnelPoint>(
         r#"
         SELECT COALESCE(step_index, -1) AS step_index, COUNT(*)::bigint AS total
@@ -159,7 +136,7 @@ pub async fn get_demo_funnel(
         ORDER BY step_index ASC
         "#,
     )
-    .bind(id)
+    .bind(demo.id)
         .bind(AnalyticsEventType::Interaction)
     .fetch_all(&state.db)
     .await?;
@@ -169,12 +146,9 @@ pub async fn get_demo_funnel(
 
 pub async fn export_demo_analytics_csv(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    OwnedDemo(demo): OwnedDemo,
     Query(query): Query<AnalyticsExportQuery>,
-    AuthUser(user): AuthUser,
 ) -> HandlerResult<Response> {
-    ensure_demo_owner(&state, id, user.id).await?;
-
     let (days, limit) = sanitize_export_bounds(query.days, query.limit);
 
     let rows = sqlx::query_as::<_, AnalyticsSeriesPoint>(
@@ -188,7 +162,7 @@ pub async fn export_demo_analytics_csv(
         LIMIT $3
         "#,
     )
-    .bind(id)
+    .bind(demo.id)
     .bind(days)
     .bind(limit)
     .fetch_all(&state.db)

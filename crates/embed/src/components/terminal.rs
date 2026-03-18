@@ -12,76 +12,115 @@ fn indexed_lines(lines: Vec<String>) -> Vec<(usize, String)> {
     lines.into_iter().enumerate().collect::<Vec<(usize, String)>>()
 }
 
-fn line_from_output(line: &OutputLine) -> String {
-    let prefix = line.prefix.clone().unwrap_or_default();
-    let indent = " ".repeat(line.indent as usize * 2);
-    if prefix.is_empty() {
-        format!("{}{}", indent, line.text)
-    } else {
-        format!("{}{} {}", indent, prefix, line.text)
-    }
+struct CliEngine<'a> {
+    steps: &'a [Step],
+    mode: EngineMode,
+    prompt_string: &'a str,
+    not_found_message: &'a str,
+    cursor: usize,
 }
 
-fn next_command_index(steps: &[Step], command: &str, start: usize, mode: EngineMode) -> Option<usize> {
-    let range: Box<dyn Iterator<Item = usize>> = match mode {
-        EngineMode::Sequential => Box::new(start..steps.len()),
-        EngineMode::FreePlay => Box::new(0..steps.len()),
-    };
-
-    for idx in range {
-        let step = &steps[idx];
-        if step.step_type != StepType::Command {
-            continue;
-        }
-
-        let expected = step
-            .match_pattern
-            .as_deref()
-            .or(step.input.as_deref())
-            .unwrap_or_default();
-        let match_mode = step.match_mode.clone().unwrap_or(MatchMode::Exact);
-        if command_matches(&match_mode, expected, command) {
-            return Some(idx);
+impl<'a> CliEngine<'a> {
+    fn new(demo: &'a PublicDemoResponse, cursor: usize) -> Self {
+        Self {
+            steps: &demo.steps,
+            mode: demo.settings.engine_mode.clone(),
+            prompt_string: &demo.theme.prompt_string,
+            not_found_message: &demo.settings.not_found_message,
+            cursor,
         }
     }
 
-    None
-}
-
-fn playback_after_command(steps: &[Step], command_idx: usize) -> (Vec<String>, usize) {
-    let mut lines = Vec::new();
-    let mut idx = command_idx + 1;
-
-    while idx < steps.len() {
-        let step = &steps[idx];
-        if step.step_type == StepType::Command {
-            break;
+    fn run_command(&mut self, raw_input: &str) -> Option<Vec<String>> {
+        let command = normalize_input(raw_input);
+        if command.is_empty() {
+            return None;
         }
 
-        match step.step_type {
-            StepType::Output => {
-                if let Some(output) = &step.output {
-                    lines.extend(output.iter().map(line_from_output));
-                }
-            }
-            StepType::Comment => {
-                if let Some(description) = &step.description {
-                    lines.push(format!("# {description}"));
-                }
-            }
-            StepType::Clear => {
-                lines.push("[screen cleared]".to_string());
-            }
-            StepType::Pause => {
-                lines.push("[pause]".to_string());
-            }
-            _ => {}
+        let mut next_lines = vec![format!("{} {}", self.prompt_string, command.clone())];
+
+        if let Some(command_idx) = self.next_command_index(&command) {
+            let (playback_lines, next_cursor) = self.playback_after_command(command_idx);
+            next_lines.extend(playback_lines);
+            self.cursor = next_cursor;
+        } else {
+            next_lines.push(self.not_found_message.to_string());
         }
 
-        idx += 1;
+        Some(next_lines)
     }
 
-    (lines, idx)
+    fn next_command_index(&self, command: &str) -> Option<usize> {
+        let range: Box<dyn Iterator<Item = usize>> = match self.mode {
+            EngineMode::Sequential => Box::new(self.cursor..self.steps.len()),
+            EngineMode::FreePlay => Box::new(0..self.steps.len()),
+        };
+
+        for idx in range {
+            let step = &self.steps[idx];
+            if step.step_type != StepType::Command {
+                continue;
+            }
+
+            let expected = step
+                .match_pattern
+                .as_deref()
+                .or(step.input.as_deref())
+                .unwrap_or_default();
+            let match_mode = step.match_mode.clone().unwrap_or(MatchMode::Exact);
+            if command_matches(&match_mode, expected, command) {
+                return Some(idx);
+            }
+        }
+
+        None
+    }
+
+    fn playback_after_command(&self, command_idx: usize) -> (Vec<String>, usize) {
+        let mut lines = Vec::new();
+        let mut idx = command_idx + 1;
+
+        while idx < self.steps.len() {
+            let step = &self.steps[idx];
+            if step.step_type == StepType::Command {
+                break;
+            }
+
+            match step.step_type {
+                StepType::Output => {
+                    if let Some(output) = &step.output {
+                        lines.extend(output.iter().map(Self::line_from_output));
+                    }
+                }
+                StepType::Comment => {
+                    if let Some(description) = &step.description {
+                        lines.push(format!("# {description}"));
+                    }
+                }
+                StepType::Clear => {
+                    lines.push("[screen cleared]".to_string());
+                }
+                StepType::Pause => {
+                    lines.push("[pause]".to_string());
+                }
+                _ => {}
+            }
+
+            idx += 1;
+        }
+
+        (lines, idx)
+    }
+
+    fn line_from_output(line: &OutputLine) -> String {
+        let prefix = line.prefix.clone().unwrap_or_default();
+        let indent = " ".repeat(line.indent as usize * 2);
+        if prefix.is_empty() {
+            format!("{}{}", indent, line.text)
+        } else {
+            format!("{}{} {}", indent, prefix, line.text)
+        }
+    }
 }
 
 fn run_terminal_command(
@@ -93,10 +132,6 @@ fn run_terminal_command(
     set_cursor: WriteSignal<usize>,
 ) {
     let raw_input = input.get();
-    let command = normalize_input(&raw_input);
-    if command.is_empty() {
-        return;
-    }
 
     let Some(state) = demo.get() else {
         history.update(|lines| lines.push("Demo is still loading. Try again in a moment.".to_string()));
@@ -111,17 +146,11 @@ fn run_terminal_command(
         }
     };
 
-    let mut next_lines = vec![format!("{} {}", loaded.theme.prompt_string, command.clone())];
-
-    if let Some(command_idx) =
-        next_command_index(&loaded.steps, &command, cursor.get(), loaded.settings.engine_mode)
-    {
-        let (playback_lines, next_cursor) = playback_after_command(&loaded.steps, command_idx);
-        next_lines.extend(playback_lines);
-        set_cursor.set(next_cursor);
-    } else {
-        next_lines.push(loaded.settings.not_found_message);
-    }
+    let mut engine = CliEngine::new(&loaded, cursor.get());
+    let Some(next_lines) = engine.run_command(&raw_input) else {
+        return;
+    };
+    set_cursor.set(engine.cursor);
 
     history.update(|lines| lines.extend(next_lines));
     set_input.set(String::new());

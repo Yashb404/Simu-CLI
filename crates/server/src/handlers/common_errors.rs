@@ -1,34 +1,18 @@
 use axum::{
-    extract::{Path, State},
+    extract::State,
     http::StatusCode,
     Json,
 };
-use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    auth::AuthUser,
-    error::{ApiError, HandlerResult},
+    error::HandlerResult,
+    handlers::owned_demo::OwnedDemo,
     state::AppState,
 };
 use shared::{
     dto::{CommonErrorRow, RecordCommonErrorRequest},
-    error::AppError,
 };
-
-async fn ensure_demo_owner(state: &AppState, demo_id: Uuid, owner_id: Uuid) -> HandlerResult<()> {
-    let exists: Option<Uuid> = sqlx::query_scalar("SELECT id FROM demos WHERE id = $1 AND owner_id = $2")
-        .bind(demo_id)
-        .bind(owner_id)
-        .fetch_optional(&state.db)
-        .await?;
-
-    if exists.is_none() {
-        return Err(ApiError(AppError::NotFound));
-    }
-
-    Ok(())
-}
 
 pub async fn record_common_error(
     State(state): State<AppState>,
@@ -55,11 +39,8 @@ pub async fn record_common_error(
 
 pub async fn get_common_errors(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
-    AuthUser(user): AuthUser,
+    OwnedDemo(demo): OwnedDemo,
 ) -> HandlerResult<Json<Vec<CommonErrorRow>>> {
-    ensure_demo_owner(&state, id, user.id).await?;
-
     let rows = sqlx::query_as::<_, CommonErrorRow>(
         r#"
         SELECT command_text, count
@@ -69,7 +50,7 @@ pub async fn get_common_errors(
         LIMIT 10
         "#,
     )
-    .bind(id)
+    .bind(demo.id)
     .fetch_all(&state.db)
     .await?;
 

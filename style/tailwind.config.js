@@ -6,13 +6,14 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        ink: "#101828",
-        mist: "#f2f4f7",
-        accent: "#16a34a"
+        ink: "#f5f5f5",
+        void: "#090909",
+        panel: "#111111",
+        line: "#2a2a2a"
       },
       fontFamily: {
-        display: ["Sora", "sans-serif"],
-        mono: ["JetBrains Mono", "monospace"]
+        display: ["Space Grotesk", "sans-serif"],
+        mono: ["IBM Plex Mono", "monospace"]
       }
     }
   },
