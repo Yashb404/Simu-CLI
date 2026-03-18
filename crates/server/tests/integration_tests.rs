@@ -18,7 +18,10 @@ use axum::{
 };
 use server::{
     auth::AuthUser,
-    handlers::demos::{self, ListMyDemosQuery},
+    handlers::{
+        demos::{self, ListMyDemosQuery},
+        owned_demo::OwnedDemo,
+    },
 };
 use shared::dto::{CreateDemoRequest, UpdateDemoRequest};
 use tower::ServiceExt; // `oneshot`
@@ -342,8 +345,7 @@ async fn demo_crud_happy_path() {
 
     let updated_demo = demos::update_demo(
         State(state.clone()),
-        Path(created_demo.0.id),
-        AuthUser(user.clone()),
+        OwnedDemo(created_demo.0.clone()),
         Json(UpdateDemoRequest {
             title: Some("CRUD Demo Updated".to_string()),
             slug: Some("crud-demo-updated".to_string()),
@@ -380,8 +382,7 @@ async fn demo_crud_happy_path() {
 
     let delete_status = demos::delete_demo(
         State(state.clone()),
-        Path(created_demo.0.id),
-        AuthUser(user.clone()),
+        OwnedDemo(updated_demo.clone()),
     )
     .await
     .expect("delete_demo should succeed");
@@ -419,8 +420,7 @@ async fn publish_makes_demo_publicly_accessible() {
 
     let publish = demos::publish_demo(
         State(state.clone()),
-        Path(created_demo.0.id),
-        AuthUser(user.clone()),
+        OwnedDemo(created_demo.0.clone()),
     )
     .await
     .expect("publish_demo should succeed")

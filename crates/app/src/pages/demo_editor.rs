@@ -3,7 +3,7 @@ use leptos::task::spawn_local;
 use leptos_router::hooks::use_params_map;
 use shared::{
     dto::UpdateDemoRequest,
-    models::demo::{DemoSettings, Step, StepType, Theme},
+    models::demo::{DemoSettings, EngineMode, Step, StepType, Theme, WindowStyle},
 };
 
 use crate::api;
@@ -24,8 +24,27 @@ pub fn DemoEditorPage() -> impl IntoView {
     let (title, set_title) = signal(String::new());
     let (slug, set_slug) = signal(String::new());
     let (steps, set_steps) = signal(Vec::<Step>::new());
-    let (settings, set_settings) = signal(Option::<DemoSettings>::None);
-    let (theme, set_theme) = signal(Option::<Theme>::None);
+    let (settings, set_settings) = signal(Some(DemoSettings {
+        engine_mode: EngineMode::Sequential,
+        autoplay: false,
+        loop_demo: false,
+        loop_delay_ms: 800,
+        show_restart_button: true,
+        show_hints: false,
+        not_found_message: "command not found".to_string(),
+    }));
+    let (theme, set_theme) = signal(Some(Theme {
+        window_style: WindowStyle::MacOs,
+        window_title: "Terminal".to_string(),
+        preset: Some("default".to_string()),
+        bg_color: "#090909".to_string(),
+        fg_color: "#f5f5f5".to_string(),
+        cursor_color: "#ffffff".to_string(),
+        font_family: "IBM Plex Mono".to_string(),
+        font_size: 14,
+        line_height: 1.4,
+        prompt_string: "$".to_string(),
+    }));
     let (status, set_status) = signal(String::new());
     let (published_slug, set_published_slug) = signal(String::new());
 
