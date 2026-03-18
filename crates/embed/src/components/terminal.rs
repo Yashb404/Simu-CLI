@@ -6,48 +6,57 @@ use shared::{
     },
 };
 
-use crate::{input_handler::normalize_input, matching::command_matches};
+use crate::{
+    input_handler::normalize_input,
+    matching::command_matches,
+    messaging::{EmbedEvent, post_event_to_parent},
+};
 
 fn indexed_lines(lines: Vec<String>) -> Vec<(usize, String)> {
     lines.into_iter().enumerate().collect::<Vec<(usize, String)>>()
 }
 
-struct CliEngine<'a> {
-    steps: &'a [Step],
+#[derive(Clone)]
+struct CliEngine {
+    demo_id: String,
+    steps: Vec<Step>,
     mode: EngineMode,
-    prompt_string: &'a str,
-    not_found_message: &'a str,
+    prompt_string: String,
+    not_found_message: String,
     cursor: usize,
 }
 
-impl<'a> CliEngine<'a> {
-    fn new(demo: &'a PublicDemoResponse, cursor: usize) -> Self {
+impl CliEngine {
+    fn new(demo: &PublicDemoResponse) -> Self {
         Self {
-            steps: &demo.steps,
+            demo_id: demo.id.to_string(),
+            steps: demo.steps.clone(),
             mode: demo.settings.engine_mode.clone(),
-            prompt_string: &demo.theme.prompt_string,
-            not_found_message: &demo.settings.not_found_message,
-            cursor,
+            prompt_string: demo.theme.prompt_string.clone(),
+            not_found_message: demo.settings.not_found_message.clone(),
+            cursor: 0,
         }
     }
 
-    fn run_command(&mut self, raw_input: &str) -> Option<Vec<String>> {
+    fn run_command(&mut self, raw_input: &str) -> Option<(Vec<String>, bool)> {
         let command = normalize_input(raw_input);
         if command.is_empty() {
             return None;
         }
 
         let mut next_lines = vec![format!("{} {}", self.prompt_string, command.clone())];
+        let mut completed = false;
 
         if let Some(command_idx) = self.next_command_index(&command) {
             let (playback_lines, next_cursor) = self.playback_after_command(command_idx);
             next_lines.extend(playback_lines);
             self.cursor = next_cursor;
+            completed = self.cursor >= self.steps.len();
         } else {
             next_lines.push(self.not_found_message.to_string());
         }
 
-        Some(next_lines)
+        Some((next_lines, completed))
     }
 
     fn next_command_index(&self, command: &str) -> Option<usize> {
@@ -124,35 +133,47 @@ impl<'a> CliEngine<'a> {
 }
 
 fn run_terminal_command(
-    demo: ReadSignal<Option<Result<PublicDemoResponse, String>>>,
+    engine: ReadSignal<Option<CliEngine>>,
+    set_engine: WriteSignal<Option<CliEngine>>,
     input: ReadSignal<String>,
     set_input: WriteSignal<String>,
     history: WriteSignal<Vec<String>>,
-    cursor: ReadSignal<usize>,
-    set_cursor: WriteSignal<usize>,
 ) {
     let raw_input = input.get();
 
-    let Some(state) = demo.get() else {
-        history.update(|lines| lines.push("Demo is still loading. Try again in a moment.".to_string()));
-        return;
-    };
+    let mut event_demo_id = None;
+    let mut next_lines = None;
+    let mut is_completion = false;
 
-    let loaded = match state {
-        Ok(value) => value,
-        Err(error) => {
-            history.update(|lines| lines.push(format!("Unable to run command: {error}")));
+    set_engine.update(|maybe_engine| {
+        let Some(engine) = maybe_engine.as_mut() else {
             return;
-        }
-    };
+        };
 
-    let mut engine = CliEngine::new(&loaded, cursor.get());
-    let Some(next_lines) = engine.run_command(&raw_input) else {
+        if let Some((lines, completed)) = engine.run_command(&raw_input) {
+            event_demo_id = Some(engine.demo_id.clone());
+            next_lines = Some(lines);
+            is_completion = completed;
+        }
+    });
+
+    let Some(lines) = next_lines else {
+        if engine.get().is_none() {
+            history.update(|items| {
+                items.push("Demo is still loading. Try again in a moment.".to_string())
+            });
+        }
         return;
     };
-    set_cursor.set(engine.cursor);
 
-    history.update(|lines| lines.extend(next_lines));
+    if let Some(demo_id) = event_demo_id {
+        let _ = post_event_to_parent(&EmbedEvent::interaction(demo_id.clone(), &raw_input));
+        if is_completion {
+            let _ = post_event_to_parent(&EmbedEvent::completion(demo_id));
+        }
+    }
+
+    history.update(|items| items.extend(lines));
     set_input.set(String::new());
 }
 
@@ -160,7 +181,22 @@ fn run_terminal_command(
 pub fn TerminalUI(demo: ReadSignal<Option<Result<PublicDemoResponse, String>>>) -> impl IntoView {
     let (input, set_input) = signal(String::new());
     let (history, set_history) = signal(vec!["Preview runtime initialized.".to_string()]);
-    let (cursor, set_cursor) = signal(0usize);
+    let (engine, set_engine) = signal(Option::<CliEngine>::None);
+    let (view_event_demo_id, set_view_event_demo_id) = signal(Option::<String>::None);
+
+    Effect::new(move |_| {
+        let Some(Ok(loaded)) = demo.get() else {
+            return;
+        };
+
+        let next_demo_id = loaded.id.to_string();
+        set_engine.set(Some(CliEngine::new(&loaded)));
+
+        if view_event_demo_id.get().as_deref() != Some(next_demo_id.as_str()) {
+            let _ = post_event_to_parent(&EmbedEvent::view(next_demo_id.clone()));
+            set_view_event_demo_id.set(Some(next_demo_id));
+        }
+    });
 
     view! {
         <section class="terminal-ui" aria-label="CLI simulator terminal">
@@ -198,7 +234,7 @@ pub fn TerminalUI(demo: ReadSignal<Option<Result<PublicDemoResponse, String>>>) 
                     on:input=move |ev| set_input.set(event_target_value(&ev))
                     on:keydown=move |ev: leptos::ev::KeyboardEvent| {
                         if ev.key() == "Enter" {
-                            run_terminal_command(demo, input, set_input, set_history, cursor, set_cursor);
+                            run_terminal_command(engine, set_engine, input, set_input, set_history);
                         }
                     }
                     placeholder="Type a command"
@@ -206,7 +242,7 @@ pub fn TerminalUI(demo: ReadSignal<Option<Result<PublicDemoResponse, String>>>) 
                 <button
                     type="button"
                     on:click=move |_| {
-                        run_terminal_command(demo, input, set_input, set_history, cursor, set_cursor);
+                        run_terminal_command(engine, set_engine, input, set_input, set_history);
                     }
                 >
                     "Run"
