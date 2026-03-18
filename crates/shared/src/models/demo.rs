@@ -123,6 +123,7 @@ pub struct DemoSettings {
     pub not_found_message: String,
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), derive(sqlx::FromRow))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Demo {
     pub id: Uuid,
@@ -132,54 +133,12 @@ pub struct Demo {
     pub slug: Option<String>,
     pub published: bool,
     pub version: i32,
+    #[cfg_attr(not(target_arch = "wasm32"), sqlx(json))]
     pub theme: Theme,
+    #[cfg_attr(not(target_arch = "wasm32"), sqlx(json))]
     pub settings: DemoSettings,
+    #[cfg_attr(not(target_arch = "wasm32"), sqlx(json))]
     pub steps: Vec<Step>,
     pub created_at: OffsetDateTime,
     pub updated_at: OffsetDateTime,
-}
-
-/// Database model for Demo - what's stored & retrieved from Postgres
-#[cfg(not(target_arch = "wasm32"))]
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
-pub struct DemoDb {
-    pub id: Uuid,
-    pub owner_id: Uuid,
-    pub project_id: Option<Uuid>,
-    pub slug: Option<String>,
-    pub title: String,
-    pub engine_mode: String,  // "sequential" or "free_play"
-    pub theme: sqlx::types::Json<Theme>,
-    pub settings: sqlx::types::Json<DemoSettings>,
-    pub steps: sqlx::types::Json<Vec<Step>>,
-    pub published: bool,
-    pub version: i32,
-    pub created_at: OffsetDateTime,
-    pub updated_at: OffsetDateTime,
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-impl DemoDb {
-    /// Convert database model to domain model
-    pub fn to_domain(self) -> Result<Demo, String> {
-        // sqlx::types::Json<T> dereferences to T, so we can clone the inner values
-        let theme = (*self.theme).clone();
-        let settings = (*self.settings).clone();
-        let steps = (*self.steps).clone();
-        
-        Ok(Demo {
-            id: self.id,
-            owner_id: self.owner_id,
-            project_id: self.project_id,
-            title: self.title,
-            slug: self.slug,
-            published: self.published,
-            version: self.version,
-            theme,
-            settings,
-            steps,
-            created_at: self.created_at,
-            updated_at: self.updated_at,
-        })
-    }
 }

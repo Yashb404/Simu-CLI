@@ -14,6 +14,17 @@ pub fn normalize_step_orders(steps: &mut [Step]) {
     }
 }
 
+fn reorder<T: Clone>(items: &[T], from_index: usize, to_index: usize) -> Vec<T> {
+    if from_index >= items.len() || to_index >= items.len() || from_index == to_index {
+        return items.to_vec();
+    }
+
+    let mut next = items.to_vec();
+    let item = next.remove(from_index);
+    next.insert(to_index, item);
+    next
+}
+
 pub fn create_default_step(step_type: StepType, order: i32) -> Step {
     let mut step = Step {
         id: Uuid::new_v4(),
@@ -88,7 +99,7 @@ pub fn StepListEditor(
                     move |_| {
                         set_steps.update(|items| {
                             if idx > 0 && idx < items.len() {
-                                items.swap(idx, idx - 1);
+                                *items = reorder(items, idx, idx - 1);
                             }
                             normalize_step_orders(items);
                         });
@@ -100,7 +111,7 @@ pub fn StepListEditor(
                     move |_| {
                         set_steps.update(|items| {
                             if idx + 1 < items.len() {
-                                items.swap(idx, idx + 1);
+                                *items = reorder(items, idx, idx + 1);
                             }
                             normalize_step_orders(items);
                         });

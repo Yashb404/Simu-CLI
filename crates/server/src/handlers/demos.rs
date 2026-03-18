@@ -19,9 +19,7 @@ use crate::{
 use shared::{
     dto::{CreateDemoRequest, PublicDemoResponse, UpdateDemoRequest},
     error::AppError,
-    models::demo::{
-        Demo, DemoDb, DemoSettings, EngineMode, Step, Theme, WindowStyle,
-    },
+    models::demo::{Demo, DemoSettings, EngineMode, Step, Theme, WindowStyle},
 };
 
 const DEFAULT_PAGE_LIMIT: i64 = 50;
@@ -126,7 +124,7 @@ pub async fn create_demo(
     let settings = default_settings();
     let steps: Vec<Step> = Vec::new();
 
-    let demo_db = sqlx::query_as::<_, DemoDb>(
+    let demo = sqlx::query_as::<_, Demo>(
         r#"
         INSERT INTO demos (owner_id, project_id, title, engine_mode, theme, settings, steps)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -144,10 +142,6 @@ pub async fn create_demo(
     .fetch_one(&state.db)
     .await?;
 
-    let demo = demo_db
-        .to_domain()
-        .map_err(|e| ApiError(AppError::Internal).tap_log(e))?;
-
     Ok((StatusCode::CREATED, Json(demo)))
 }
 
@@ -156,7 +150,7 @@ pub async fn get_demo(
     Path(id): Path<Uuid>,
     session: Session,
 ) -> HandlerResult<Json<Demo>> {
-    let demo_db = sqlx::query_as::<_, DemoDb>(
+    let demo = sqlx::query_as::<_, Demo>(
         r#"
         SELECT id, owner_id, project_id, slug, title, engine_mode, theme, settings, steps,
                published, version, created_at, updated_at
@@ -177,13 +171,9 @@ pub async fn get_demo(
             ApiError(AppError::Internal)
         })?;
 
-    if !demo_db.published && maybe_user_id != Some(demo_db.owner_id) {
+    if !demo.published && maybe_user_id != Some(demo.owner_id) {
         return Err(ApiError(AppError::NotFound));
     }
-
-    let demo = demo_db
-        .to_domain()
-        .map_err(|e| ApiError(AppError::Internal).tap_log(e))?;
 
     Ok(Json(demo))
 }
@@ -196,7 +186,7 @@ pub async fn update_demo(
 ) -> HandlerResult<Json<Demo>> {
     payload.validate()?;
 
-    let existing = sqlx::query_as::<_, DemoDb>(
+    let existing = sqlx::query_as::<_, Demo>(
         r#"
         SELECT id, owner_id, project_id, slug, title, engine_mode, theme, settings, steps,
                published, version, created_at, updated_at
@@ -212,9 +202,9 @@ pub async fn update_demo(
 
     let mut title = existing.title;
     let mut slug = existing.slug;
-    let mut theme = (*existing.theme).clone();
-    let mut settings = (*existing.settings).clone();
-    let mut steps = (*existing.steps).clone();
+    let mut theme = existing.theme.clone();
+    let mut settings = existing.settings.clone();
+    let mut steps = existing.steps.clone();
 
     if let Some(new_title) = payload.title {
         title = new_title;
@@ -232,7 +222,7 @@ pub async fn update_demo(
         steps = new_steps;
     }
 
-    let updated = sqlx::query_as::<_, DemoDb>(
+    let updated = sqlx::query_as::<_, Demo>(
         r#"
         UPDATE demos
         SET title = $1,
@@ -258,11 +248,7 @@ pub async fn update_demo(
     .fetch_one(&state.db)
     .await?;
 
-    let demo = updated
-        .to_domain()
-        .map_err(|e| ApiError(AppError::Internal).tap_log(e))?;
-
-    Ok(Json(demo))
+    Ok(Json(updated))
 }
 
 pub async fn delete_demo(
@@ -290,7 +276,7 @@ pub async fn list_my_demos(
 ) -> HandlerResult<Json<Vec<Demo>>> {
     let (limit, offset) = sanitize_pagination(query.limit, query.offset);
 
-    let rows = sqlx::query_as::<_, DemoDb>(
+    let rows = sqlx::query_as::<_, Demo>(
         r#"
         SELECT id, owner_id, project_id, slug, title, engine_mode, theme, settings, steps,
                published, version, created_at, updated_at
@@ -310,22 +296,14 @@ pub async fn list_my_demos(
     .fetch_all(&state.db)
     .await?;
 
-    let mut demos = Vec::with_capacity(rows.len());
-    for row in rows {
-        let demo = row
-            .to_domain()
-            .map_err(|e| ApiError(AppError::Internal).tap_log(e))?;
-        demos.push(demo);
-    }
-
-    Ok(Json(demos))
+    Ok(Json(rows))
 }
 
 pub async fn get_public_demo(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> HandlerResult<Response> {
-    let demo = sqlx::query_as::<_, DemoDb>(
+    let demo = sqlx::query_as::<_, Demo>(
         r#"
         SELECT id, owner_id, project_id, slug, title, engine_mode, theme, settings, steps,
                published, version, created_at, updated_at
@@ -342,9 +320,9 @@ pub async fn get_public_demo(
         id: demo.id,
         slug: demo.slug.clone(),
         version: demo.version,
-        theme: (*demo.theme).clone(),
-        settings: (*demo.settings).clone(),
-        steps: (*demo.steps).clone(),
+        theme: demo.theme.clone(),
+        settings: demo.settings.clone(),
+        steps: demo.steps.clone(),
     };
 
     let mut response = Json(payload).into_response();
@@ -366,7 +344,7 @@ pub async fn publish_demo(
     Path(id): Path<Uuid>,
     AuthUser(user): AuthUser,
 ) -> HandlerResult<Json<PublishDemoResponse>> {
-    let existing = sqlx::query_as::<_, DemoDb>(
+    let existing = sqlx::query_as::<_, Demo>(
         r#"
         SELECT id, owner_id, project_id, slug, title, engine_mode, theme, settings, steps,
                published, version, created_at, updated_at
@@ -393,7 +371,7 @@ pub async fn publish_demo(
             }
         });
 
-    let updated = sqlx::query_as::<_, DemoDb>(
+    let updated = sqlx::query_as::<_, Demo>(
         r#"
         UPDATE demos
         SET published = TRUE,
@@ -425,7 +403,7 @@ pub async fn get_demo_og_image(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> HandlerResult<Response> {
-    let demo = sqlx::query_as::<_, DemoDb>(
+    let demo = sqlx::query_as::<_, Demo>(
         r#"
         SELECT id, owner_id, project_id, slug, title, engine_mode, theme, settings, steps,
                published, version, created_at, updated_at
@@ -438,7 +416,7 @@ pub async fn get_demo_og_image(
     .await?
     .ok_or(ApiError(AppError::NotFound))?;
 
-        let svg = services::og_image::generate_og_svg(&demo.title, demo.version);
+    let svg = services::og_image::generate_og_svg(&demo.title, demo.version);
 
     let mut response = (StatusCode::OK, svg).into_response();
     response.headers_mut().insert(
@@ -451,17 +429,6 @@ pub async fn get_demo_og_image(
     );
 
     Ok(response)
-}
-
-trait ApiErrorTapLog {
-    fn tap_log(self, details: String) -> Self;
-}
-
-impl ApiErrorTapLog for ApiError {
-    fn tap_log(self, details: String) -> Self {
-        tracing::error!("{details}");
-        self
-    }
 }
 
 #[cfg(test)]

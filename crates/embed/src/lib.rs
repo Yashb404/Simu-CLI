@@ -29,12 +29,13 @@ use wasm_bindgen::prelude::*;
 
 #[component]
 pub fn EmbedApp() -> impl IntoView {
-    let (demo, _set_demo) = signal(Option::<PublicDemoResponse>::None);
-    let (status, _set_status) = signal(String::new());
+    let (demo, _set_demo) = signal(Option::<Result<PublicDemoResponse, String>>::None);
 
     #[cfg(target_arch = "wasm32")]
     Effect::new(move |_| {
+        let set_demo = _set_demo;
         let Some(demo_id) = query_param_value("demo_id") else {
+            set_demo.set(Some(Err("Missing demo_id query parameter".to_string())));
             return;
         };
 
@@ -44,16 +45,13 @@ pub fn EmbedApp() -> impl IntoView {
         let endpoint = format!("{api_base}/api/demos/{demo_id}/public");
 
         leptos::task::spawn_local({
-            let set_demo = _set_demo;
-            let set_status = _set_status;
             async move {
                 match api::fetch_public_demo(&endpoint).await {
                     Ok(public_demo) => {
-                        set_demo.set(Some(public_demo));
-                        set_status.set(String::new());
+                        set_demo.set(Some(Ok(public_demo)));
                     }
                     Err(err) => {
-                        set_status.set(format!("Using fallback demo: {err}"));
+                        set_demo.set(Some(Err(err.to_string())));
                     }
                 }
             }
@@ -62,9 +60,6 @@ pub fn EmbedApp() -> impl IntoView {
 
     view! {
         <components::terminal::TerminalUI demo=demo />
-        <Show when=move || !status.get().is_empty()>
-            <p>{move || status.get()}</p>
-        </Show>
     }
 }
 

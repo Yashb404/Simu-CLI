@@ -1,21 +1,11 @@
 use shared::dto::PublicDemoResponse;
+#[cfg(target_arch = "wasm32")]
+use shared::client::{fetch, send, HttpMethod};
 use uuid::Uuid;
 
 #[cfg(target_arch = "wasm32")]
 pub async fn fetch_public_demo(endpoint: &str) -> Result<PublicDemoResponse, String> {
-    let response = gloo_net::http::Request::get(endpoint)
-        .send()
-        .await
-        .map_err(|e| format!("request failed: {e}"))?;
-
-    if !response.ok() {
-        return Err(format!("request failed with status {}", response.status()));
-    }
-
-    response
-        .json::<PublicDemoResponse>()
-        .await
-        .map_err(|e| format!("invalid demo payload: {e}"))
+    fetch(HttpMethod::Get, endpoint, None, false).await
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -36,19 +26,7 @@ pub async fn post_analytics_event(
         "step_index": step_index,
     });
 
-    let response = gloo_net::http::Request::post(endpoint)
-        .header("content-type", "application/json")
-        .body(payload.to_string())
-        .map_err(|e| format!("request build failed: {e}"))?
-        .send()
-        .await
-        .map_err(|e| format!("request failed: {e}"))?;
-
-    if !response.ok() {
-        return Err(format!("analytics request failed with status {}", response.status()));
-    }
-
-    Ok(())
+    send(HttpMethod::Post, endpoint, Some(&payload.to_string()), false).await
 }
 
 #[cfg(not(target_arch = "wasm32"))]

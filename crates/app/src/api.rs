@@ -1,10 +1,9 @@
-use gloo_net::http::{Request, RequestBuilder};
 use serde::{Deserialize, Serialize};
 use shared::{
+    client::{fetch, HttpMethod},
     dto::UpdateDemoRequest,
     models::demo::{Demo, DemoSettings, Step, Theme},
 };
-use web_sys::RequestCredentials;
 
 fn normalize_base(base: &str) -> String {
     let trimmed = base.trim().trim_end_matches('/');
@@ -94,49 +93,6 @@ fn build_query_path(path: &str, params: Vec<(&str, String)>) -> String {
     api_url(&format!("{path}?{query}"))
 }
 
-async fn send_json_builder<T: for<'de> Deserialize<'de>>(request: RequestBuilder) -> Result<T, String> {
-    let response = request
-        .credentials(RequestCredentials::Include)
-        .send()
-        .await
-        .map_err(|e| format!("request failed: {e}"))?;
-
-    if !response.ok() {
-        let status = response.status();
-        let body = response.text().await.unwrap_or_else(|_| "".to_string());
-        if status == 401 {
-            return Err("Not logged in. Click Login with GitHub and retry.".to_string());
-        }
-        return Err(format!("request failed with status {status}: {body}"));
-    }
-
-    response
-        .json::<T>()
-        .await
-        .map_err(|e| format!("invalid response payload: {e}"))
-}
-
-async fn send_json_request<T: for<'de> Deserialize<'de>>(request: Request) -> Result<T, String> {
-    let response = request
-        .send()
-        .await
-        .map_err(|e| format!("request failed: {e}"))?;
-
-    if !response.ok() {
-        let status = response.status();
-        let body = response.text().await.unwrap_or_else(|_| "".to_string());
-        if status == 401 {
-            return Err("Not logged in. Click Login with GitHub and retry.".to_string());
-        }
-        return Err(format!("request failed with status {status}: {body}"));
-    }
-
-    response
-        .json::<T>()
-        .await
-        .map_err(|e| format!("invalid response payload: {e}"))
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DashboardProject {
     pub id: String,
@@ -216,19 +172,13 @@ pub async fn list_projects_with_paging(
     }
 
     let url = build_query_path("/api/me/projects", params);
-    send_json_builder(Request::get(&url)).await
+    fetch(HttpMethod::Get, &url, None, true).await
 }
 
 pub async fn create_project(name: &str, description: Option<&str>) -> Result<DashboardProject, String> {
     let payload = CreateProjectRequest { name, description };
-    send_json_request(
-        Request::post(&api_url("/api/projects"))
-            .credentials(RequestCredentials::Include)
-            .header("content-type", "application/json")
-            .body(serde_json::to_string(&payload).map_err(|e| format!("serialize body: {e}"))?)
-            .map_err(|e| format!("build request: {e}"))?,
-    )
-    .await
+    let body = serde_json::to_string(&payload).map_err(|e| format!("serialize body: {e}"))?;
+    fetch(HttpMethod::Post, &api_url("/api/projects"), Some(&body), true).await
 }
 
 pub async fn list_demos() -> Result<Vec<DashboardDemo>, String> {
@@ -256,27 +206,21 @@ pub async fn list_demos_with_filters(
     }
 
     let url = build_query_path("/api/me/demos", params);
-    send_json_builder(Request::get(&url)).await
+    fetch(HttpMethod::Get, &url, None, true).await
 }
 
 pub async fn get_demo(id: &str) -> Result<DashboardDemo, String> {
-    send_json_builder(Request::get(&api_url(&format!("/api/demos/{id}")))).await
+    fetch(HttpMethod::Get, &api_url(&format!("/api/demos/{id}")), None, true).await
 }
 
 pub async fn get_demo_detail(id: &str) -> Result<Demo, String> {
-    send_json_builder(Request::get(&api_url(&format!("/api/demos/{id}")))).await
+    fetch(HttpMethod::Get, &api_url(&format!("/api/demos/{id}")), None, true).await
 }
 
 pub async fn create_demo(title: &str, project_id: Option<&str>) -> Result<DashboardDemo, String> {
     let payload = CreateDemoRequest { title, project_id };
-    send_json_request(
-        Request::post(&api_url("/api/demos"))
-            .credentials(RequestCredentials::Include)
-            .header("content-type", "application/json")
-            .body(serde_json::to_string(&payload).map_err(|e| format!("serialize body: {e}"))?)
-            .map_err(|e| format!("build request: {e}"))?,
-    )
-    .await
+    let body = serde_json::to_string(&payload).map_err(|e| format!("serialize body: {e}"))?;
+    fetch(HttpMethod::Post, &api_url("/api/demos"), Some(&body), true).await
 }
 
 pub async fn update_demo(id: &str, title: Option<&str>, slug: Option<&str>) -> Result<DashboardDemo, String> {
@@ -294,28 +238,46 @@ pub async fn update_demo(id: &str, title: Option<&str>, slug: Option<&str>) -> R
 }
 
 pub async fn update_demo_payload(id: &str, payload: &UpdateDemoRequest) -> Result<DashboardDemo, String> {
-    send_json_request(
-        Request::patch(&api_url(&format!("/api/demos/{id}")))
-            .credentials(RequestCredentials::Include)
-            .header("content-type", "application/json")
-            .body(serde_json::to_string(payload).map_err(|e| format!("serialize body: {e}"))?)
-            .map_err(|e| format!("build request: {e}"))?,
+    let body = serde_json::to_string(payload).map_err(|e| format!("serialize body: {e}"))?;
+    fetch(HttpMethod::Patch, &api_url(&format!("/api/demos/{id}")), Some(&body), true).await
+}
+
+pub async fn publish_demo(id: &str) -> Result<PublishResponse, String> {
+    fetch(
+        HttpMethod::Post,
+        &api_url(&format!("/api/demos/{id}/publish")),
+        None,
+        true,
     )
     .await
 }
 
-pub async fn publish_demo(id: &str) -> Result<PublishResponse, String> {
-    send_json_builder(Request::post(&api_url(&format!("/api/demos/{id}/publish")))).await
-}
-
 pub async fn get_analytics_series(id: &str) -> Result<Vec<AnalyticsSeriesPoint>, String> {
-    send_json_builder(Request::get(&api_url(&format!("/api/demos/{id}/analytics")))).await
+    fetch(
+        HttpMethod::Get,
+        &api_url(&format!("/api/demos/{id}/analytics")),
+        None,
+        true,
+    )
+    .await
 }
 
 pub async fn get_analytics_referrers(id: &str) -> Result<Vec<ReferrerCount>, String> {
-    send_json_builder(Request::get(&api_url(&format!("/api/demos/{id}/analytics/referrers")))).await
+    fetch(
+        HttpMethod::Get,
+        &api_url(&format!("/api/demos/{id}/analytics/referrers")),
+        None,
+        true,
+    )
+    .await
 }
 
 pub async fn get_analytics_funnel(id: &str) -> Result<Vec<FunnelPoint>, String> {
-    send_json_builder(Request::get(&api_url(&format!("/api/demos/{id}/analytics/funnel")))).await
+    fetch(
+        HttpMethod::Get,
+        &api_url(&format!("/api/demos/{id}/analytics/funnel")),
+        None,
+        true,
+    )
+    .await
 }

@@ -2,7 +2,6 @@ pub mod app;
 pub mod api;
 pub mod components;
 pub mod pages;
-pub mod utils;
 
 pub use app::App;
 

@@ -15,7 +15,7 @@ use crate::{
 use shared::{
     dto::{CreateProjectRequest, UpdateProjectRequest},
     error::AppError,
-    models::project::{Project, ProjectDb},
+    models::project::Project,
 };
 
 const DEFAULT_PAGE_LIMIT: i64 = 50;
@@ -42,7 +42,7 @@ pub async fn create_project(
 ) -> HandlerResult<(StatusCode, Json<Project>)> {
     payload.validate()?;
 
-    let row = sqlx::query_as::<_, ProjectDb>(
+    let row = sqlx::query_as::<_, Project>(
         r#"
         INSERT INTO projects (owner_id, name, description)
         VALUES ($1, $2, $3)
@@ -55,7 +55,7 @@ pub async fn create_project(
     .fetch_one(&state.db)
     .await?;
 
-    Ok((StatusCode::CREATED, Json(row.to_domain())))
+    Ok((StatusCode::CREATED, Json(row)))
 }
 
 pub async fn list_my_projects(
@@ -65,7 +65,7 @@ pub async fn list_my_projects(
 ) -> HandlerResult<Json<Vec<Project>>> {
     let (limit, offset) = sanitize_pagination(query.limit, query.offset);
 
-    let rows = sqlx::query_as::<_, ProjectDb>(
+    let rows = sqlx::query_as::<_, Project>(
         r#"
         SELECT id, owner_id, name, description, created_at, updated_at
         FROM projects
@@ -80,7 +80,7 @@ pub async fn list_my_projects(
     .fetch_all(&state.db)
     .await?;
 
-    Ok(Json(rows.into_iter().map(ProjectDb::to_domain).collect()))
+    Ok(Json(rows))
 }
 
 pub async fn update_project(
@@ -91,7 +91,7 @@ pub async fn update_project(
 ) -> HandlerResult<Json<Project>> {
     payload.validate()?;
 
-    let existing = sqlx::query_as::<_, ProjectDb>(
+    let existing = sqlx::query_as::<_, Project>(
         r#"
         SELECT id, owner_id, name, description, created_at, updated_at
         FROM projects
@@ -107,7 +107,7 @@ pub async fn update_project(
     let name = payload.name.unwrap_or(existing.name);
     let description = payload.description.or(existing.description);
 
-    let updated = sqlx::query_as::<_, ProjectDb>(
+    let updated = sqlx::query_as::<_, Project>(
         r#"
         UPDATE projects
         SET name = $1,
@@ -124,7 +124,7 @@ pub async fn update_project(
     .fetch_one(&state.db)
     .await?;
 
-    Ok(Json(updated.to_domain()))
+    Ok(Json(updated))
 }
 
 pub async fn delete_project(
