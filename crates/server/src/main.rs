@@ -1,12 +1,14 @@
 use anyhow::Context;
 use server::{config, middleware, router, state};
 use axum::http::{header, HeaderValue, Method};
+use axum::routing::get_service;
 use governor::{Quota, RateLimiter};
 use sqlx::postgres::PgPoolOptions;
 use std::{net::SocketAddr, num::NonZeroU32, sync::Arc};
 use tower_http::{
     compression::CompressionLayer,
     cors::{AllowOrigin, CorsLayer},
+    services::{ServeDir, ServeFile},
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use tower_sessions::{cookie::SameSite, Expiry, SessionManagerLayer};
@@ -89,7 +91,28 @@ async fn main() -> anyhow::Result<()> {
         .allow_headers([header::CONTENT_TYPE, header::ACCEPT, header::AUTHORIZATION])
         .allow_credentials(true);
 
+    let workspace_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let app_dist_dir = workspace_root.join("crates/app/dist");
+    let embed_dist_dir = workspace_root.join("crates/app/embed");
+    let static_dir = workspace_root.join("static");
+
+    let app_index = app_dist_dir.join("index.html");
+    let embed_index = embed_dist_dir.join("index.html");
+
+    let app_static = get_service(
+        ServeDir::new(&app_dist_dir).not_found_service(ServeFile::new(&app_index)),
+    );
+    let embed_static = get_service(
+        ServeDir::new(&embed_dist_dir).not_found_service(ServeFile::new(&embed_index)),
+    );
+    let static_assets = get_service(ServeDir::new(&static_dir));
+
     let app = router::create_router(state.clone())
+        .route_service("/embed", ServeFile::new(&embed_index))
+        .route_service("/embed/", ServeFile::new(&embed_index))
+        .nest_service("/embed", embed_static)
+        .nest_service("/static", static_assets)
+        .fallback_service(app_static)
         .layer(axum::middleware::from_fn(
             middleware::logging::logging_middleware,
         ))

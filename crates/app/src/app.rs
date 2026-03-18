@@ -25,39 +25,42 @@ pub fn App() -> impl IntoView {
     view! {
         <Title text="CLI Demo Studio" />
         <Router>
-            <main class="app-shell">
-                <header class="app-header">
-                    <div>
+            <main class="dashboard-shell">
+                <aside class="app-sidebar">
+                    <div class="sidebar-brand">
                         <p class="kicker">"CLI Demo Studio"</p>
-                        <h1>"Terminal Demo Dashboard"</h1>
+                        <h1>"Dashboard"</h1>
                         <p>"Build, publish, and track CLI walkthroughs."</p>
                     </div>
+
+                    <nav class="app-nav">
+                        <A href="/dashboard/projects">"Projects"</A>
+                        <A href="/dashboard/demos">"Demos"</A>
+                    </nav>
+
                     <a
-                        class="button btn-primary"
+                        class="button btn-primary sidebar-login"
                         href={api::login_url()}
                         on:click=move |_| set_logging_in.set(true)
                     >
                         {move || if is_logging_in.get() { "Redirecting..." } else { "Login via GitHub" }}
                     </a>
-                </header>
+                </aside>
 
-                <nav class="app-nav">
-                    <A href="/dashboard/projects">"Projects"</A>
-                    <A href="/dashboard/demos">"Demos"</A>
-                </nav>
-
-                <Routes fallback=|| view! { <p>"Not Found"</p> }>
-                    <Route path=path!("/") view=ProjectsPage />
-                    <Route path=path!("/dashboard") view=ProjectsPage />
-                    <Route path=path!("/dashboard/projects") view=ProjectsPage />
-                    <Route path=path!("/dashboard/demos") view=DemosPage />
-                    <Route path=path!("/dashboard/demos/:id") view=DemoEditorPage />
-                    <Route path=path!("/dashboard/demos/:id/settings") view=SettingsPage />
-                    <Route path=path!("/dashboard/demos/:id/publish") view=PublishPage />
-                    <Route path=path!("/dashboard/demos/:id/analytics") view=AnalyticsPage />
-                    <Route path=path!("/d/:slug") view=ShareDemoPage />
-                    <Route path=path!("/demo/view") view=DemoViewPage />
-                </Routes>
+                <section class="app-content">
+                    <Routes fallback=|| view! { <p>"Not Found"</p> }>
+                        <Route path=path!("/") view=ProjectsPage />
+                        <Route path=path!("/dashboard") view=ProjectsPage />
+                        <Route path=path!("/dashboard/projects") view=ProjectsPage />
+                        <Route path=path!("/dashboard/demos") view=DemosPage />
+                        <Route path=path!("/dashboard/demos/:id") view=DemoEditorPage />
+                        <Route path=path!("/dashboard/demos/:id/settings") view=SettingsPage />
+                        <Route path=path!("/dashboard/demos/:id/publish") view=PublishPage />
+                        <Route path=path!("/dashboard/demos/:id/analytics") view=AnalyticsPage />
+                        <Route path=path!("/d/:slug") view=ShareDemoPage />
+                        <Route path=path!("/demo/view") view=DemoViewPage />
+                    </Routes>
+                </section>
             </main>
         </Router>
     }

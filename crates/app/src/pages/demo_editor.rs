@@ -247,11 +247,13 @@ pub fn DemoEditorPage() -> impl IntoView {
 
                     <StepListEditor steps=steps set_steps=set_steps />
                 </section>
-                <LivePreviewPanel
-                    steps=steps
-                    prompt_string=prompt_string
-                    not_found_message=not_found_message
-                />
+                <aside class="preview-column">
+                    <LivePreviewPanel
+                        steps=steps
+                        prompt_string=prompt_string
+                        not_found_message=not_found_message
+                    />
+                </aside>
             </div>
 
             <Show when=move || !published_slug.get().is_empty()>
@@ -261,8 +263,10 @@ pub fn DemoEditorPage() -> impl IntoView {
                     <textarea readonly rows="3" class="code-block">
                         {move || {
                             format!(
-                                "<script src=\"{}/embed.js\" data-demo=\"{}\"></script>",
+                                "<div id=\"cli-demo-{}\"></div>\n<script src=\"{}/static/bootstrap.js\" data-demo-id=\"{}\" data-target=\"#cli-demo-{}\" async></script>",
+                                published_slug.get(),
                                 api::api_base(),
+                                published_slug.get(),
                                 published_slug.get(),
                             )
                         }}
