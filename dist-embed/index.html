@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src *; img-src 'self' data:;" />
+    <title>CLI Demo Embed Runtime</title>
+  <link rel="modulepreload" href="/embed-d3a85a73876bb483.js" crossorigin="anonymous" integrity="sha384-1zoKs+enssXrn4BTF/FNHl22crtdZue51dRef3ZPNgkTNu0wMhSFzE6DeGwTvtFP"><link rel="preload" href="/embed-d3a85a73876bb483_bg.wasm" crossorigin="anonymous" integrity="sha384-HrhYGxRIvt7+kqDCqDsoMJjKdx1l9ncfMYJ+hBrHVfhjqaCzRIYwTCt3xCqJROjQ" as="fetch" type="application/wasm"></head>
+  <body>
+    <script type="module">
+      import init from "./pkg/embed.js";
+      init();
+    </script>
+  
+<script type="module">
+import init, * as bindings from '/embed-d3a85a73876bb483.js';
+const wasm = await init({ module_or_path: '/embed-d3a85a73876bb483_bg.wasm' });
+
+
+window.wasmBindings = bindings;
+
+
+dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
+
+</script></body>
+</html>

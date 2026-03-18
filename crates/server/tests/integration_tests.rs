@@ -210,27 +210,19 @@ async fn error_responses_include_error_field() {
 #[tokio::test]
 async fn api_error_response_includes_request_id_when_header_present() {
     let app = test_router(dummy_pool());
-    let fake_id = uuid::Uuid::new_v4();
-    let body = serde_json::json!({
-        "demo_id": fake_id,
-        "event_type": "not_a_real_event",
-    })
-    .to_string();
 
     let response = app
         .oneshot(
             Request::builder()
-                .method("POST")
-                .uri("/api/analytics/events")
-                .header("content-type", "application/json")
+                .uri("/api/me")
                 .header("x-request-id", "rid-apierror-1")
-                .body(Body::from(body))
+                .body(Body::empty())
                 .unwrap(),
         )
         .await
         .unwrap();
 
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     let body = json_body(response).await;
     assert_eq!(
         body.get("request_id").and_then(|v| v.as_str()),

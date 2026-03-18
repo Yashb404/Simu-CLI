@@ -92,8 +92,16 @@ async fn main() -> anyhow::Result<()> {
         .allow_credentials(true);
 
     let workspace_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let app_dist_dir = workspace_root.join("crates/app/dist");
-    let embed_dist_dir = workspace_root.join("crates/app/embed");
+    let app_dist_dir = if workspace_root.join("dist").is_dir() {
+        workspace_root.join("dist")
+    } else {
+        workspace_root.join("crates/app/dist")
+    };
+    let embed_dist_dir = if workspace_root.join("dist-embed").is_dir() {
+        workspace_root.join("dist-embed")
+    } else {
+        workspace_root.join("crates/app/embed")
+    };
     let static_dir = workspace_root.join("static");
 
     let app_index = app_dist_dir.join("index.html");
@@ -108,9 +116,9 @@ async fn main() -> anyhow::Result<()> {
     let static_assets = get_service(ServeDir::new(&static_dir));
 
     let app = router::create_router(state.clone())
-        .route_service("/embed", ServeFile::new(&embed_index))
-        .route_service("/embed/", ServeFile::new(&embed_index))
-        .nest_service("/embed", embed_static)
+        .route_service("/embed-runtime", ServeFile::new(&embed_index))
+        .route_service("/embed-runtime/", ServeFile::new(&embed_index))
+        .nest_service("/embed-runtime", embed_static)
         .nest_service("/static", static_assets)
         .fallback_service(app_static)
         .layer(axum::middleware::from_fn(

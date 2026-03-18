@@ -23,6 +23,14 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
+      - name: Wait for Postgres
+        run: |
+          for i in {1..30}; do
+            pg_isready -h localhost -p 5432 -U postgres && exit 0
+            sleep 1
+          done
+          echo "Postgres did not become ready in time" >&2
+          exit 1
       # Check server-side and shared crates for the host target
       - name: Check (native)
         run: cargo check -p server -p shared
@@ -33,4 +41,4 @@ jobs:
         run: cargo check --target wasm32-unknown-unknown -p embed
       # Run unit tests; WASM crates can't run natively
       - name: Test
-        run: cargo test -p server -p shared
+        run: cargo test -p server -p shared -- --test-threads=1

@@ -20,7 +20,7 @@ pub fn DemoViewPage() -> impl IntoView {
     let script_origin = page_origin.clone();
     let embed_src = Signal::derive(move || {
         format!(
-            "/embed/index.html?demo_id={}&api_base={}",
+            "/embed-runtime/index.html?demo_id={}&api_base={}",
             demo_id.get(),
             api_base.get()
         )
@@ -35,7 +35,7 @@ pub fn DemoViewPage() -> impl IntoView {
     });
 
     let script_snippet = Signal::derive(move || {
-        generate_script_snippet(&format!("{}/embed/index.html", script_origin), &demo_id.get())
+        generate_script_snippet(&format!("{}/static/embed.js", script_origin), &demo_id.get())
     });
 
     view! {

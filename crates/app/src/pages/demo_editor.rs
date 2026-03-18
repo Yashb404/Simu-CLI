@@ -263,10 +263,8 @@ pub fn DemoEditorPage() -> impl IntoView {
                     <textarea readonly rows="3" class="code-block">
                         {move || {
                             format!(
-                                "<div id=\"cli-demo-{}\"></div>\n<script src=\"{}/static/bootstrap.js\" data-demo-id=\"{}\" data-target=\"#cli-demo-{}\" async></script>",
-                                published_slug.get(),
+                                "<script src=\"{}/static/embed.js\" data-demo=\"{}\"></script>",
                                 api::api_base(),
-                                published_slug.get(),
                                 published_slug.get(),
                             )
                         }}
