@@ -58,7 +58,7 @@ pub fn provide_auth_context() {
             let callback = Closure::wrap(Box::new(move || {
                 if matches!(
                     session_state.get_untracked(),
-                    SessionState::LoggedOut | SessionState::Checking
+                    SessionState::LoggedOut | SessionState::Checking | SessionState::Error(_)
                 ) {
                     refresh_session_state(set_session_state);
                 }
@@ -72,6 +72,28 @@ pub fn provide_auth_context() {
                 .is_ok()
             {
                 callback.forget();
+            }
+
+            let focus_refresh = Closure::wrap(Box::new(move || {
+                refresh_session_state(set_session_state);
+            }) as Box<dyn FnMut()>);
+
+            let _ = window.add_event_listener_with_callback(
+                "focus",
+                focus_refresh.as_ref().unchecked_ref(),
+            );
+            focus_refresh.forget();
+
+            if let Some(document) = window.document() {
+                let visibility_refresh = Closure::wrap(Box::new(move || {
+                    refresh_session_state(set_session_state);
+                }) as Box<dyn FnMut()>);
+
+                let _ = document.add_event_listener_with_callback(
+                    "visibilitychange",
+                    visibility_refresh.as_ref().unchecked_ref(),
+                );
+                visibility_refresh.forget();
             }
         }
     });

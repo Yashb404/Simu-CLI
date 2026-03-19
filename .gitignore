@@ -2,6 +2,8 @@
 .env
 .github/prompts
 /dist
+/dist-embed/
+/crates/app/dist/
 
 node_modules/
 dist/
