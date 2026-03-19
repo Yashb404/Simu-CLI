@@ -5,7 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src *; img-src 'self' data:;" />
     <title>CLI Demo Embed Runtime</title>
-  <link rel="modulepreload" href="/embed-d3a85a73876bb483.js" crossorigin="anonymous" integrity="sha384-1zoKs+enssXrn4BTF/FNHl22crtdZue51dRef3ZPNgkTNu0wMhSFzE6DeGwTvtFP"><link rel="preload" href="/embed-d3a85a73876bb483_bg.wasm" crossorigin="anonymous" integrity="sha384-HrhYGxRIvt7+kqDCqDsoMJjKdx1l9ncfMYJ+hBrHVfhjqaCzRIYwTCt3xCqJROjQ" as="fetch" type="application/wasm"></head>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap");
+      *{box-sizing:border-box;margin:0;padding:0}
+      html,body{height:100%;background:#050505;color:#00ff41;font-family:"IBM Plex Mono",monospace;font-size:14px}
+      .terminal-chrome{display:flex;flex-direction:column;height:100%;border:1px solid rgba(0,255,65,0.25);background:#0e0e0e}
+      .terminal-titlebar{background:#111;border-bottom:1px solid rgba(0,255,65,0.25);padding:7px 12px;display:flex;align-items:center;gap:10px;font-size:0.72rem;color:#1a6e2e;text-transform:uppercase;letter-spacing:0.08em;user-select:none}
+      .terminal-dots{display:flex;gap:6px}
+      .terminal-dot{width:10px;height:10px;border-radius:50%;background:#1a6e2e}
+      .terminal-dot.red{background:#ff5f57}.terminal-dot.yellow{background:#ffbd2e}.terminal-dot.green{background:#28c940}
+      .terminal-titlebar-text{flex:1;text-align:center;color:#1a6e2e}
+      .terminal-body{background:#050505;padding:12px 14px;flex:1;overflow-y:auto;min-height:0}
+      .terminal-line{font-family:"IBM Plex Mono",monospace;font-size:0.84rem;line-height:1.65;white-space:pre-wrap;word-break:break-all;color:#00ff41}
+      .terminal-line.cmd{color:#ffb000}.terminal-line.comment{color:#1a6e2e}
+      .terminal-input-row{display:flex;align-items:center;border-top:1px solid rgba(0,255,65,0.25);background:#050505;padding:8px 10px}
+      .terminal-prompt-label{color:#00ff41;font-family:"IBM Plex Mono",monospace;font-size:0.84rem;padding-right:6px;white-space:nowrap;flex-shrink:0;text-shadow:0 0 6px rgba(0,255,65,0.55)}
+      .terminal-input{flex:1;background:transparent;border:none;color:#00ff41;font-family:"IBM Plex Mono",monospace;font-size:0.84rem;padding:0;caret-color:#00ff41;outline:none}
+      .terminal-run-btn{background:transparent;border:1px solid rgba(0,255,65,0.25);color:#00c832;font-family:"IBM Plex Mono",monospace;font-size:0.72rem;padding:3px 8px;cursor:pointer;text-transform:uppercase;letter-spacing:0.06em;margin-left:6px}
+      .terminal-run-btn:hover{color:#00ff41;border-color:#00ff41}
+      .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+      body::after{content:"";position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px);pointer-events:none;z-index:9999}
+    </style>
+  <link rel="modulepreload" href="/embed-69b9e66658ba1078.js" crossorigin="anonymous" integrity="sha384-DxJSzIEH5nT9zg2XJj2PM+a9Vm1IZ9vWHZ41vd6QOa+ktdBTcKPKLdKy8JKQEAjS"><link rel="preload" href="/embed-69b9e66658ba1078_bg.wasm" crossorigin="anonymous" integrity="sha384-FhaE3Dgqe9ce2HmCrspsaxtvQHscrUVi15VIzkF2/uWlaGwIVOe8jNn3179NqXio" as="fetch" type="application/wasm"></head>
   <body>
     <script type="module">
       import init from "./pkg/embed.js";
@@ -13,8 +34,8 @@
     </script>
   
 <script type="module">
-import init, * as bindings from '/embed-d3a85a73876bb483.js';
-const wasm = await init({ module_or_path: '/embed-d3a85a73876bb483_bg.wasm' });
+import init, * as bindings from '/embed-69b9e66658ba1078.js';
+const wasm = await init({ module_or_path: '/embed-69b9e66658ba1078_bg.wasm' });
 
 
 window.wasmBindings = bindings;
