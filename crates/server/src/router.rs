@@ -116,7 +116,6 @@ mod tests {
     async fn test_health_check() {
         // Setup a mock state (using a dummy DB URL since health_check doesn't hit the DB)
         // In real tests, we'd use sqlx::PgPoolOptions to spin up a transaction or mock.
-        //FIXME: This is a bit hacky, but it allows us to test the router without setting up a real DB connection.
         let pool_result = sqlx::postgres::PgPoolOptions::new()
             .connect_lazy("postgres://dummy:dummy@localhost/dummy");
         assert!(pool_result.is_ok(), "lazy pool should construct in tests");

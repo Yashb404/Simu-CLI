@@ -30,6 +30,8 @@ const DEFAULT_REFERRER_LIMIT: i64 = 10;
 const MAX_REFERRER_LIMIT: i64 = 100;
 const DEFAULT_FUNNEL_LIMIT: i64 = 100;
 const MAX_FUNNEL_LIMIT: i64 = 500;
+const DEFAULT_ANALYTICS_WINDOW_DAYS: i64 = 30;
+const MAX_ANALYTICS_WINDOW_DAYS: i64 = 365;
 
 #[derive(Debug, Deserialize)]
 pub struct AnalyticsReferrerQuery {
@@ -108,7 +110,7 @@ pub async fn get_demo_analytics(
     OwnedDemo(demo): OwnedDemo,
     Query(query): Query<AnalyticsWindowQuery>,
 ) -> HandlerResult<Json<Vec<AnalyticsSeriesPoint>>> {
-    let days = query.days.unwrap_or(30).clamp(1, 365);
+    let days = query.days.unwrap_or(DEFAULT_ANALYTICS_WINDOW_DAYS).clamp(1, MAX_ANALYTICS_WINDOW_DAYS);
 
     let rows = sqlx::query_as::<_, AnalyticsSeriesPoint>(
         r#"
