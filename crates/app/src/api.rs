@@ -46,12 +46,11 @@ fn derived_api_base_from_location() -> Option<String> {
     }
 
     let scheme = protocol.trim_end_matches(':');
-    let target_port = if port == "8080" { "3001" } else { &port };
 
-    if target_port.is_empty() {
+    if port.is_empty() {
         Some(format!("{scheme}://{hostname}"))
     } else {
-        Some(format!("{scheme}://{hostname}:{target_port}"))
+        Some(format!("{scheme}://{hostname}:{port}"))
     }
 }
 

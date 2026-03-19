@@ -92,9 +92,9 @@ pub fn App() -> impl IntoView {
             <main class="dashboard-shell">
                 <aside class="app-sidebar">
                     <div class="sidebar-brand">
-                        <p class="kicker">"CLI Demo Studio"</p>
+                        <p class="kicker">"// cli-demo-studio"</p>
                         <h1>"Dashboard"</h1>
-                        <p>"Build, publish, and track CLI walkthroughs."</p>
+                        <p class="muted">"Build, publish, and track CLI walkthroughs."</p>
                     </div>
 
                     <nav class="app-nav">
