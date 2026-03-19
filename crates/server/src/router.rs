@@ -1,4 +1,5 @@
 use axum::{
+    http::StatusCode,
     routing::{get, patch, post},
     Json, Router,
 };
@@ -75,6 +76,10 @@ pub fn create_router(state: AppState) -> Router {
                 .delete(handlers::projects::delete_project),
         )
         .nest("/api/auth", handlers::auth::auth_routes())
+        // Alias for environments/proxies that strip the /api prefix.
+        .nest("/auth", handlers::auth::auth_routes())
+        // Never let unmatched API paths fall through to SPA fallback.
+        .route("/api/{*path}", get(api_not_found).post(api_not_found).patch(api_not_found).delete(api_not_found))
         .with_state(state)
 }
 
@@ -83,6 +88,15 @@ async fn health_check() -> &'static str {
 }
 async fn get_me(AuthUser(user): AuthUser) -> Json<User> {
     Json(user)
+}
+
+async fn api_not_found() -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::NOT_FOUND,
+        Json(serde_json::json!({
+            "error": "API route not found"
+        })),
+    )
 }
 
 #[cfg(test)]

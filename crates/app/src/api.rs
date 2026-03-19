@@ -163,6 +163,26 @@ pub fn login_url() -> String {
     api_url("/api/auth/github")
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CurrentUser {
+    pub id: String,
+    pub username: String,
+    pub email: Option<String>,
+    pub avatar_url: Option<String>,
+}
+
+pub fn logout_url() -> String {
+    api_url("/api/auth/logout")
+}
+
+pub async fn get_current_user() -> Result<CurrentUser, String> {
+    fetch(HttpMethod::Get, &api_url("/api/me"), None, true).await
+}
+
+pub async fn logout() -> Result<(), String> {
+    send(HttpMethod::Post, &logout_url(), None, true).await
+}
+
 pub async fn list_projects() -> Result<Vec<DashboardProject>, String> {
     list_projects_with_paging(None, None).await
 }

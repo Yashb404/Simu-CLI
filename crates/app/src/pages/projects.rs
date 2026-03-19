@@ -130,7 +130,6 @@ pub fn ProjectsPage() -> impl IntoView {
             </div>
 
             <div class="inline-actions">
-                <a class="button" href={api::login_url()}>"Login with GitHub"</a>
                 <a class="button" href="/dashboard/demos">"Open Demos"</a>
             </div>
         </section>

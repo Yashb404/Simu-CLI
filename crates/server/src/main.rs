@@ -108,10 +108,11 @@ async fn main() -> anyhow::Result<()> {
     let embed_index = embed_dist_dir.join("index.html");
 
     let app_static = get_service(
-        ServeDir::new(&app_dist_dir).not_found_service(ServeFile::new(&app_index)),
+        // Use fallback (not not_found_service) so SPA routes return index.html with 200.
+        ServeDir::new(&app_dist_dir).fallback(ServeFile::new(&app_index)),
     );
     let embed_static = get_service(
-        ServeDir::new(&embed_dist_dir).not_found_service(ServeFile::new(&embed_index)),
+        ServeDir::new(&embed_dist_dir).fallback(ServeFile::new(&embed_index)),
     );
     let static_assets = get_service(ServeDir::new(&static_dir));
 

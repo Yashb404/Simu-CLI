@@ -1,8 +1,9 @@
 use axum::{
     extract::{Query, State},
+    http::header,
     http::HeaderMap,
     http::StatusCode,
-    response::{IntoResponse, Redirect, Response},
+    response::{Html, IntoResponse, Redirect, Response},
     routing::{get, post},
     Router,
 };
@@ -37,7 +38,7 @@ async fn github_login(
     State(state): State<AppState>,
     headers: HeaderMap,
     session: Session,
-) -> Result<Redirect, Response> {
+) -> Result<Response, Response> {
     let host = headers.get("host").and_then(|value| value.to_str().ok());
     let redirect_uri = format!(
         "{}/api/auth/github/callback",
@@ -73,7 +74,53 @@ async fn github_login(
             (StatusCode::INTERNAL_SERVER_ERROR, "Session error").into_response()
         })?;
 
-    Ok(Redirect::to(auth_url.as_ref()))
+        let destination = auth_url.to_string();
+
+        let body = format!(
+                r#"<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Redirecting to GitHub...</title>
+        <meta http-equiv="refresh" content="0;url={destination}" />
+        <style>
+            body {{
+                margin: 0;
+                min-height: 100vh;
+                display: grid;
+                place-items: center;
+                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                background: #fff;
+                color: #111;
+            }}
+            main {{
+                border: 2px solid #111;
+                padding: 20px;
+                max-width: 520px;
+                width: calc(100% - 32px);
+            }}
+            a {{ color: inherit; font-weight: 700; }}
+        </style>
+    </head>
+    <body>
+        <main>
+            <h1>Redirecting to GitHub...</h1>
+            <p>If you are not redirected automatically, continue here:</p>
+            <p><a href="{destination}">Login with GitHub</a></p>
+        </main>
+        <script>
+            window.location.replace({destination:?});
+        </script>
+    </body>
+</html>"#
+        );
+
+        let mut response = Html(body).into_response();
+        response
+                .headers_mut()
+                .insert(header::CACHE_CONTROL, header::HeaderValue::from_static("no-store"));
+        Ok(response)
 }
 
 #[derive(Deserialize)]

@@ -7,16 +7,35 @@ use crate::api;
 pub fn DemosPage() -> impl IntoView {
     let (demos, set_demos) = signal(Vec::<api::DashboardDemo>::new());
     let (title, set_title) = signal(String::new());
-    let (status, set_status) = signal(String::new());
+    let (status, set_status) = signal("Loading demos...".to_string());
+    let (requires_login, set_requires_login) = signal(false);
 
     Effect::new(move |_| {
         spawn_local({
             let set_demos = set_demos;
             let set_status = set_status;
+            let set_requires_login = set_requires_login;
             async move {
                 match api::list_demos().await {
-                    Ok(list) => set_demos.set(list),
-                    Err(err) => set_status.set(format!("Failed to load demos: {err}")),
+                    Ok(list) => {
+                        let count = list.len();
+                        set_demos.set(list);
+                        set_requires_login.set(false);
+                        if count == 0 {
+                            set_status.set("No demos yet. Create your first one below.".to_string());
+                        } else {
+                            set_status.set(format!("Loaded {} demo(s).", count));
+                        }
+                    }
+                    Err(err) => {
+                        let unauthorized = err.contains("Not logged in");
+                        set_requires_login.set(unauthorized);
+                        if unauthorized {
+                            set_status.set("You are not logged in. Sign in with GitHub to view demos.".to_string());
+                        } else {
+                            set_status.set(format!("Failed to load demos: {err}"));
+                        }
+                    }
                 }
             }
         });
@@ -68,6 +87,16 @@ pub fn DemosPage() -> impl IntoView {
             <p>"Create, edit, publish, and inspect analytics for demos."</p>
             <p class="status">{move || status.get()}</p>
 
+            <Show when=move || requires_login.get()>
+                <div class="panel">
+                    <h3>"Authentication Required"</h3>
+                    <p>"Sign in to load and create demos."</p>
+                    <a class="button btn-primary" href={api::login_url()}>
+                        "Login with GitHub"
+                    </a>
+                </div>
+            </Show>
+
             <div class="panel">
                 <h3>"New Demo"</h3>
                 <input
@@ -80,6 +109,9 @@ pub fn DemosPage() -> impl IntoView {
 
             <div class="panel">
                 <h3>"Your Demos"</h3>
+                <Show when=move || !demos.get().is_empty() fallback=|| view! {
+                    <p class="empty-state">"No demos found yet."</p>
+                }>
                 <ul class="list">
                     <For
                         each=move || demos.get()
@@ -104,6 +136,7 @@ pub fn DemosPage() -> impl IntoView {
                         }
                     />
                 </ul>
+                </Show>
             </div>
         </section>
     }
