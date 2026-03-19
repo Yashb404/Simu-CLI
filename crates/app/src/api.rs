@@ -101,6 +101,7 @@ pub struct DashboardProject {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DashboardDemo {
     pub id: String,
+    pub project_id: Option<String>,
     pub title: String,
     pub slug: Option<String>,
     pub published: bool,
@@ -206,6 +207,16 @@ pub async fn create_project(name: &str, description: Option<&str>) -> Result<Das
     let payload = CreateProjectRequest { name, description };
     let body = serde_json::to_string(&payload).map_err(|e| format!("serialize body: {e}"))?;
     fetch(HttpMethod::Post, &api_url("/api/projects"), Some(&body), true).await
+}
+
+pub async fn delete_project(id: &str) -> Result<(), String> {
+    send(
+        HttpMethod::Delete,
+        &api_url(&format!("/api/projects/{id}")),
+        None,
+        true,
+    )
+    .await
 }
 
 pub async fn list_demos() -> Result<Vec<DashboardDemo>, String> {

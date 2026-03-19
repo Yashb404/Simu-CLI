@@ -2,21 +2,46 @@ use leptos::prelude::*;
 use leptos::task::spawn_local;
 
 use crate::api;
+use crate::components::confirm_dialog::ConfirmDialog;
 
 #[component]
 pub fn DemosPage() -> impl IntoView {
     let (demos, set_demos) = signal(Vec::<api::DashboardDemo>::new());
+    let (projects, set_projects) = signal(Vec::<api::DashboardProject>::new());
     let (title, set_title) = signal(String::new());
+    let (new_demo_project_id, set_new_demo_project_id) = signal(String::new());
+    let (project_filter_id, set_project_filter_id) = signal(String::new());
     let (status, set_status) = signal("Loading demos...".to_string());
     let (requires_login, set_requires_login) = signal(false);
+    let (deleting_demo_id, set_deleting_demo_id) = signal(None::<String>);
+    let (pending_delete_demo_id, set_pending_delete_demo_id) = signal(None::<String>);
+    let (pending_delete_demo_title, set_pending_delete_demo_title) = signal(None::<String>);
 
     Effect::new(move |_| {
+        spawn_local({
+            let set_projects = set_projects;
+            async move {
+                if let Ok(list) = api::list_projects().await {
+                    set_projects.set(list);
+                }
+            }
+        });
+    });
+
+    Effect::new(move |_| {
+        let active_project_filter = project_filter_id.get();
         spawn_local({
             let set_demos = set_demos;
             let set_status = set_status;
             let set_requires_login = set_requires_login;
             async move {
-                match api::list_demos().await {
+                let project_filter = if active_project_filter.trim().is_empty() {
+                    None
+                } else {
+                    Some(active_project_filter.as_str())
+                };
+
+                match api::list_demos_with_filters(None, None, project_filter, None).await {
                     Ok(list) => {
                         let count = list.len();
                         set_demos.set(list);
@@ -43,21 +68,34 @@ pub fn DemosPage() -> impl IntoView {
 
     let create_demo = move |_| {
         let demo_title = title.get();
+        let selected_project = new_demo_project_id.get();
         if demo_title.trim().is_empty() {
             set_status.set("Demo title is required".to_string());
             return;
         }
 
+        let project_id = if selected_project.trim().is_empty() {
+            None
+        } else {
+            Some(selected_project)
+        };
+
         spawn_local({
             let set_demos = set_demos;
             let set_status = set_status;
             let set_title = set_title;
+            let project_filter_id = project_filter_id;
             async move {
-                match api::create_demo(demo_title.trim(), None).await {
+                match api::create_demo(demo_title.trim(), project_id.as_deref()).await {
                     Ok(demo) => {
-                        set_demos.update(|items| items.insert(0, demo));
+                        let filter = project_filter_id.get_untracked();
+                        let should_show = filter.trim().is_empty()
+                            || demo.project_id.as_deref() == Some(filter.trim());
+                        if should_show {
+                            set_demos.update(|items| items.insert(0, demo));
+                        }
                         set_title.set(String::new());
-                        set_status.set("Demo created".to_string());
+                        set_status.set("Demo created.".to_string());
                     }
                     Err(err) => set_status.set(format!("Create failed: {err}")),
                 }
@@ -66,17 +104,24 @@ pub fn DemosPage() -> impl IntoView {
     };
 
     let delete_demo = move |id: String| {
+        set_deleting_demo_id.set(Some(id.clone()));
         spawn_local({
             let set_demos = set_demos;
             let set_status = set_status;
+            let set_deleting_demo_id = set_deleting_demo_id;
+            let set_pending_delete_demo_id = set_pending_delete_demo_id;
+            let set_pending_delete_demo_title = set_pending_delete_demo_title;
             async move {
                 match api::delete_demo(&id).await {
                     Ok(()) => {
                         set_demos.update(|items| items.retain(|d| d.id != id));
-                        set_status.set("Demo deleted".to_string());
+                        set_status.set("Demo deleted.".to_string());
                     }
                     Err(err) => set_status.set(format!("Delete failed: {err}")),
                 }
+                set_deleting_demo_id.set(None);
+                set_pending_delete_demo_id.set(None);
+                set_pending_delete_demo_title.set(None);
             }
         });
     };
@@ -104,11 +149,49 @@ pub fn DemosPage() -> impl IntoView {
                     prop:value=move || title.get()
                     on:input=move |ev| set_title.set(event_target_value(&ev))
                 />
+                <label>
+                    "Project"
+                    <select
+                        prop:value=move || new_demo_project_id.get()
+                        on:change=move |ev| set_new_demo_project_id.set(event_target_value(&ev))
+                    >
+                        <option value="">"No project"</option>
+                        <For
+                            each=move || projects.get()
+                            key=|project| project.id.clone()
+                            children=move |project| {
+                                view! {
+                                    <option value={project.id.clone()}>{project.name}</option>
+                                }
+                            }
+                        />
+                    </select>
+                </label>
                 <button type="button" on:click=create_demo>"Create Demo"</button>
             </div>
 
             <div class="panel">
                 <h3>"Your Demos"</h3>
+                <div class="inline-actions">
+                    <label>
+                        "Filter by project"
+                        <select
+                            prop:value=move || project_filter_id.get()
+                            on:change=move |ev| set_project_filter_id.set(event_target_value(&ev))
+                        >
+                            <option value="">"All projects"</option>
+                            <For
+                                each=move || projects.get()
+                                key=|project| project.id.clone()
+                                children=move |project| {
+                                    view! {
+                                        <option value={project.id.clone()}>{project.name}</option>
+                                    }
+                                }
+                            />
+                        </select>
+                    </label>
+                </div>
                 <Show when=move || !demos.get().is_empty() fallback=|| view! {
                     <p class="empty-state">"No demos found yet."</p>
                 }>
@@ -117,18 +200,51 @@ pub fn DemosPage() -> impl IntoView {
                         each=move || demos.get()
                         key=|demo| demo.id.clone()
                         children=move |demo| {
+                            let demo_id = demo.id.clone();
+                            let demo_title = demo.title.clone();
+                            let deleting_demo_ref_for_disabled = demo_id.clone();
+                            let deleting_demo_ref_for_label = demo_id.clone();
+                            let project_name = demo
+                                .project_id
+                                .as_ref()
+                                .and_then(|project_id| {
+                                    projects
+                                        .get()
+                                        .iter()
+                                        .find(|project| project.id == *project_id)
+                                        .map(|project| project.name.clone())
+                                })
+                                .unwrap_or_else(|| "Unassigned".to_string());
                             view! {
                                 <li>
                                     <div>
                                         <strong>{demo.title}</strong>
-                                        <p>{move || if demo.published { "Published".to_string() } else { "Draft".to_string() }}</p>
+                                        <p>
+                                            {move || if demo.published { "Published".to_string() } else { "Draft".to_string() }}
+                                            " • "
+                                            <span class="subtle-badge">{project_name.clone()}</span>
+                                        </p>
                                     </div>
                                     <div class="inline-actions">
                                         <a href={format!("/dashboard/demos/{}", demo.id)}>"Editor"</a>
                                         <a href={format!("/dashboard/demos/{}/publish", demo.id)}>"Publish"</a>
                                         <a href={format!("/dashboard/demos/{}/analytics", demo.id)}>"Analytics"</a>
-                                        <button type="button" on:click=move |_| delete_demo(demo.id.clone())>
-                                            "Delete"
+                                        <button
+                                            type="button"
+                                            class="btn-danger"
+                                            disabled=move || deleting_demo_id.get().as_deref() == Some(deleting_demo_ref_for_disabled.as_str())
+                                            on:click=move |_| {
+                                                set_pending_delete_demo_id.set(Some(demo_id.clone()));
+                                                set_pending_delete_demo_title.set(Some(demo_title.clone()));
+                                            }
+                                        >
+                                            {move || {
+                                                if deleting_demo_id.get().as_deref() == Some(deleting_demo_ref_for_label.as_str()) {
+                                                    "Deleting..."
+                                                } else {
+                                                    "Delete"
+                                                }
+                                            }}
                                         </button>
                                     </div>
                                 </li>
@@ -138,6 +254,32 @@ pub fn DemosPage() -> impl IntoView {
                 </ul>
                 </Show>
             </div>
+
+            <ConfirmDialog
+                open=Signal::derive(move || pending_delete_demo_id.get().is_some())
+                title=Signal::derive(move || "Delete Demo".to_string())
+                message=Signal::derive(move || {
+                    let title = pending_delete_demo_title
+                        .get()
+                        .unwrap_or_else(|| "this demo".to_string());
+                    format!("Delete '{title}'? This action cannot be undone.")
+                })
+                confirm_label="Delete Demo"
+                processing_label="Deleting..."
+                cancel_label="Cancel"
+                is_processing=Signal::derive(move || deleting_demo_id.get().is_some())
+                on_confirm=Callback::new(move |_| {
+                    if let Some(demo_id) = pending_delete_demo_id.get_untracked() {
+                        delete_demo(demo_id);
+                    }
+                })
+                on_cancel=Callback::new(move |_| {
+                    if deleting_demo_id.get_untracked().is_none() {
+                        set_pending_delete_demo_id.set(None);
+                        set_pending_delete_demo_title.set(None);
+                    }
+                })
+            />
         </section>
     }
 }
