@@ -81,7 +81,7 @@ fn loopback_aliases(origin: &str) -> Result<Vec<String>> {
     let mut aliases = vec![origin.to_string()];
 
     if host == "localhost" {
-        aliases.push(format!("{scheme}://localhost.{port_suffix}"));
+        aliases.push(format!("{scheme}://localhost{port_suffix}"));
         aliases.push(format!("{scheme}://127.0.0.1{port_suffix}"));
         aliases.push(format!("{scheme}://[::1]{port_suffix}"));
     } else if host == "127.0.0.1" || host == "::1" || host == "[::1]" {
@@ -205,6 +205,8 @@ impl Config {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     fn test_session_secret_validation() {
         // Valid 64-char hex
@@ -218,5 +220,41 @@ mod tests {
         // Invalid: contains non-hex
         let invalid_chars = "a".repeat(63) + "z";
         assert!(!invalid_chars.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn normalize_origin_strips_path_and_trailing_slash() {
+        let result = normalize_origin("http://localhost:3000/some/path").unwrap();
+        assert_eq!(result, "http://localhost:3000");
+    }
+
+    #[test]
+    fn loopback_aliases_includes_all_localhost_variants_without_port() {
+        let aliases = loopback_aliases("http://localhost").unwrap();
+        assert!(aliases.contains(&"http://localhost".to_string()), "must include localhost");
+        assert!(aliases.contains(&"http://127.0.0.1".to_string()), "must include 127.0.0.1");
+        assert!(aliases.contains(&"http://[::1]".to_string()), "must include [::1]");
+        // No spurious dots or colons
+        for alias in &aliases {
+            assert!(!alias.contains("localhost."), "alias must not contain 'localhost.'");
+        }
+    }
+
+    #[test]
+    fn loopback_aliases_includes_all_localhost_variants_with_port() {
+        let aliases = loopback_aliases("http://localhost:3000").unwrap();
+        assert!(aliases.contains(&"http://localhost:3000".to_string()));
+        assert!(aliases.contains(&"http://127.0.0.1:3000".to_string()));
+        assert!(aliases.contains(&"http://[::1]:3000".to_string()));
+        // No spurious dots before port
+        for alias in &aliases {
+            assert!(!alias.contains("localhost.:"), "alias must not contain 'localhost.:'");
+        }
+    }
+
+    #[test]
+    fn loopback_aliases_for_non_localhost_only_returns_self() {
+        let aliases = loopback_aliases("https://example.com").unwrap();
+        assert_eq!(aliases, vec!["https://example.com".to_string()]);
     }
 }

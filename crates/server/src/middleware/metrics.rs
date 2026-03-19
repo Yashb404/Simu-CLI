@@ -26,7 +26,11 @@ pub async fn metrics_handler() -> impl IntoResponse {
     let errors = ERROR_COUNT.load(Ordering::Relaxed);
 
     format!(
-        "# HELP app_requests_total Total HTTP requests\n# TYPE app_requests_total counter\napp_requests_total {}\n# HELP app_errors_total Total HTTP 5xx responses\n# TYPE app_errors_total counter\napp_errors_total {}\n",
-        requests, errors
+        "# HELP app_requests_total Total HTTP requests\n\
+         # TYPE app_requests_total counter\n\
+         app_requests_total {requests}\n\
+         # HELP app_errors_total Total HTTP 5xx responses\n\
+         # TYPE app_errors_total counter\n\
+         app_errors_total {errors}\n"
     )
 }

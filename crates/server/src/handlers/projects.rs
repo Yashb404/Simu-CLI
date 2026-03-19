@@ -10,6 +10,7 @@ use validator::Validate;
 use crate::{
     auth::AuthUser,
     error::{ApiError, HandlerResult},
+    handlers::sanitize_pagination,
     state::AppState,
 };
 use shared::{
@@ -18,21 +19,10 @@ use shared::{
     models::project::Project,
 };
 
-const DEFAULT_PAGE_LIMIT: i64 = 50;
-const MAX_PAGE_LIMIT: i64 = 100;
-
 #[derive(Debug, Deserialize)]
 pub struct ListMyProjectsQuery {
     pub limit: Option<i64>,
     pub offset: Option<i64>,
-}
-
-fn sanitize_pagination(limit: Option<i64>, offset: Option<i64>) -> (i64, i64) {
-    let clamped_limit = limit
-        .unwrap_or(DEFAULT_PAGE_LIMIT)
-        .clamp(1, MAX_PAGE_LIMIT);
-    let clamped_offset = offset.unwrap_or(0).max(0);
-    (clamped_limit, clamped_offset)
 }
 
 pub async fn create_project(
@@ -143,16 +133,4 @@ pub async fn delete_project(
     }
 
     Ok(StatusCode::NO_CONTENT)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn sanitize_pagination_applies_bounds() {
-        assert_eq!(sanitize_pagination(None, None), (50, 0));
-        assert_eq!(sanitize_pagination(Some(10), Some(2)), (10, 2));
-        assert_eq!(sanitize_pagination(Some(1000), Some(-9)), (100, 0));
-    }
 }
