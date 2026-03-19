@@ -10,6 +10,16 @@ use crate::{
     messaging::{post_event_to_parent, EmbedEvent},
 };
 
+fn line_css_class(line: &str, prompt_string: &str) -> &'static str {
+    if line.starts_with(prompt_string) {
+        "terminal-line cmd"
+    } else if line.starts_with('#') {
+        "terminal-line comment"
+    } else {
+        "terminal-line"
+    }
+}
+
 fn indexed_lines(lines: Vec<String>) -> Vec<(usize, String)> {
     lines.into_iter().enumerate().collect::<Vec<(usize, String)>>()
 }
@@ -182,6 +192,9 @@ pub fn TerminalUI(demo: PublicDemoResponse) -> impl IntoView {
     let (engine, set_engine) = signal(Option::<CliEngine>::None);
     let (view_event_demo_id, set_view_event_demo_id) = signal(Option::<String>::None);
 
+    let window_title = demo.theme.window_title.clone();
+    let prompt_string = demo.theme.prompt_string.clone();
+
     Effect::new(move |_| {
         let next_demo_id = demo.id.to_string();
         if engine.get().is_none() {
@@ -194,37 +207,56 @@ pub fn TerminalUI(demo: PublicDemoResponse) -> impl IntoView {
         }
     });
 
+    let prompt_display = prompt_string.clone();
+
     view! {
-        <section class="terminal-ui" aria-label="CLI simulator terminal">
-            <header class="terminal-header">"CLI Demo Runtime"</header>
-            <div class="terminal-output">
+        <section class="terminal-chrome" aria-label="CLI simulator terminal">
+            <div class="terminal-titlebar">
+                <div class="terminal-dots">
+                    <span class="terminal-dot red"></span>
+                    <span class="terminal-dot yellow"></span>
+                    <span class="terminal-dot green"></span>
+                </div>
+                <span class="terminal-titlebar-text">{window_title}</span>
+            </div>
+            <div class="terminal-body">
                 <For
                     each=move || indexed_lines(history.get())
                     key=|entry| entry.0
-                    children=move |(_, line)| view! { <p>{line}</p> }
+                    children=move |(_, line)| {
+                        let cls = line_css_class(&line, &prompt_string);
+                        view! { <p class={cls}>{line}</p> }
+                    }
                 />
             </div>
-            <label class="sr-only" for="terminal-input">"Terminal input"</label>
-            <input
-                id="terminal-input"
-                type="text"
-                prop:value=input
-                on:input=move |ev| set_input.set(event_target_value(&ev))
-                on:keydown=move |ev: leptos::ev::KeyboardEvent| {
-                    if ev.key() == "Enter" {
+            <div class="terminal-input-row">
+                <span class="terminal-prompt-label">{format!("{} ", prompt_display)}</span>
+                <label class="sr-only" for="terminal-input">"Terminal input"</label>
+                <input
+                    id="terminal-input"
+                    class="terminal-input"
+                    type="text"
+                    prop:value=input
+                    on:input=move |ev| set_input.set(event_target_value(&ev))
+                    on:keydown=move |ev: leptos::ev::KeyboardEvent| {
+                        if ev.key() == "Enter" {
+                            run_terminal_command(engine, set_engine, input, set_input, set_history);
+                        }
+                    }
+                    placeholder="type a command..."
+                    autocomplete="off"
+                    spellcheck="false"
+                />
+                <button
+                    type="button"
+                    class="terminal-run-btn"
+                    on:click=move |_| {
                         run_terminal_command(engine, set_engine, input, set_input, set_history);
                     }
-                }
-                placeholder="Type a command"
-            />
-            <button
-                type="button"
-                on:click=move |_| {
-                    run_terminal_command(engine, set_engine, input, set_input, set_history);
-                }
-            >
-                "Run"
-            </button>
+                >
+                    "RUN"
+                </button>
+            </div>
         </section>
     }
 }

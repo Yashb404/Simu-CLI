@@ -64,16 +64,28 @@ pub fn EmbedApp() -> impl IntoView {
     });
 
     view! {
-        <main class="embed-wrapper" style="width: 100%; height: 100%; background: #000; color: #fff;">
+        <main class="embed-wrapper" style="width:100%;height:100%;background:#050505;color:#00ff41;font-family:'IBM Plex Mono',monospace;">
             <Show
                 when=move || demo.get().is_some()
                 fallback=move || {
                     view! {
-                        <div class="terminal-booting" style="padding: 20px; font-family: monospace;">
-                            <p>"> Initializing virtual environment..."</p>
-                            <Show when=move || !status.get().is_empty()>
-                                <p style="color: #ff4444;">{move || status.get()}</p>
-                            </Show>
+                        <div class="terminal-chrome" style="height:100%;border:none;">
+                            <div class="terminal-titlebar">
+                                <div class="terminal-dots">
+                                    <span class="terminal-dot red"></span>
+                                    <span class="terminal-dot yellow"></span>
+                                    <span class="terminal-dot green"></span>
+                                </div>
+                                <span class="terminal-titlebar-text">"CLI Demo Studio"</span>
+                            </div>
+                            <div class="terminal-body" style="padding:16px;">
+                                <p class="terminal-line">"$ init runtime..."</p>
+                                <p class="terminal-line">"$ loading demo..."</p>
+                                <Show when=move || !status.get().is_empty()>
+                                    <p class="terminal-line" style="color:#ff3333;">{move || format!("! error: {}", status.get())}</p>
+                                </Show>
+                                <p class="terminal-line" style="opacity:0.5;">"_"</p>
+                            </div>
                         </div>
                     }
                 }

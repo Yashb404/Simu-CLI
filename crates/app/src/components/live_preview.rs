@@ -1,6 +1,8 @@
 use leptos::prelude::*;
 use shared::models::demo::{Step, StepType};
 
+const META_STEP_FALLBACK: &str = "(meta step)";
+
 fn indexed_steps(steps: Vec<Step>) -> Vec<(usize, Step)> {
     steps.into_iter().enumerate().collect::<Vec<(usize, Step)>>()
 }
@@ -14,49 +16,58 @@ pub fn LivePreviewPanel(
     view! {
         <section class="live-preview-panel">
             <h3>"Live Preview"</h3>
-            <div class="preview-canvas">
-                <p>{move || format!("{} demo preview", prompt_string.get())}</p>
-                <For
-                    each=move || indexed_steps(steps.get())
-                    key=|entry| format!("{}-{}", entry.0, entry.1.id)
-                    children=move |(_, step)| {
-                        match step.step_type {
-                            StepType::Command => {
-                                view! {
-                                    <p class="preview-line command-line">
-                                        {format!(
-                                            "{} {}",
-                                            prompt_string.get(),
-                                            step.input.unwrap_or_else(|| "<command>".to_string())
-                                        )}
-                                    </p>
+            <div class="terminal-chrome">
+                <div class="terminal-titlebar">
+                    <div class="terminal-dots">
+                        <span class="terminal-dot red"></span>
+                        <span class="terminal-dot yellow"></span>
+                        <span class="terminal-dot green"></span>
+                    </div>
+                    <span class="terminal-titlebar-text">{move || prompt_string.get()}</span>
+                    <span class="cursor-blink" style="color:var(--ink);padding-left:4px;">"█"</span>
+                </div>
+                <div class="terminal-body">
+                    <For
+                        each=move || indexed_steps(steps.get())
+                        key=|entry| format!("{}-{}", entry.0, entry.1.id)
+                        children=move |(_, step)| {
+                            match step.step_type {
+                                StepType::Command => {
+                                    view! {
+                                        <p class="terminal-line cmd">
+                                            {format!(
+                                                "{} {}",
+                                                prompt_string.get(),
+                                                step.input.unwrap_or_else(|| "<command>".to_string())
+                                            )}
+                                        </p>
+                                    }
+                                    .into_any()
                                 }
-                                .into_any()
-                            }
-                            StepType::Output => {
-                                let lines = step
-                                    .output
-                                    .unwrap_or_default()
-                                    .into_iter()
-                                    .map(|line| line.text)
-                                    .collect::<Vec<_>>()
-                                    .join("\n");
+                                StepType::Output => {
+                                    let lines = step
+                                        .output
+                                        .unwrap_or_default()
+                                        .into_iter()
+                                        .map(|line| line.text)
+                                        .collect::<Vec<_>>()
+                                        .join("\n");
 
-                                view! { <pre class="preview-line output-line">{lines}</pre> }.into_any()
-                            }
-                            _ => {
-                                view! {
-                                    <p class="preview-line muted-line">
-                                        {step.description.unwrap_or_else(|| "(meta step)".to_string())}
-                                    </p>
+                                    view! { <pre class="terminal-line">{lines}</pre> }.into_any()
                                 }
-                                .into_any()
+                                _ => {
+                                    view! {
+                                        <p class="terminal-line comment">
+                                            {format!("# {}", step.description.unwrap_or_else(|| META_STEP_FALLBACK.to_string()))}
+                                        </p>
+                                    }
+                                    .into_any()
+                                }
                             }
                         }
-                    }
-                />
-
-                <p class="preview-line fallback-line">{move || not_found_message.get()}</p>
+                    />
+                    <p class="terminal-line comment">{move || format!("# {}", not_found_message.get())}</p>
+                </div>
             </div>
         </section>
     }

@@ -6,14 +6,18 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        ink: "#f5f5f5",
-        void: "#090909",
-        panel: "#111111",
-        line: "#2a2a2a"
+        bg:     "#0a0a0a",
+        panel:  "#0e0e0e",
+        ink:    "#00ff41",
+        "ink-dim": "#00c832",
+        muted:  "#1a6e2e",
+        amber:  "#ffb000",
+        danger: "#ff3333",
+        border: "rgba(0,255,65,0.25)"
       },
       fontFamily: {
-        display: ["Space Grotesk", "sans-serif"],
-        mono: ["IBM Plex Mono", "monospace"]
+        display: ["JetBrains Mono", "monospace"],
+        mono:    ["IBM Plex Mono", "monospace"]
       }
     }
   },
