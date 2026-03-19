@@ -1,18 +1,14 @@
 use leptos::prelude::*;
-use leptos::task::spawn_local;
 use leptos_meta::{provide_meta_context, Title};
 use leptos_router::{
-    components::{A, Route, Router, Routes},
+    components::{ParentRoute, Redirect, Route, Router, Routes},
     path,
 };
 
-use crate::api;
 use crate::auth::{
     provide_auth_context,
-    refresh_session_state,
-    use_auth_context,
-    SessionState,
 };
+use crate::components::shell::AppShell;
 use crate::pages::{
     analytics::AnalyticsPage,
     demo_editor::DemoEditorPage,
@@ -25,176 +21,109 @@ use crate::pages::{
     settings::SettingsPage,
 };
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ThemeMode {
+    Terminal,
+    Dark,
+    Light,
+}
+
+impl ThemeMode {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Terminal => "terminal",
+            Self::Dark => "dark",
+            Self::Light => "light",
+        }
+    }
+
+    fn from_str(value: &str) -> Self {
+        match value {
+            "dark" => Self::Dark,
+            "light" => Self::Light,
+            _ => Self::Terminal,
+        }
+    }
+}
+
+const THEME_STORAGE_KEY: &str = "cli-demo-studio.theme";
+
+fn load_theme_mode() -> ThemeMode {
+    web_sys::window()
+        .and_then(|window| window.local_storage().ok().flatten())
+        .and_then(|storage| storage.get_item(THEME_STORAGE_KEY).ok().flatten())
+        .map(|value| ThemeMode::from_str(&value))
+        .unwrap_or(ThemeMode::Terminal)
+}
+
+fn persist_theme_mode(theme: ThemeMode) {
+    if let Some(storage) = web_sys::window()
+        .and_then(|window| window.local_storage().ok().flatten())
+    {
+        let _ = storage.set_item(THEME_STORAGE_KEY, theme.as_str());
+    }
+}
+
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
     provide_auth_context();
+    let (theme_mode, set_theme_mode) = signal(load_theme_mode());
+
+    Effect::new(move |_| {
+        let active_theme = theme_mode.get();
+        persist_theme_mode(active_theme);
+        if let Some(window) = web_sys::window() {
+            if let Some(document) = window.document() {
+                if let Some(root) = document.document_element() {
+                    let _ = root.set_attribute("data-theme", active_theme.as_str());
+                }
+            }
+        }
+    });
 
     view! {
         <Title text="CLI Demo Studio" />
         <Router>
+            <div class="theme-switcher" role="group" aria-label="Theme selector">
+                <label for="theme-select" class="theme-switcher-label">"Theme"</label>
+                <select
+                    id="theme-select"
+                    class="theme-switcher-select"
+                    prop:value=move || theme_mode.get().as_str()
+                    on:change=move |ev| {
+                        let value = event_target_value(&ev);
+                        set_theme_mode.set(ThemeMode::from_str(&value));
+                    }
+                >
+                    <option value="terminal">"Terminal"</option>
+                    <option value="dark">"Dark"</option>
+                    <option value="light">"Light"</option>
+                </select>
+            </div>
+
             <Routes fallback=|| view! { <p>"Not Found"</p> }>
                 <Route path=path!("/") view=LandingPage />
                 <Route path=path!("/d/:slug") view=ShareDemoPage />
                 <Route path=path!("/demo/view") view=DemoViewPage />
 
-                <Route path=path!("/projects") view=DashboardProjectsRoute />
-                <Route path=path!("/demos") view=DashboardDemosRoute />
-                <Route path=path!("/dashboard") view=DashboardProjectsRoute />
-                <Route path=path!("/dashboard/projects") view=DashboardProjectsRoute />
-                <Route path=path!("/dashboard/demos") view=DashboardDemosRoute />
-                <Route path=path!("/dashboard/demos/:id") view=DashboardDemoEditorRoute />
-                <Route path=path!("/dashboard/demos/:id/settings") view=DashboardSettingsRoute />
-                <Route path=path!("/dashboard/demos/:id/publish") view=DashboardPublishRoute />
-                <Route path=path!("/dashboard/demos/:id/analytics") view=DashboardAnalyticsRoute />
+                <ParentRoute path=path!("") view=AppShell>
+                    <Route path=path!("/projects") view=ProjectsPage />
+                    <Route path=path!("/demos") view=DemosPage />
+                    <Route path=path!("/dashboard") view=RedirectToProjects />
+                    <Route path=path!("/dashboard/projects") view=ProjectsPage />
+                    <Route path=path!("/dashboard/demos") view=DemosPage />
+                    <Route path=path!("/dashboard/demos/:id") view=DemoEditorPage />
+                    <Route path=path!("/dashboard/demos/:id/settings") view=SettingsPage />
+                    <Route path=path!("/dashboard/demos/:id/publish") view=PublishPage />
+                    <Route path=path!("/dashboard/demos/:id/analytics") view=AnalyticsPage />
+                </ParentRoute>
             </Routes>
         </Router>
     }
 }
 
 #[component]
-fn DashboardShell(children: Children) -> impl IntoView {
-    let auth = use_auth_context();
-
-    let logout = move |_| {
-        auth.set_logging_out.set(true);
-        spawn_local({
-            let auth = auth;
-            async move {
-                match api::logout().await {
-                    Ok(_) => auth.set_session_state.set(SessionState::LoggedOut),
-                    Err(err) => auth
-                        .set_session_state
-                        .set(SessionState::Error(format!("Logout failed: {err}"))),
-                }
-                auth.set_logging_out.set(false);
-            }
-        });
-    };
-
-    view! {
-        <main class="dashboard-shell">
-            <aside class="app-sidebar">
-                <div class="sidebar-brand">
-                    <p class="kicker">"// cli-demo-studio"</p>
-                    <h1>"Dashboard"</h1>
-                    <p class="muted">"Build, publish, and track CLI walkthroughs."</p>
-                </div>
-
-                <nav class="app-nav">
-                    <A href="/projects">"Projects"</A>
-                    <A href="/demos">"Demos"</A>
-                </nav>
-
-                <div class="sidebar-auth">
-                    {move || {
-                        match auth.session_state.get() {
-                            SessionState::Checking => view! {
-                                <p class="sidebar-auth-status">"Session: checking..."</p>
-                            }
-                            .into_any(),
-                            SessionState::LoggedOut => view! {
-                                <>
-                                    <p class="sidebar-auth-status">"Not signed in"</p>
-                                    <a
-                                        class="button btn-primary button-block"
-                                        href={api::login_url()}
-                                        on:click=move |_| auth.set_logging_in.set(true)
-                                    >
-                                        {move || if auth.is_logging_in.get() { "Redirecting..." } else { "Login via GitHub" }}
-                                    </a>
-                                    <button
-                                        type="button"
-                                        class="button btn-outline button-block"
-                                        on:click=move |_| refresh_session_state(auth.set_session_state)
-                                    >
-                                        "Sync Session"
-                                    </button>
-                                </>
-                            }
-                            .into_any(),
-                            SessionState::LoggedIn(user) => {
-                                let username = user.username;
-                                let email = user.email.unwrap_or_else(|| "GitHub account".to_string());
-                                let avatar_url = user.avatar_url;
-                                let initial = username
-                                    .chars()
-                                    .next()
-                                    .unwrap_or('U')
-                                    .to_ascii_uppercase()
-                                    .to_string();
-                                let avatar_node = if let Some(url) = avatar_url {
-                                    view! { <img class="sidebar-avatar" src={url} alt="User avatar" /> }.into_any()
-                                } else {
-                                    view! { <span class="sidebar-avatar-fallback">{initial}</span> }.into_any()
-                                };
-                                view! {
-                                    <>
-                                        <div class="sidebar-auth-profile">
-                                            <div class="sidebar-avatar-wrap">{avatar_node}</div>
-                                            <div>
-                                                <p class="sidebar-auth-status">{format!("@{username}")}</p>
-                                                <p class="muted">{email}</p>
-                                            </div>
-                                        </div>
-                                        <div class="sidebar-auth-actions">
-                                            <button
-                                                type="button"
-                                                class="button btn-danger button-block"
-                                                on:click=logout
-                                            >
-                                                {move || if auth.is_logging_out.get() { "Signing out..." } else { "Logout" }}
-                                            </button>
-                                        </div>
-                                    </>
-                                }
-                                .into_any()
-                            }
-                            SessionState::Error(message) => view! {
-                                <>
-                                    <p class="sidebar-auth-status sidebar-auth-error">{format!("Auth error: {message}")}</p>
-                                    <a class="button btn-primary button-block" href={api::login_url()}>
-                                        "Retry Login"
-                                    </a>
-                                </>
-                            }
-                            .into_any(),
-                        }
-                    }}
-                </div>
-            </aside>
-
-            <section class="app-content">{children()}</section>
-        </main>
-    }
-}
-
-#[component]
-fn DashboardProjectsRoute() -> impl IntoView {
-    view! { <DashboardShell><ProjectsPage /></DashboardShell> }
-}
-
-#[component]
-fn DashboardDemosRoute() -> impl IntoView {
-    view! { <DashboardShell><DemosPage /></DashboardShell> }
-}
-
-#[component]
-fn DashboardDemoEditorRoute() -> impl IntoView {
-    view! { <DashboardShell><DemoEditorPage /></DashboardShell> }
-}
-
-#[component]
-fn DashboardSettingsRoute() -> impl IntoView {
-    view! { <DashboardShell><SettingsPage /></DashboardShell> }
-}
-
-#[component]
-fn DashboardPublishRoute() -> impl IntoView {
-    view! { <DashboardShell><PublishPage /></DashboardShell> }
-}
-
-#[component]
-fn DashboardAnalyticsRoute() -> impl IntoView {
-    view! { <DashboardShell><AnalyticsPage /></DashboardShell> }
+fn RedirectToProjects() -> impl IntoView {
+    view! { <Redirect path="/projects" /> }
 }
