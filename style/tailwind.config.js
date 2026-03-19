@@ -13,7 +13,16 @@ module.exports = {
         muted:  "#1a6e2e",
         amber:  "#ffb000",
         danger: "#ff3333",
-        border: "rgba(0,255,65,0.25)"
+        border: "rgba(0,255,65,0.25)",
+        terminal: {
+          bg: "#050505",
+          panel: "#111111",
+          ink: "#4ade80",
+          dim: "#166534",
+          muted: "#a3a3a3",
+          danger: "#ef4444",
+          border: "#14532d"
+        }
       },
       fontFamily: {
         display: ["JetBrains Mono", "monospace"],
