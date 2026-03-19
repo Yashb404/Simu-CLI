@@ -340,6 +340,7 @@ async fn demo_crud_happy_path() {
         OwnedDemo(created_demo.0.clone()),
         Json(UpdateDemoRequest {
             title: Some("CRUD Demo Updated".to_string()),
+            project_id: None,
             slug: Some("crud-demo-updated".to_string()),
             theme: None,
             settings: None,

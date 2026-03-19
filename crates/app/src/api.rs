@@ -4,6 +4,7 @@ use shared::{
     dto::UpdateDemoRequest,
     models::demo::{Demo, DemoSettings, Step, Theme},
 };
+use uuid::Uuid;
 
 fn normalize_base(base: &str) -> String {
     let trimmed = base.trim().trim_end_matches('/');
@@ -264,6 +265,7 @@ pub async fn update_demo(id: &str, title: Option<&str>, slug: Option<&str>) -> R
         id,
         &UpdateDemoRequest {
             title: title.map(ToString::to_string),
+            project_id: None,
             slug: slug.map(ToString::to_string),
             theme: None,
             settings: None,
@@ -275,6 +277,28 @@ pub async fn update_demo(id: &str, title: Option<&str>, slug: Option<&str>) -> R
 pub async fn update_demo_payload(id: &str, payload: &UpdateDemoRequest) -> Result<DashboardDemo, String> {
     let body = serde_json::to_string(payload).map_err(|e| format!("serialize body: {e}"))?;
     fetch(HttpMethod::Patch, &api_url(&format!("/api/demos/{id}")), Some(&body), true).await
+}
+
+pub async fn update_demo_project(id: &str, project_id: Option<&str>) -> Result<DashboardDemo, String> {
+    let parsed_project_id = match project_id {
+        Some(value) if !value.trim().is_empty() => Some(
+            Uuid::parse_str(value.trim()).map_err(|e| format!("invalid project id: {e}"))?,
+        ),
+        _ => None,
+    };
+
+    update_demo_payload(
+        id,
+        &UpdateDemoRequest {
+            title: None,
+            project_id: Some(parsed_project_id),
+            slug: None,
+            theme: None,
+            settings: None,
+            steps: None,
+        },
+    )
+    .await
 }
 
 pub async fn delete_demo(id: &str) -> Result<(), String> {

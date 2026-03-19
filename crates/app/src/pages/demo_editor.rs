@@ -101,6 +101,7 @@ pub fn DemoEditorPage() -> impl IntoView {
                     &id,
                     &UpdateDemoRequest {
                         title: Some(next_title.trim().to_string()),
+                        project_id: None,
                         slug: if next_slug.trim().is_empty() {
                             None
                         } else {
@@ -149,6 +150,7 @@ pub fn DemoEditorPage() -> impl IntoView {
                     &id,
                     &UpdateDemoRequest {
                         title: Some(next_title.trim().to_string()),
+                        project_id: None,
                         slug: if next_slug.trim().is_empty() {
                             None
                         } else {

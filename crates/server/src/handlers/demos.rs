@@ -177,6 +177,7 @@ pub async fn update_demo(
     payload.validate()?;
 
     let mut title = existing.title;
+    let mut project_id = existing.project_id;
     let mut slug = existing.slug;
     let mut theme = existing.theme.clone();
     let mut settings = existing.settings.clone();
@@ -184,6 +185,24 @@ pub async fn update_demo(
 
     if let Some(new_title) = payload.title {
         title = new_title;
+    }
+    if let Some(project_update) = payload.project_id {
+        if let Some(target_project_id) = project_update {
+            let project_exists: Option<Uuid> = sqlx::query_scalar(
+                "SELECT id FROM projects WHERE id = $1 AND owner_id = $2",
+            )
+            .bind(target_project_id)
+            .bind(existing.owner_id)
+            .fetch_optional(&state.db)
+            .await?;
+
+            if project_exists.is_none() {
+                return Err(ApiError(AppError::Validation(
+                    "project does not exist or is not owned by user".to_string(),
+                )));
+            }
+        }
+        project_id = project_update;
     }
     if let Some(new_slug) = payload.slug {
         slug = Some(new_slug);
@@ -202,18 +221,20 @@ pub async fn update_demo(
         r#"
         UPDATE demos
         SET title = $1,
-            slug = $2,
-            engine_mode = $3,
-            theme = $4,
-            settings = $5,
-            steps = $6,
+            project_id = $2,
+            slug = $3,
+            engine_mode = $4,
+            theme = $5,
+            settings = $6,
+            steps = $7,
             updated_at = NOW()
-        WHERE id = $7 AND owner_id = $8
+        WHERE id = $8 AND owner_id = $9
         RETURNING id, owner_id, project_id, slug, title, engine_mode, theme, settings, steps,
                   published, version, created_at, updated_at
         "#,
     )
     .bind(title)
+    .bind(project_id)
     .bind(slug)
     .bind(to_engine_mode_db(&settings.engine_mode))
     .bind(SqlxJson(theme))

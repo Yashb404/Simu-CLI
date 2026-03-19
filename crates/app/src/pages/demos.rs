@@ -14,6 +14,7 @@ pub fn DemosPage() -> impl IntoView {
     let (status, set_status) = signal("Loading demos...".to_string());
     let (requires_login, set_requires_login) = signal(false);
     let (deleting_demo_id, set_deleting_demo_id) = signal(None::<String>);
+    let (updating_demo_project_id, set_updating_demo_project_id) = signal(None::<String>);
     let (pending_delete_demo_id, set_pending_delete_demo_id) = signal(None::<String>);
     let (pending_delete_demo_title, set_pending_delete_demo_title) = signal(None::<String>);
 
@@ -126,6 +127,35 @@ pub fn DemosPage() -> impl IntoView {
         });
     };
 
+    let change_demo_project = move |demo_id: String, new_project_id: String| {
+        set_updating_demo_project_id.set(Some(demo_id.clone()));
+        let project = if new_project_id.trim().is_empty() {
+            None
+        } else {
+            Some(new_project_id)
+        };
+
+        spawn_local({
+            let set_demos = set_demos;
+            let set_status = set_status;
+            let set_updating_demo_project_id = set_updating_demo_project_id;
+            async move {
+                match api::update_demo_project(&demo_id, project.as_deref()).await {
+                    Ok(updated_demo) => {
+                        set_demos.update(|items| {
+                            if let Some(existing) = items.iter_mut().find(|item| item.id == updated_demo.id) {
+                                *existing = updated_demo;
+                            }
+                        });
+                        set_status.set("Demo project updated.".to_string());
+                    }
+                    Err(err) => set_status.set(format!("Project update failed: {err}")),
+                }
+                set_updating_demo_project_id.set(None);
+            }
+        });
+    };
+
     view! {
         <section class="page demos-page">
             <h2>"Demos"</h2>
@@ -204,6 +234,8 @@ pub fn DemosPage() -> impl IntoView {
                             let demo_title = demo.title.clone();
                             let deleting_demo_ref_for_disabled = demo_id.clone();
                             let deleting_demo_ref_for_label = demo_id.clone();
+                            let project_select_demo_id = demo_id.clone();
+                            let project_select_demo_id_for_disabled = demo_id.clone();
                             let project_name = demo
                                 .project_id
                                 .as_ref()
@@ -226,6 +258,30 @@ pub fn DemosPage() -> impl IntoView {
                                         </p>
                                     </div>
                                     <div class="inline-actions">
+                                        <label>
+                                            "Project"
+                                            <select
+                                                disabled=move || updating_demo_project_id.get().as_deref() == Some(project_select_demo_id_for_disabled.as_str())
+                                                prop:value={demo.project_id.clone().unwrap_or_default()}
+                                                on:change=move |ev| {
+                                                    change_demo_project(
+                                                        project_select_demo_id.clone(),
+                                                        event_target_value(&ev),
+                                                    )
+                                                }
+                                            >
+                                                <option value="">"Unassigned"</option>
+                                                <For
+                                                    each=move || projects.get()
+                                                    key=|project| project.id.clone()
+                                                    children=move |project| {
+                                                        view! {
+                                                            <option value={project.id.clone()}>{project.name}</option>
+                                                        }
+                                                    }
+                                                />
+                                            </select>
+                                        </label>
                                         <a href={format!("/dashboard/demos/{}", demo.id)}>"Editor"</a>
                                         <a href={format!("/dashboard/demos/{}/publish", demo.id)}>"Publish"</a>
                                         <a href={format!("/dashboard/demos/{}/analytics", demo.id)}>"Analytics"</a>

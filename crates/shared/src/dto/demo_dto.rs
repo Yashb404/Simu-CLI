@@ -111,6 +111,7 @@ pub struct CreateDemoRequest {
 pub struct UpdateDemoRequest {
     #[validate(length(min = 1, max = 120))]
     pub title: Option<String>,
+    pub project_id: Option<Option<Uuid>>,
     #[validate(custom(function = "validate_slug"))]
     pub slug: Option<String>,
     #[validate(custom(function = "validate_theme"))]
@@ -154,6 +155,7 @@ mod tests {
     fn update_demo_request_rejects_invalid_slug() {
         let request = UpdateDemoRequest {
             title: None,
+            project_id: None,
             slug: Some("Invalid Slug".to_string()),
             theme: None,
             settings: None,
@@ -187,6 +189,7 @@ mod tests {
 
         let request = UpdateDemoRequest {
             title: None,
+            project_id: None,
             slug: Some("valid-slug".to_string()),
             theme: None,
             settings: None,
@@ -201,6 +204,7 @@ mod tests {
     fn update_demo_request_rejects_invalid_theme_color() {
         let request = UpdateDemoRequest {
             title: None,
+            project_id: None,
             slug: Some("valid-slug".to_string()),
             theme: Some(Theme {
                 window_style: WindowStyle::MacOs,
@@ -253,6 +257,7 @@ mod tests {
 
         let request = UpdateDemoRequest {
             title: None,
+            project_id: None,
             slug: Some("valid-slug".to_string()),
             theme: None,
             settings: Some(DemoSettings {
