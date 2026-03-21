@@ -1,5 +1,5 @@
 use leptos::prelude::*;
-use leptos::task::spawn_local;
+use leptos::task::spawn_local_scoped;
 
 use crate::api;
 use crate::components::confirm_dialog::ConfirmDialog;
@@ -19,7 +19,7 @@ pub fn DemosPage() -> impl IntoView {
     let (pending_delete_demo_title, set_pending_delete_demo_title) = signal(None::<String>);
 
     Effect::new(move |_| {
-        spawn_local({
+        spawn_local_scoped({
             let set_projects = set_projects;
             async move {
                 if let Ok(list) = api::list_projects().await {
@@ -31,7 +31,7 @@ pub fn DemosPage() -> impl IntoView {
 
     Effect::new(move |_| {
         let active_project_filter = project_filter_id.get();
-        spawn_local({
+        spawn_local_scoped({
             let set_demos = set_demos;
             let set_status = set_status;
             let set_requires_login = set_requires_login;
@@ -81,7 +81,7 @@ pub fn DemosPage() -> impl IntoView {
             Some(selected_project)
         };
 
-        spawn_local({
+        spawn_local_scoped({
             let set_demos = set_demos;
             let set_status = set_status;
             let set_title = set_title;
@@ -106,7 +106,7 @@ pub fn DemosPage() -> impl IntoView {
 
     let delete_demo = move |id: String| {
         set_deleting_demo_id.set(Some(id.clone()));
-        spawn_local({
+        spawn_local_scoped({
             let set_demos = set_demos;
             let set_status = set_status;
             let set_deleting_demo_id = set_deleting_demo_id;
@@ -135,7 +135,7 @@ pub fn DemosPage() -> impl IntoView {
             Some(new_project_id)
         };
 
-        spawn_local({
+        spawn_local_scoped({
             let set_demos = set_demos;
             let set_status = set_status;
             let set_updating_demo_project_id = set_updating_demo_project_id;

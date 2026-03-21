@@ -24,7 +24,8 @@
     iframe.style.height = "480px";
     iframe.style.border = "2px solid #000";
     iframe.style.borderRadius = "0";
-    iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");
+    var sandboxPolicy = currentScript.getAttribute("data-sandbox") || "allow-scripts allow-same-origin";
+    iframe.setAttribute("sandbox", sandboxPolicy);
     iframe.setAttribute("loading", "lazy");
 
     // 5. Inject right after the script tag

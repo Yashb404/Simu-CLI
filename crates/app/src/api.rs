@@ -4,8 +4,8 @@ use shared::{
     dto::UpdateDemoRequest,
     models::demo::{Demo, DemoSettings, Step, Theme},
 };
-use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
+use web_sys::js_sys;
 
 fn normalize_base(base: &str) -> String {
     let trimmed = base.trim().trim_end_matches('/');
@@ -178,10 +178,7 @@ pub fn logout_url() -> String {
 }
 
 pub async fn get_current_user() -> Result<CurrentUser, String> {
-    let ts = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis())
-        .unwrap_or(0);
+    let ts = js_sys::Date::now() as u64;
     let url = api_url(&format!("/api/me?ts={ts}"));
     fetch(HttpMethod::Get, &url, None, true).await
 }

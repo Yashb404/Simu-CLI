@@ -1,5 +1,5 @@
 use leptos::prelude::*;
-use leptos::task::spawn_local;
+use leptos::task::spawn_local_scoped;
 
 use crate::api;
 use crate::components::confirm_dialog::ConfirmDialog;
@@ -16,7 +16,7 @@ pub fn ProjectsPage() -> impl IntoView {
     let (pending_delete_project_name, set_pending_delete_project_name) = signal(None::<String>);
 
     Effect::new(move |_| {
-        spawn_local({
+        spawn_local_scoped({
             let set_projects = set_projects;
             let set_status = set_status;
             let set_requires_login = set_requires_login;
@@ -54,7 +54,7 @@ pub fn ProjectsPage() -> impl IntoView {
             return;
         }
 
-        spawn_local({
+        spawn_local_scoped({
             let set_projects = set_projects;
             let set_status = set_status;
             let set_name = set_name;
@@ -85,7 +85,7 @@ pub fn ProjectsPage() -> impl IntoView {
     let delete_project = move |project_id: String| {
         set_deleting_project_id.set(Some(project_id.clone()));
 
-        spawn_local({
+        spawn_local_scoped({
             let set_projects = set_projects;
             let set_status = set_status;
             let set_deleting_project_id = set_deleting_project_id;

@@ -9,14 +9,18 @@ pub fn LandingPage() -> impl IntoView {
     let auth = use_auth_context();
 
     move || match auth.session_state.get() {
-        SessionState::LoggedIn(_) => view! { <Redirect path="/projects" /> }.into_any(),
-        SessionState::Checking => view! { <LandingSkeleton /> }.into_any(),
-        SessionState::LoggedOut | SessionState::Error(_) => view! { <MarketingView /> }.into_any(),
+        SessionState::LoggedIn(_) => view! { <Redirect path="/dashboard" /> }.into_any(),
+        SessionState::Error(message) => view! { <MarketingView auth_error=Some(message) /> }.into_any(),
+        SessionState::Checking | SessionState::LoggedOut => {
+            view! { <MarketingView auth_error=None /> }.into_any()
+        }
     }
 }
 
 #[component]
-fn MarketingView() -> impl IntoView {
+fn MarketingView(auth_error: Option<String>) -> impl IntoView {
+    let auth = use_auth_context();
+
     view! {
         <div class="landing-shell">
             <header class="landing-header">
@@ -24,8 +28,18 @@ fn MarketingView() -> impl IntoView {
                     <span class="landing-prompt">">_"</span>
                     <span>"CLI Demo Studio"</span>
                 </div>
-                <a class="landing-login" href={api::login_url()}>
-                    "Login with GitHub"
+                <a
+                    class="landing-login"
+                    href={api::login_url()}
+                    on:click=move |_| auth.set_logging_in.set(true)
+                >
+                    {move || {
+                        if auth.is_logging_in.get() {
+                            "Redirecting to GitHub..."
+                        } else {
+                            "Login with GitHub"
+                        }
+                    }}
                 </a>
             </header>
 
@@ -46,10 +60,32 @@ fn MarketingView() -> impl IntoView {
                     </ul>
 
                     <div class="landing-actions">
-                        <a class="landing-cta" href={api::login_url()}>
-                            "Start Building"
+                        <a
+                            class="landing-cta"
+                            href={api::login_url()}
+                            on:click=move |_| auth.set_logging_in.set(true)
+                        >
+                            {move || {
+                                if auth.is_logging_in.get() {
+                                    "Connecting to GitHub..."
+                                } else {
+                                    "Start Building"
+                                }
+                            }}
                         </a>
                     </div>
+
+                    {move || {
+                        auth_error
+                            .as_ref()
+                            .map(|message| {
+                                view! {
+                                    <p class="status" role="status" aria-live="polite">
+                                        {format!("Login failed: {message}")}
+                                    </p>
+                                }
+                            })
+                    }}
                 </section>
 
                 <section class="landing-preview" aria-label="Terminal preview">
@@ -74,11 +110,3 @@ fn MarketingView() -> impl IntoView {
     }
 }
 
-#[component]
-fn LandingSkeleton() -> impl IntoView {
-    view! {
-        <div class="landing-skeleton">
-            <p>"Booting terminal..."</p>
-        </div>
-    }
-}

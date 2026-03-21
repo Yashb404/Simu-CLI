@@ -1,5 +1,5 @@
 use leptos::prelude::*;
-use leptos::task::spawn_local;
+use leptos::task::spawn_local_scoped;
 use leptos_router::hooks::use_params_map;
 
 use crate::api;
@@ -26,7 +26,7 @@ pub fn AnalyticsPage() -> impl IntoView {
             return;
         }
 
-        spawn_local({
+        spawn_local_scoped({
             let set_series = set_series;
             let set_referrers = set_referrers;
             let set_funnel = set_funnel;

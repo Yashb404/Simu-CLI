@@ -3,7 +3,6 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src *; img-src 'self' data:;" />
     <title>CLI Demo Embed Runtime</title>
     <style>
       @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap");
@@ -26,11 +25,8 @@
       .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
       body::after{content:"";position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px);pointer-events:none;z-index:9999}
     </style>
+    <link data-trunk rel="rust" data-target-name="embed" data-wasm-opt="0" />
   </head>
   <body>
-    <script type="module">
-      import init from "./pkg/embed.js";
-      init();
-    </script>
   </body>
 </html>

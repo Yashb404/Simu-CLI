@@ -299,15 +299,39 @@ pub async fn get_public_demo(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> HandlerResult<Response> {
+    get_public_demo_by_id_or_slug(&state, Some(id), None).await
+}
+
+pub async fn get_public_demo_by_reference(
+    State(state): State<AppState>,
+    Path(reference): Path<String>,
+) -> HandlerResult<Response> {
+    let parsed_uuid = Uuid::parse_str(reference.trim()).ok();
+    get_public_demo_by_id_or_slug(&state, parsed_uuid, Some(reference)).await
+}
+
+async fn get_public_demo_by_id_or_slug(
+    state: &AppState,
+    id: Option<Uuid>,
+    slug: Option<String>,
+) -> HandlerResult<Response> {
     let demo = sqlx::query_as::<_, Demo>(
         r#"
         SELECT id, owner_id, project_id, slug, title, engine_mode, theme, settings, steps,
                published, version, created_at, updated_at
         FROM demos
-        WHERE id = $1 AND published = TRUE
+        WHERE published = TRUE
+          AND (
+            ($1::uuid IS NOT NULL AND id = $1)
+            OR
+            ($2::text IS NOT NULL AND slug = $2)
+          )
+        ORDER BY updated_at DESC
+        LIMIT 1
         "#,
     )
     .bind(id)
+    .bind(slug)
     .fetch_optional(&state.db)
     .await?
     .ok_or(ApiError(AppError::NotFound))?;

@@ -6,14 +6,20 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        bg:     "#0a0a0a",
-        panel:  "#0e0e0e",
-        ink:    "#00ff41",
-        "ink-dim": "#00c832",
-        muted:  "#1a6e2e",
-        amber:  "#ffb000",
-        danger: "#ff3333",
-        border: "rgba(0,255,65,0.25)",
+        background: "#09090b",
+        surface: "#18181b",
+        border: "#27272a",
+        muted: "#a1a1aa",
+        foreground: "#f4f4f5",
+        brand: {
+          DEFAULT: "#f4f4f5",
+          hover: "#d4d4d8"
+        },
+        danger: {
+          DEFAULT: "#ef4444",
+          hover: "#dc2626",
+          bg: "#7f1d1d"
+        },
         terminal: {
           bg: "#050505",
           panel: "#111111",
@@ -25,8 +31,8 @@ module.exports = {
         }
       },
       fontFamily: {
-        display: ["JetBrains Mono", "monospace"],
-        mono:    ["IBM Plex Mono", "monospace"]
+        sans: ["Inter", "system-ui", "sans-serif"],
+        mono: ["Fira Code", "JetBrains Mono", "monospace"]
       }
     }
   },

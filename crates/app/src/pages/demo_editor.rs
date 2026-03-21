@@ -1,5 +1,5 @@
 use leptos::prelude::*;
-use leptos::task::spawn_local;
+use leptos::task::spawn_local_scoped;
 use leptos_router::hooks::use_params_map;
 use shared::{
     dto::UpdateDemoRequest,
@@ -54,7 +54,7 @@ pub fn DemoEditorPage() -> impl IntoView {
             return;
         }
 
-        spawn_local({
+        spawn_local_scoped({
             let set_title = set_title;
             let set_slug = set_slug;
             let set_steps = set_steps;
@@ -93,7 +93,7 @@ pub fn DemoEditorPage() -> impl IntoView {
 
         set_status.set("Saving...".to_string());
 
-        spawn_local({
+        spawn_local_scoped({
             let set_status = set_status;
             let set_steps = set_steps;
             async move {
@@ -141,7 +141,7 @@ pub fn DemoEditorPage() -> impl IntoView {
             return;
         }
 
-        spawn_local({
+        spawn_local_scoped({
             let set_status = set_status;
             let set_steps = set_steps;
             let set_published_slug = set_published_slug;
@@ -198,6 +198,30 @@ pub fn DemoEditorPage() -> impl IntoView {
         });
     };
 
+    let add_prompt_step = move |_| {
+        set_steps.update(|items| {
+            add_default_step(items, StepType::Prompt);
+        });
+    };
+
+    let add_spinner_step = move |_| {
+        set_steps.update(|items| {
+            add_default_step(items, StepType::Spinner);
+        });
+    };
+
+    let add_cta_step = move |_| {
+        set_steps.update(|items| {
+            add_default_step(items, StepType::Cta);
+        });
+    };
+
+    let add_pause_step = move |_| {
+        set_steps.update(|items| {
+            add_default_step(items, StepType::Pause);
+        });
+    };
+
     let prompt_string = Signal::derive(move || {
         theme
             .get()
@@ -245,6 +269,10 @@ pub fn DemoEditorPage() -> impl IntoView {
                         <button type="button" on:click=add_command_step>"+ Command"</button>
                         <button type="button" on:click=add_output_step>"+ Output"</button>
                         <button type="button" on:click=add_comment_step>"+ Comment"</button>
+                        <button type="button" on:click=add_prompt_step>"+ Prompt"</button>
+                        <button type="button" on:click=add_spinner_step>"+ Spinner"</button>
+                        <button type="button" on:click=add_cta_step>"+ CTA"</button>
+                        <button type="button" on:click=add_pause_step>"+ Pause"</button>
                     </div>
 
                     <StepListEditor steps=steps set_steps=set_steps />

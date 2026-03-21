@@ -1,6 +1,6 @@
 use leptos::prelude::*;
-use leptos::task::spawn_local;
 use wasm_bindgen::{closure::Closure, JsCast};
+use wasm_bindgen_futures::spawn_local;
 
 use crate::api;
 
@@ -53,6 +53,22 @@ pub fn provide_auth_context() {
 
     Effect::new(move |_| {
         refresh_session_state(set_session_state);
+
+        if let Some(window) = web_sys::window() {
+            let timeout_callback = Closure::wrap(Box::new(move || {
+                if matches!(session_state.get_untracked(), SessionState::Checking) {
+                    set_session_state.set(SessionState::Error(
+                        "Session check timed out. Verify API is reachable, then retry.".to_string(),
+                    ));
+                }
+            }) as Box<dyn FnMut()>);
+
+            let _ = window.set_timeout_with_callback_and_timeout_and_arguments_0(
+                timeout_callback.as_ref().unchecked_ref(),
+                9000,
+            );
+            timeout_callback.forget();
+        }
 
         if let Some(window) = web_sys::window() {
             let callback = Closure::wrap(Box::new(move || {

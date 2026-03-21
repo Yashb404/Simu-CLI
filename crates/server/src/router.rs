@@ -25,6 +25,10 @@ pub fn create_router(state: AppState) -> Router {
             get(handlers::demos::get_public_demo),
         )
         .route(
+            "/api/public/demos/{reference}",
+            get(handlers::demos::get_public_demo_by_reference),
+        )
+        .route(
             "/api/demos/{id}/publish",
             post(handlers::demos::publish_demo),
         )

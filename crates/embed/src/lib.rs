@@ -11,14 +11,21 @@ use shared::dto::PublicDemoResponse;
 
 #[cfg(target_arch = "wasm32")]
 fn query_param_value(key: &str) -> Option<String> {
+    fn decode_component(value: &str) -> String {
+        js_sys::decode_uri_component(value)
+            .ok()
+            .and_then(|s| s.as_string())
+            .unwrap_or_else(|| value.to_string())
+    }
+
     let search = web_sys::window()?.location().search().ok()?;
     let query = search.trim_start_matches('?');
     for pair in query.split('&') {
         let Some((k, v)) = pair.split_once('=') else {
             continue;
         };
-        if k == key {
-            return Some(v.to_string());
+        if decode_component(k) == key {
+            return Some(decode_component(v));
         }
     }
     None
@@ -44,7 +51,7 @@ pub fn EmbedApp() -> impl IntoView {
         let api_base = query_param_value("api_base")
             .or_else(|| web_sys::window().and_then(|window| window.location().origin().ok()))
             .unwrap_or_default();
-        let endpoint = format!("{api_base}/api/demos/{demo_id}/public");
+        let endpoint = format!("{api_base}/api/public/demos/{demo_id}");
 
         leptos::task::spawn_local({
             let set_demo = set_demo;
@@ -102,6 +109,13 @@ pub fn EmbedApp() -> impl IntoView {
 #[cfg(target_arch = "wasm32")]
 pub fn mount() {
     leptos::mount::mount_to_body(EmbedApp);
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen::prelude::wasm_bindgen(start)]
+pub fn start() {
+    console_error_panic_hook::set_once();
+    mount();
 }
 
 #[cfg(target_arch = "wasm32")]
