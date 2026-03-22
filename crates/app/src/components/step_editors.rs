@@ -314,6 +314,14 @@ pub fn add_default_step(steps: &mut Vec<Step>, step_type: StepType) {
     steps.push(create_default_step(step_type, order));
 }
 
+pub fn add_command_block(steps: &mut Vec<Step>) {
+    let order = steps.len() as i32;
+    // Add command step
+    steps.push(create_default_step(StepType::Command, order));
+    // Add paired output step right after
+    steps.push(create_default_step(StepType::Output, order + 1));
+}
+
 fn summarize_step(step: &Step) -> String {
     match step.step_type {
         StepType::Command => step
@@ -363,12 +371,22 @@ fn summarize_step(step: &Step) -> String {
     }
 }
 
+fn step_badge_class(step_type: &StepType) -> &'static str {
+    match step_type {
+        StepType::Command => "command",
+        StepType::Output => "output",
+        StepType::Pause => "pause",
+        _ => "other",
+    }
+}
+
 #[component]
 pub fn StepListEditor(
     steps: ReadSignal<Vec<Step>>,
     set_steps: WriteSignal<Vec<Step>>,
 ) -> impl IntoView {
     let (expanded_steps, set_expanded_steps) = signal(HashSet::<Uuid>::new());
+    let (dragged_idx, set_dragged_idx) = signal(None::<usize>);
 
     view! {
         <For
@@ -443,6 +461,40 @@ pub fn StepListEditor(
                     }
                 });
 
+                let on_drag_start = {
+                    let set_dragged_idx = set_dragged_idx;
+                    Callback::new(move |_| {
+                        set_dragged_idx.set(Some(idx));
+                    })
+                };
+
+                let on_drag_over = Callback::new(move |ev: web_sys::DragEvent| {
+                    ev.prevent_default();
+                });
+
+                let on_drop = {
+                    let set_steps = set_steps;
+                    let dragged_idx = dragged_idx;
+                    let set_dragged_idx = set_dragged_idx;
+                    Callback::new(move |ev: web_sys::DragEvent| {
+                        ev.prevent_default();
+
+                        if let Some(from_idx) = dragged_idx.get_untracked() {
+                            if from_idx != idx {
+                                set_steps.update(|items| {
+                                    if from_idx < items.len() && idx < items.len() {
+                                        let moved = items.remove(from_idx);
+                                        items.insert(idx, moved);
+                                        normalize_step_orders(items);
+                                    }
+                                });
+                            }
+                        }
+
+                        set_dragged_idx.set(None);
+                    })
+                };
+
                 view! {
                     <StepCard
                         index=idx
@@ -453,6 +505,9 @@ pub fn StepListEditor(
                         on_move_down=on_move_down
                         on_remove=on_remove
                         on_update=on_update
+                        on_drag_start=on_drag_start
+                        on_drag_over=on_drag_over
+                        on_drop=on_drop
                     />
                 }
             }
@@ -470,23 +525,35 @@ fn StepCard(
     on_move_down: Callback<web_sys::MouseEvent>,
     on_remove: Callback<web_sys::MouseEvent>,
     on_update: Callback<Step>,
+    on_drag_start: Callback<web_sys::DragEvent>,
+    on_drag_over: Callback<web_sys::DragEvent>,
+    on_drop: Callback<web_sys::DragEvent>,
 ) -> impl IntoView {
     let step_type_label = format!("{:?}", step.step_type);
+    let step_type_class = step_badge_class(&step.step_type);
     let step_summary = summarize_step(&step);
     let step_for_editor = step.clone();
 
     view! {
-        <article class="step-card">
-            <button type="button" class="step-card-toggle" on:click=move |ev| on_toggle.run(ev)>
-                <span class="step-card-title">{format!("#{} {}", index + 1, step_type_label)}</span>
-                <span class="step-card-summary">{step_summary}</span>
+        <div
+            class="step-block"
+            draggable="true"
+            on:dragstart=move |ev| on_drag_start.run(ev)
+            on:dragover=move |ev| on_drag_over.run(ev)
+            on:drop=move |ev| on_drop.run(ev)
+        >
+            <button type="button" class="step-block-header" on:click=move |ev| on_toggle.run(ev)>
+                <div class="drag-handle">"⋮⋮"</div>
+                <span class=format!("step-badge {step_type_class}")>{step_type_label}</span>
+                <span class="step-seq">{format!("{}.", index + 1)}</span>
+                <span class="step-summary">{step_summary}</span>
                 <span class="step-card-indicator">
                     {move || if expanded.get() { "Collapse" } else { "Edit" }}
                 </span>
             </button>
 
             <Show when=move || expanded.get()>
-                <div class="step-card-body">
+                <div class="step-block-body">
                     <header class="inline-actions">
                         <button type="button" on:click=move |ev| on_move_up.run(ev)>"Up"</button>
                         <button type="button" on:click=move |ev| on_move_down.run(ev)>"Down"</button>
@@ -495,14 +562,14 @@ fn StepCard(
                     <StepEditorRouter step=step_for_editor.clone() on_update=on_update />
                 </div>
             </Show>
-        </article>
+        </div>
     }
 }
 
 #[component]
 fn StepEditorRouter(step: Step, on_update: Callback<Step>) -> impl IntoView {
     match step.step_type {
-        StepType::Command => view! { <CommandEditor step=step on_update=on_update /> }.into_any(),
+        StepType::Command => view! { <CommandBlockEditor step=step on_update=on_update /> }.into_any(),
         StepType::Output => view! { <OutputEditor step=step on_update=on_update /> }.into_any(),
         StepType::Comment => view! { <CommentEditor step=step on_update=on_update /> }.into_any(),
         StepType::Prompt => view! { <PromptEditor step=step on_update=on_update /> }.into_any(),
@@ -514,7 +581,7 @@ fn StepEditorRouter(step: Step, on_update: Callback<Step>) -> impl IntoView {
 }
 
 #[component]
-fn CommandEditor(step: Step, on_update: Callback<Step>) -> impl IntoView {
+fn CommandBlockEditor(step: Step, on_update: Callback<Step>) -> impl IntoView {
     let command_value = step.input.clone().unwrap_or_default();
     let match_pattern_value = step
         .match_pattern
@@ -524,33 +591,40 @@ fn CommandEditor(step: Step, on_update: Callback<Step>) -> impl IntoView {
     let step_for_pattern = step;
 
     view! {
-        <label>
-            "Command"
-            <input
-                prop:value=command_value
-                on:input=move |ev| {
-                    let next = event_target_value(&ev);
-                    let mut updated = step_for_command.clone();
-                    updated.input = Some(next.clone());
-                    if updated.match_pattern.is_none() {
-                        updated.match_pattern = Some(next);
-                    }
-                    on_update.run(updated);
-                }
-            />
-        </label>
-        <label>
-            "Match pattern"
-            <input
-                prop:value=match_pattern_value
-                on:input=move |ev| {
-                    let next = event_target_value(&ev);
-                    let mut updated = step_for_pattern.clone();
-                    updated.match_pattern = Some(next);
-                    on_update.run(updated);
-                }
-            />
-        </label>
+        <div class="command-block-editor">
+            <section class="command-block-section">
+                <h4>"Command"</h4>
+                <label>
+                    "Command to execute"
+                    <input
+                        placeholder="e.g., npm install"
+                        prop:value=command_value
+                        on:input=move |ev| {
+                            let next = event_target_value(&ev);
+                            let mut updated = step_for_command.clone();
+                            updated.input = Some(next.clone());
+                            if updated.match_pattern.is_none() {
+                                updated.match_pattern = Some(next);
+                            }
+                            on_update.run(updated);
+                        }
+                    />
+                </label>
+                <label>
+                    "Match pattern (how user input will match this command)"
+                    <input
+                        placeholder="Leave blank to match the command exactly"
+                        prop:value=match_pattern_value
+                        on:input=move |ev| {
+                            let next = event_target_value(&ev);
+                            let mut updated = step_for_pattern.clone();
+                            updated.match_pattern = Some(next);
+                            on_update.run(updated);
+                        }
+                    />
+                </label>
+            </section>
+        </div>
     }
 }
 
