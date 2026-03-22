@@ -1,0 +1,23 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Frontend: trunk serve",
+      "type": "shell",
+      "command": "cd crates/app && APP_API_BASE_URL=http://localhost:3001 trunk serve --port 8080"
+    },
+    {
+      "label": "Backend: cargo run",
+      "type": "shell",
+      "command": ". ./.env && FRONTEND_URL=http://localhost:8080 CORS_ALLOWED_ORIGINS=http://localhost:8080,http://localhost:3001 cargo run -p server"
+    },
+    {
+      "label": "Dev: split frontend+backend",
+      "dependsOn": [
+        "Backend: cargo run",
+        "Frontend: trunk serve"
+      ],
+      "dependsOrder": "parallel"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 use leptos::prelude::*;
-use shared::models::demo::{DemoSettings, Theme};
+use shared::models::demo::{DemoSettings, EngineMode, Theme};
 
 #[component]
 pub fn DemoSettingsForm(
@@ -26,6 +26,13 @@ pub fn DemoSettingsForm(
             .unwrap_or_else(|| "command not found".to_string())
     });
 
+    let engine_mode = Signal::derive(move || {
+        settings
+            .get()
+            .map(|cfg| cfg.engine_mode.clone())
+            .unwrap_or(EngineMode::Sequential)
+    });
+
     view! {
         <section class="panel form-grid">
             <label>
@@ -41,6 +48,38 @@ pub fn DemoSettingsForm(
                     prop:value=move || slug.get()
                     on:input=move |ev| set_slug.set(event_target_value(&ev))
                 />
+            </label>
+            <label>
+                <div>
+                    "Engine Mode"
+                    <span class="help-text">
+                        "Choose how users interact with the terminal"
+                    </span>
+                </div>
+                <select
+                    prop:value=move || match engine_mode.get() {
+                        EngineMode::Sequential => "sequential".to_string(),
+                        EngineMode::FreePlay => "free_play".to_string(),
+                    }
+                    on:change=move |ev| {
+                        let next_mode = match event_target_value(&ev).as_str() {
+                            "free_play" => EngineMode::FreePlay,
+                            _ => EngineMode::Sequential,
+                        };
+                        set_settings.update(|value| {
+                            if let Some(settings) = value.as_mut() {
+                                settings.engine_mode = next_mode;
+                            }
+                        });
+                    }
+                >
+                    <option value="sequential">
+                        "Sequential - Users execute commands in order"
+                    </option>
+                    <option value="free_play">
+                        "FreePlay - Users can run any command at any time"
+                    </option>
+                </select>
             </label>
             <label>
                 "Prompt String"

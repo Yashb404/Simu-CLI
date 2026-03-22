@@ -90,6 +90,26 @@ impl CliEngine {
             }
         }
 
+        // Fallback for sequential mode: allow exact repeats of previous commands
+        if self.mode == EngineMode::Sequential {
+            for idx in 0..self.cursor {
+                let step = &self.steps[idx];
+                if step.step_type != StepType::Command {
+                    continue;
+                }
+
+                let expected = step
+                    .match_pattern
+                    .as_deref()
+                    .or(step.input.as_deref())
+                    .unwrap_or_default();
+                // Use Exact match mode for fallback repeats (strict matching required)
+                if command_matches(&MatchMode::Exact, expected, command) {
+                    return Some(idx);
+                }
+            }
+        }
+
         None
     }
 
