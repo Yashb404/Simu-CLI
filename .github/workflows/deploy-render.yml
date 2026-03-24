@@ -1,0 +1,27 @@
+name: Deploy to Render
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_hook_url:
+        description: "Render deploy hook URL"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-render
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy hook
+        shell: bash
+        run: |
+          curl --fail --show-error --silent \
+            -X POST \
+            "${{ inputs.deploy_hook_url }}"

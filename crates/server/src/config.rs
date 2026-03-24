@@ -142,11 +142,17 @@ impl Config {
             anyhow::bail!("SESSION_SECRET must be valid hex characters");
         }
 
-        let api_url = env::var("API_URL")
-            .context("API_URL must be set")?;
+        let api_url = match env::var("API_URL") {
+            Ok(value) => value,
+            Err(_) => env::var("RENDER_EXTERNAL_URL")
+                .context("API_URL must be set (or RENDER_EXTERNAL_URL when running on Render)")?,
+        };
 
-        let frontend_url = env::var("FRONTEND_URL")
-            .context("FRONTEND_URL must be set")?;
+        let frontend_url = match env::var("FRONTEND_URL") {
+            Ok(value) => value,
+            Err(_) => env::var("RENDER_EXTERNAL_URL")
+                .context("FRONTEND_URL must be set (or RENDER_EXTERNAL_URL when running on Render)")?,
+        };
 
         let cors_allowed_origins = match env::var("CORS_ALLOWED_ORIGINS") {
             Ok(value) => parse_cors_allowed_origins(&value)

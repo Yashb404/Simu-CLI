@@ -82,6 +82,7 @@ impl CliEngine {
             let expected = step
                 .match_pattern
                 .as_deref()
+                .filter(|pattern| !pattern.trim().is_empty())
                 .or(step.input.as_deref())
                 .unwrap_or_default();
             let match_mode = step.match_mode.clone().unwrap_or(MatchMode::Exact);
@@ -101,6 +102,7 @@ impl CliEngine {
                 let expected = step
                     .match_pattern
                     .as_deref()
+                    .filter(|pattern| !pattern.trim().is_empty())
                     .or(step.input.as_deref())
                     .unwrap_or_default();
                 // Use Exact match mode for fallback repeats (strict matching required)

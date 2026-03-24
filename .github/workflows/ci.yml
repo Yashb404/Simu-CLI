@@ -1,5 +1,19 @@
 name: CI
-on: [push, pull_request]
+
+on:
+  push:
+    branches:
+      - main
+      - frontend
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -17,12 +31,22 @@ jobs:
           --health-retries 5
     env:
       DATABASE_URL: postgres://postgres:password@localhost:5432/cli_demo_studio
+      GITHUB_CLIENT_ID: ci-client
+      GITHUB_CLIENT_SECRET: ci-secret
+      SESSION_SECRET: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      API_URL: http://127.0.0.1:3001
+      FRONTEND_URL: http://127.0.0.1:3001
+      CORS_ALLOWED_ORIGINS: http://127.0.0.1:3001
+      SESSION_COOKIE_SECURE: "false"
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
+      - name: Install Trunk
+        run: cargo install trunk --locked --version 0.21.14
       - name: Wait for Postgres
         run: |
           for i in {1..30}; do
@@ -31,6 +55,10 @@ jobs:
           done
           echo "Postgres did not become ready in time" >&2
           exit 1
+      - name: Format check
+        run: cargo fmt --all -- --check
+      - name: Lint (native)
+        run: cargo clippy -p server -p shared --all-targets -- -D warnings
       # Check server-side and shared crates for the host target
       - name: Check (native)
         run: cargo check -p server -p shared
@@ -39,6 +67,16 @@ jobs:
         run: cargo check --target wasm32-unknown-unknown -p app
       - name: Check embed (WASM)
         run: cargo check --target wasm32-unknown-unknown -p embed
+      - name: Build dashboard assets
+        run: |
+          cd crates/app
+          trunk build index.html --release
+      - name: Build embed runtime assets
+        run: |
+          cd crates/embed
+          trunk build index.html --release -d ../../dist-embed
+      - name: Release build (server)
+        run: cargo build -p server --release
       # Run unit tests; WASM crates can't run natively
       - name: Test
         run: cargo test -p server -p shared -- --test-threads=1

@@ -50,12 +50,7 @@ pub fn DemoSettingsForm(
                 />
             </label>
             <label>
-                <div>
-                    "Engine Mode"
-                    <span class="help-text">
-                        "Choose how users interact with the terminal"
-                    </span>
-                </div>
+                "Engine Mode"
                 <select
                     prop:value=move || match engine_mode.get() {
                         EngineMode::Sequential => "sequential".to_string(),
