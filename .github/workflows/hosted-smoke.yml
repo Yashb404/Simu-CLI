@@ -1,0 +1,71 @@
+name: Hosted Smoke Checks
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Hosted app base URL (example: https://cli-demo-studio.onrender.com)"
+        required: false
+        type: string
+  schedule:
+    - cron: "*/30 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hosted-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve base URL
+        id: resolve
+        shell: bash
+        run: |
+          input_url="${{ github.event.inputs.base_url }}"
+          if [ -n "${input_url}" ]; then
+            echo "base_url=${input_url%/}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ ! -f .github/hosted-base-url.txt ]; then
+            echo "Missing .github/hosted-base-url.txt and no workflow_dispatch input was provided." >&2
+            exit 1
+          fi
+
+          file_url="$(head -n 1 .github/hosted-base-url.txt | xargs)"
+          if [ -z "${file_url}" ] || [ "${file_url}" = "https://replace-with-your-hosted-url" ]; then
+            echo "Set your hosted base URL in .github/hosted-base-url.txt or provide workflow_dispatch input." >&2
+            exit 1
+          fi
+          echo "base_url=${file_url%/}" >> "$GITHUB_OUTPUT"
+
+      - name: Check API health endpoint
+        shell: bash
+        run: |
+          curl --fail --show-error --silent \
+            --retry 5 \
+            --retry-all-errors \
+            --retry-delay 3 \
+            "${{ steps.resolve.outputs.base_url }}/api/health"
+
+      - name: Check dashboard root
+        shell: bash
+        run: |
+          curl --fail --show-error --silent \
+            --retry 3 \
+            --retry-all-errors \
+            --retry-delay 2 \
+            "${{ steps.resolve.outputs.base_url }}/" > /dev/null
+
+      - name: Check embed bootstrap asset
+        shell: bash
+        run: |
+          curl --fail --show-error --silent \
+            --retry 3 \
+            --retry-all-errors \
+            --retry-delay 2 \
+            "${{ steps.resolve.outputs.base_url }}/static/embed.js" > /dev/null
