@@ -127,19 +127,16 @@ Run backend and frontend in separate terminals.
 Terminal 1 (backend):
 
 ~~~bash
-cd $REPO_ROOT
+cd /home/yash/Desktop/Coding/cli-demo-studio
 . ./.env && FRONTEND_URL=http://localhost:8080 CORS_ALLOWED_ORIGINS=http://localhost:8080,http://localhost:3001 cargo run -p server
 ~~~
 
 Terminal 2 (dashboard frontend):
 
 ~~~bash
-cd $REPO_ROOT/crates/app
+cd /home/yash/Desktop/Coding/cli-demo-studio/crates/app
 APP_API_BASE_URL=http://localhost:3001 trunk serve --port 8080
 ~~~
-
-During development, open the dashboard from http://localhost:8080 (Trunk).
-Avoid loading dashboard HTML from http://localhost:3001 directly.
 
 Alternative:
 
