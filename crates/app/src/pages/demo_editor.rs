@@ -11,6 +11,27 @@ use crate::components::demo_settings_form::DemoSettingsForm;
 use crate::components::live_preview::LivePreviewPanel;
 use crate::components::step_editors::{add_command_block, add_default_step, StepListEditor};
 
+fn normalize_command_match_patterns(steps: &mut [Step]) {
+    for step in steps.iter_mut() {
+        if step.step_type != StepType::Command {
+            continue;
+        }
+
+        let input = step.input.clone().unwrap_or_default();
+        if input.trim().is_empty() {
+            continue;
+        }
+
+        // One-time migration for legacy defaults: if pattern still has the
+        // original scaffold value but input was changed, sync to input.
+        if let Some(pattern) = step.match_pattern.clone() {
+            if pattern.trim() == "echo hello" && input.trim() != "echo hello" {
+                step.match_pattern = Some(input);
+            }
+        }
+    }
+}
+
 #[component]
 pub fn DemoEditorPage() -> impl IntoView {
     let params = use_params_map();
@@ -66,9 +87,11 @@ pub fn DemoEditorPage() -> impl IntoView {
                     Ok(demo) => {
                         let settings_value = demo.settings.clone();
                         let theme_value = demo.theme.clone();
+                        let mut steps_value = demo.steps;
+                        normalize_command_match_patterns(&mut steps_value);
                         set_title.set(demo.title);
                         set_slug.set(demo.slug.unwrap_or_default());
-                        set_steps.set(demo.steps);
+                        set_steps.set(steps_value);
                         set_settings.set(Some(settings_value));
                         set_theme.set(Some(theme_value));
                     }
@@ -82,7 +105,8 @@ pub fn DemoEditorPage() -> impl IntoView {
         let id = demo_id();
         let next_title = title.get();
         let next_slug = slug.get();
-        let next_steps = steps.get();
+        let mut next_steps = steps.get();
+        normalize_command_match_patterns(&mut next_steps);
         let next_settings = settings.get();
         let next_theme = theme.get();
 
@@ -128,7 +152,8 @@ pub fn DemoEditorPage() -> impl IntoView {
         let id = demo_id();
         let next_title = title.get();
         let next_slug = slug.get();
-        let next_steps = steps.get();
+        let mut next_steps = steps.get();
+        normalize_command_match_patterns(&mut next_steps);
         let next_settings = settings.get();
         let next_theme = theme.get();
 

@@ -602,8 +602,20 @@ fn CommandBlockEditor(step: Step, on_update: Callback<Step>) -> impl IntoView {
                         on:input=move |ev| {
                             let next = event_target_value(&ev);
                             let mut updated = step_for_command.clone();
+                            let previous_input = updated.input.clone().unwrap_or_default();
+
+                            // Keep match pattern in sync with command by default.
+                            // If user has set a custom pattern, preserve it.
+                            let should_sync_pattern = updated
+                                .match_pattern
+                                .as_ref()
+                                .map(|pattern| {
+                                    pattern.trim().is_empty() || *pattern == previous_input
+                                })
+                                .unwrap_or(true);
+
                             updated.input = Some(next.clone());
-                            if updated.match_pattern.is_none() {
+                            if should_sync_pattern {
                                 updated.match_pattern = Some(next);
                             }
                             on_update.run(updated);
@@ -618,7 +630,11 @@ fn CommandBlockEditor(step: Step, on_update: Callback<Step>) -> impl IntoView {
                         on:input=move |ev| {
                             let next = event_target_value(&ev);
                             let mut updated = step_for_pattern.clone();
-                            updated.match_pattern = Some(next);
+                            updated.match_pattern = if next.trim().is_empty() {
+                                None
+                            } else {
+                                Some(next)
+                            };
                             on_update.run(updated);
                         }
                     />
