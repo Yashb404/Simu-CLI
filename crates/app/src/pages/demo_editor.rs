@@ -9,6 +9,7 @@ use shared::{
 use crate::api;
 use crate::components::demo_settings_form::DemoSettingsForm;
 use crate::components::live_preview::LivePreviewPanel;
+<<<<<<< HEAD
 use crate::components::step_editors::{add_command_block, add_default_step, StepListEditor};
 
 fn normalize_command_match_patterns(steps: &mut [Step]) {
@@ -31,6 +32,10 @@ fn normalize_command_match_patterns(steps: &mut [Step]) {
         }
     }
 }
+=======
+use crate::components::step_editors::{add_default_step, StepListEditor};
+use crate::components::cast_import::CastImportButton;
+>>>>>>> ae40fdd (Refactor code structure for improved readability and maintainability)
 
 #[component]
 pub fn DemoEditorPage() -> impl IntoView {
@@ -45,6 +50,7 @@ pub fn DemoEditorPage() -> impl IntoView {
     let (title, set_title) = signal(String::new());
     let (slug, set_slug) = signal(String::new());
     let (steps, set_steps) = signal(Vec::<Step>::new());
+    let (steps_version, set_steps_version) = signal(0u32);
     let (settings, set_settings) = signal(Some(DemoSettings {
         engine_mode: EngineMode::Sequential,
         autoplay: false,
@@ -71,6 +77,7 @@ pub fn DemoEditorPage() -> impl IntoView {
 
     Effect::new(move |_| {
         let id = demo_id();
+        let _version = steps_version.get();
         if id == "unknown" {
             return;
         }
@@ -347,6 +354,7 @@ pub fn DemoEditorPage() -> impl IntoView {
                         <button type="button" on:click=add_pause_step>"+ Pause"</button>
                     </div>
 
+<<<<<<< HEAD
                     <div class="script-content">
                         <DemoSettingsForm
                             title=title
@@ -358,6 +366,25 @@ pub fn DemoEditorPage() -> impl IntoView {
                             theme=theme
                             set_theme=set_theme
                         />
+=======
+                    <CastImportButton
+                        demo_id=demo_id()
+                        on_success={Callback::new(move |_resp: shared::dto::demo_dto::ImportCastResponse| {
+                            set_steps_version.update(|v| *v += 1);
+                        })}
+                    />
+
+                    <StepListEditor steps=steps set_steps=set_steps />
+                </section>
+                <aside class="preview-column">
+                    <LivePreviewPanel
+                        steps=steps
+                        prompt_string=prompt_string
+                        not_found_message=not_found_message
+                    />
+                </aside>
+            </div>
+>>>>>>> ae40fdd (Refactor code structure for improved readability and maintainability)
 
                         <StepListEditor steps=steps set_steps=set_steps />
 

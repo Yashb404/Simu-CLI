@@ -33,6 +33,10 @@ pub fn create_router(state: AppState) -> Router {
             post(handlers::demos::publish_demo),
         )
         .route(
+            "/api/demos/{id}/import-cast",
+            post(handlers::demos::import_cast),
+        )
+        .route(
             "/api/demos/{id}/og-image",
             get(handlers::demos::get_demo_og_image),
         )

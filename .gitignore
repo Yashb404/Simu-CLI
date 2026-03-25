@@ -10,3 +10,4 @@ dist/
 build/
 target/
 repomix-output.xml
+parser.md
