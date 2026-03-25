@@ -9,7 +9,7 @@ use crate::api::api_base;
 use shared::dto::demo_dto::ImportCastResponse;
 
 const MAX_CAST_UPLOAD_BYTES: u64 = 5 * 1024 * 1024;
-
+// ── Upload state machine ──────────────────────────────────────────────────────
 
 #[derive(Clone, PartialEq)]
 enum UploadState {
@@ -35,8 +35,7 @@ impl UploadState {
 #[component]
 pub fn CastImportButton(
     demo_id: String,
-    /// Parent-owned signal; written to Some(response) on successful import.
-    on_imported: RwSignal<Option<ImportCastResponse>>,
+    on_success: Callback<ImportCastResponse>,
 ) -> impl IntoView {
     let state = RwSignal::new(UploadState::Idle);
     let input_id = "cast-file-input";
@@ -55,10 +54,10 @@ pub fn CastImportButton(
 
                     let demo_id = demo_id.clone();
                     let state_clone = state;
-                    let response_signal = on_imported;
+                    let on_success_clone = on_success;
 
                     spawn_local(async move {
-                        upload_file(&file, &demo_id, state_clone, response_signal).await;
+                        upload_file(&file, &demo_id, state_clone, on_success_clone).await;
                     });
                 }
             }
@@ -73,7 +72,6 @@ pub fn CastImportButton(
             state.set(UploadState::Idle);
         }
     };
-
 
     view! {
         <div class="cast-import-zone">
@@ -143,15 +141,14 @@ async fn upload_file(
     file: &web_sys::File,
     demo_id: &str,
     state: RwSignal<UploadState>,
-    response_signal: RwSignal<Option<ImportCastResponse>>,
+    on_success: Callback<ImportCastResponse>,
 ) {
     state.set(UploadState::Uploading);
 
     match read_file_as_string(file).await {
         Ok(text) => match post_cast_file(demo_id, &file.name(), &text).await {
             Ok(response) => {
-                // Store response in signal instead of calling callback
-                response_signal.set(Some(response.clone()));
+                on_success.run(response.clone());
                 state.set(UploadState::Success(response.message));
             }
             Err(e) => {
@@ -180,7 +177,6 @@ fn validate_cast_file(file: &web_sys::File) -> Result<(), String> {
 
     Ok(())
 }
-
 /// Read a `web_sys::File` as a UTF-8 string.
 async fn read_file_as_string(file: &web_sys::File) -> Result<String, String> {
     use wasm_bindgen_futures::JsFuture;

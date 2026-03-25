@@ -455,7 +455,6 @@ pub async fn get_demo_og_image(
 use shared::dto::demo_dto::{ImportCastQuery, ImportCastResponse};
 
 const MAX_CAST_UPLOAD_BYTES: usize = 5 * 1024 * 1024;
-
 pub async fn import_cast(
     State(state): State<AppState>,
     Path(demo_id): Path<Uuid>,
@@ -562,7 +561,6 @@ async fn read_cast_field(multipart: &mut axum::extract::Multipart) -> HandlerRes
                     )))
                     .into());
                 }
-
                 return String::from_utf8(data.to_vec())
                     .map_err(|e| ApiError(AppError::Validation(format!("Invalid UTF-8: {}", e))).into());
             }

@@ -10,7 +10,6 @@ use crate::api;
 use crate::components::cast_import::CastImportButton;
 use crate::components::demo_settings_form::DemoSettingsForm;
 use crate::components::live_preview::LivePreviewPanel;
-use shared::dto::demo_dto::ImportCastResponse;
 use crate::components::step_editors::{
     add_command_block as add_command_block_step,
     add_default_step,
@@ -51,7 +50,6 @@ pub fn DemoEditorPage() -> impl IntoView {
     let (slug, set_slug) = signal(String::new());
     let (steps, set_steps) = signal(Vec::<Step>::new());
     let (steps_version, set_steps_version) = signal(0u32);
-    let last_cast_import = RwSignal::new(None::<ImportCastResponse>);
     let (settings, set_settings) = signal(Some(DemoSettings {
         engine_mode: EngineMode::Sequential,
         autoplay: false,
@@ -107,14 +105,6 @@ pub fn DemoEditorPage() -> impl IntoView {
                 }
             }
         });
-    });
-
-    // Watch for cast file imports and update steps accordingly
-    Effect::new(move |_| {
-        if last_cast_import.get().is_some() {
-            set_steps_version.update(|v| *v += 1);
-            set_status.set("Steps imported successfully!".to_string());
-        }
     });
 
     let save_demo = move |_| {
@@ -374,7 +364,10 @@ pub fn DemoEditorPage() -> impl IntoView {
                     <div class="script-content">
                         <CastImportButton
                             demo_id=current_demo_id.clone()
-                            on_imported=last_cast_import
+                            on_success={Callback::new(move |resp: shared::dto::demo_dto::ImportCastResponse| {
+                                set_steps_version.update(|v| *v += 1);
+                                set_status.set(resp.message);
+                            })}
                         />
 
                         <p class="text-muted">
