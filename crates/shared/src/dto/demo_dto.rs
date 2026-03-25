@@ -276,3 +276,35 @@ mod tests {
         assert!(result.is_err(), "too many output lines should fail validation");
     }
 }
+
+// ── Cast import DTOs ──────────────────────────────────────────────────────────
+
+/// Query parameters accepted by `POST /api/demos/{id}/import-cast`.
+///
+/// All fields are optional so the endpoint can be called with defaults.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ImportCastQuery {
+    /// When `true`, the parser will attempt to strip the trailing shell prompt
+    /// from each output block. Default is `true`.
+    #[serde(default = "default_strip_prompt")]
+    pub strip_trailing_prompt: bool,
+
+    /// Optional list of prompt patterns to strip. If empty, activates heuristic
+    /// matching (looks for `$`, `#`, `%`, `>`). See [`cast_parser::strip_trailing_prompt`]
+    /// for full semantics.
+    #[serde(default)]
+    pub prompt_patterns: Vec<String>,
+}
+
+fn default_strip_prompt() -> bool {
+    true
+}
+
+/// Response body returned by `POST /api/demos/{id}/import-cast`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportCastResponse {
+    /// How many command→output pairs were successfully extracted and persisted.
+    pub pairs_imported: usize,
+    /// User-facing status message.
+    pub message: String,
+}

@@ -16,7 +16,7 @@ wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
 getrandom = { version = "0.2", features = ["js"] }
 gloo-net = { version = "0.6", features = ["http"] }
-web-sys = { version = "0.3", features = ["RequestCredentials", "Window", "Location", "Storage"] }
+web-sys = { version = "0.3", features = ["RequestCredentials", "Window", "Location", "Storage", "File", "FileList", "FormData", "Blob", "HtmlInputElement"] }
 console_error_panic_hook = "0.1"
 
 [lib]

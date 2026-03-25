@@ -21,7 +21,7 @@ use crate::{
 use shared::{
     dto::{CreateDemoRequest, PublicDemoResponse, UpdateDemoRequest},
     error::AppError,
-    models::demo::{Demo, DemoSettings, EngineMode, Step, Theme, WindowStyle},
+    models::demo::{Demo, DemoSettings, EngineMode, Step, StepType, Theme, WindowStyle, OutputLine, OutputStyle},
 };
 
 #[derive(Debug, Deserialize)]
@@ -434,6 +434,200 @@ pub async fn get_demo_og_image(
     );
 
     Ok(response)
+}
+
+// ── Cast import handler ───────────────────────────────────────────────────────
+//
+// POST /api/demos/{id}/import-cast
+//
+// Accepts a `multipart/form-data` body with a single field named `file`
+// containing the raw UTF-8 text of an asciinema v2 `.cast` file.
+//
+// The handler:
+//   1. Verifies the demo exists and is owned by the authenticated user.
+//   2. Reads and UTF-8-decodes the uploaded file.
+//   3. Runs `extract_commands_from_cast` with options derived from the query
+//      string.
+//   4. Converts each `CommandInteraction` into two `Step` objects
+//      (StepType::Command + StepType::Output) and appends them to the demo.
+//   5. Returns an `ImportCastResponse` JSON body.
+
+use shared::dto::demo_dto::{ImportCastQuery, ImportCastResponse};
+
+pub async fn import_cast(
+    State(state): State<AppState>,
+    Path(demo_id): Path<Uuid>,
+    Query(query): Query<ImportCastQuery>,
+    session: Session,
+    mut multipart: axum::extract::Multipart,
+) -> HandlerResult<impl IntoResponse> {
+    let user_id = session
+        .get::<Uuid>(USER_SESSION_KEY)
+        .await
+        .map_err(|_e| ApiError(AppError::Internal))
+        .and_then(|u| u.ok_or(ApiError(AppError::Unauthorized)))?;
+
+    // Verify demo exists and is owned by user (owner_id might be field name)
+    let demo = sqlx::query_as::<_, Demo>(
+        "SELECT id, owner_id, project_id, slug, title, engine_mode, theme, settings, steps, published, version, created_at, updated_at FROM demos WHERE id = $1 AND owner_id = $2"
+    )
+    .bind(demo_id)
+    .bind(user_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|_e| ApiError(AppError::Internal))?
+    .ok_or(ApiError(AppError::NotFound))?;
+
+    // Read the cast file from multipart form
+    let cast_text = read_cast_field(&mut multipart).await?;
+
+    // Build parse options from query parameters
+    let parse_options = build_parse_options(&query);
+
+    // Parse the cast file
+    let interactions = shared::extract_commands_from_cast(&cast_text, &parse_options)
+        .map_err(|e| ApiError(AppError::Validation(format!("Cast parsing failed: {}", e))))?;
+
+    // Convert interactions to steps and append to existing steps
+    let mut all_steps = demo.steps;
+    let _new_step_count = append_steps_from_interactions(&mut all_steps, &interactions);
+
+    // Update the demo with new steps
+    let updated_demo = Demo {
+        steps: all_steps,
+        ..demo
+    };
+
+    sqlx::query(
+        "UPDATE demos SET steps = $1, version = version + 1, updated_at = now() WHERE id = $2"
+    )
+    .bind(SqlxJson(&updated_demo.steps))
+    .bind(demo_id)
+    .execute(&state.db)
+    .await
+    .map_err(|_e| ApiError(AppError::Internal))?;
+
+    Ok(Json(ImportCastResponse {
+        pairs_imported: interactions.len(),
+        message: format!(
+            "Successfully imported {} command/output pairs from cast file",
+            interactions.len()
+        ),
+    }))
+}
+
+// ── Private helpers ───────────────────────────────────────────────────────────
+
+/// Pull the `file` field from the multipart form, decode it as UTF-8.
+async fn read_cast_field(multipart: &mut axum::extract::Multipart) -> HandlerResult<String> {
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|_e| ApiError(AppError::Validation("Multipart error".into())))?
+    {
+        if let Some(name) = field.name() {
+            if name == "file" {
+                let data = field
+                    .bytes()
+                    .await
+                    .map_err(|_e| ApiError(AppError::Validation("Failed to read file data".into())))?;
+                return String::from_utf8(data.to_vec())
+                    .map_err(|e| ApiError(AppError::Validation(format!("Invalid UTF-8: {}", e))).into());
+            }
+        }
+    }
+
+    Err(ApiError(AppError::Validation(
+        "No 'file' field in multipart form".into(),
+    ))
+    .into())
+}
+
+/// Build `ParseOptions` from the caller-supplied query parameters.
+fn build_parse_options(query: &ImportCastQuery) -> shared::ParseOptions {
+    if !query.strip_trailing_prompt {
+        return shared::ParseOptions {
+            strip_trailing_prompt: None,
+        };
+    }
+
+    if query.prompt_patterns.is_empty() {
+        // Use heuristic matching
+        return shared::ParseOptions {
+            strip_trailing_prompt: Some(vec!["".to_string()]),
+        };
+    }
+
+    shared::ParseOptions {
+        strip_trailing_prompt: Some(query.prompt_patterns.clone()),
+    }
+}
+
+/// Convert CommandInteraction pairs into Step objects and append to existing steps.
+/// Returns the number of interactions processed (not the number of steps created).
+fn append_steps_from_interactions(
+    steps: &mut Vec<Step>,
+    interactions: &[shared::CommandInteraction],
+) -> usize {
+    let next_order = steps.iter().map(|s| s.order).max().unwrap_or(-1) + 1;
+
+    for (idx, interaction) in interactions.iter().enumerate() {
+        let command_order = next_order + (idx as i32 * 2);
+        let output_order = command_order + 1;
+
+        // Create Command step
+        let command_step = Step {
+            id: Uuid::new_v4(),
+            step_type: StepType::Command,
+            order: command_order,
+            input: Some(interaction.command.clone()),
+            match_mode: None,
+            match_pattern: None,
+            description: None,
+            output: None,
+            prompt_config: None,
+            spinner_config: None,
+            cta_config: None,
+            delay_ms: 0,
+            typing_speed_ms: 50,
+            skippable: true,
+        };
+
+        // Create Output step with the command output as normal text
+        let output_step = Step {
+            id: Uuid::new_v4(),
+            step_type: StepType::Output,
+            order: output_order,
+            input: None,
+            match_mode: None,
+            match_pattern: None,
+            description: None,
+            output: Some(
+                interaction
+                    .output
+                    .lines()
+                    .map(|line| OutputLine {
+                        text: line.to_string(),
+                        style: OutputStyle::Normal,
+                        color: None,
+                        prefix: None,
+                        indent: 0,
+                    })
+                    .collect(),
+            ),
+            prompt_config: None,
+            spinner_config: None,
+            cta_config: None,
+            delay_ms: 0,
+            typing_speed_ms: 0,
+            skippable: true,
+        };
+
+        steps.push(command_step);
+        steps.push(output_step);
+    }
+
+    interactions.len()
 }
 
 #[cfg(test)]
