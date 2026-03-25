@@ -10,6 +10,7 @@ use crate::api;
 use crate::components::demo_settings_form::DemoSettingsForm;
 use crate::components::live_preview::LivePreviewPanel;
 use crate::components::step_editors::{add_default_step, StepListEditor};
+use crate::components::cast_import::CastImportButton;
 
 #[component]
 pub fn DemoEditorPage() -> impl IntoView {
@@ -24,6 +25,7 @@ pub fn DemoEditorPage() -> impl IntoView {
     let (title, set_title) = signal(String::new());
     let (slug, set_slug) = signal(String::new());
     let (steps, set_steps) = signal(Vec::<Step>::new());
+    let (steps_version, set_steps_version) = signal(0u32);
     let (settings, set_settings) = signal(Some(DemoSettings {
         engine_mode: EngineMode::Sequential,
         autoplay: false,
@@ -50,6 +52,7 @@ pub fn DemoEditorPage() -> impl IntoView {
 
     Effect::new(move |_| {
         let id = demo_id();
+        let _version = steps_version.get();
         if id == "unknown" {
             return;
         }
@@ -274,6 +277,13 @@ pub fn DemoEditorPage() -> impl IntoView {
                         <button type="button" on:click=add_cta_step>"+ CTA"</button>
                         <button type="button" on:click=add_pause_step>"+ Pause"</button>
                     </div>
+
+                    <CastImportButton
+                        demo_id=demo_id()
+                        on_success={Callback::new(move |_resp: shared::dto::demo_dto::ImportCastResponse| {
+                            set_steps_version.update(|v| *v += 1);
+                        })}
+                    />
 
                     <StepListEditor steps=steps set_steps=set_steps />
                 </section>

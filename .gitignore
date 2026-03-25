@@ -11,3 +11,4 @@ build/
 target/
 CONTEXT.md
 repomix-output.xml
+parser.md
