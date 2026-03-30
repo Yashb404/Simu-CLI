@@ -280,10 +280,15 @@ pub fn DemoEditorPage() -> impl IntoView {
 
                     <CastImportButton
                         demo_id=demo_id()
-                        on_success={Callback::new(move |_resp: shared::dto::demo_dto::ImportCastResponse| {
+                        on_success={Callback::new(move |resp: shared::dto::demo_dto::ImportCastResponse| {
                             set_steps_version.update(|v| *v += 1);
+                            set_status.set(resp.message);
                         })}
                     />
+
+                    <p class="text-muted">
+                        "Upload a .cast file to automatically append command/output steps below."
+                    </p>
 
                     <StepListEditor steps=steps set_steps=set_steps />
                 </section>

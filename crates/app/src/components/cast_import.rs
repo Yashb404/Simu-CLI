@@ -3,9 +3,12 @@
 use leptos::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 use gloo_net::http::Request;
+use web_sys::RequestCredentials;
 
 use crate::api::api_base;
 use shared::dto::demo_dto::ImportCastResponse;
+
+const MAX_CAST_UPLOAD_BYTES: u64 = 5 * 1024 * 1024;
 
 // ── Upload state machine ──────────────────────────────────────────────────────
 
@@ -45,6 +48,11 @@ pub fn CastImportButton(
             if let Some(files) = target.files() {
                 if files.length() > 0 {
                     if let Some(file) = files.get(0) {
+                        if let Err(msg) = validate_cast_file(&file) {
+                            state.set(UploadState::Error(msg));
+                            return;
+                        }
+
                         let demo_id = demo_id.clone();
                         let state_clone = state;
                         let on_success_clone = on_success;
@@ -138,8 +146,13 @@ async fn upload_file(
 ) {
     state.set(UploadState::Uploading);
 
+    if let Err(msg) = validate_cast_file(file) {
+        state.set(UploadState::Error(msg));
+        return;
+    }
+
     match read_file_as_string(file).await {
-        Ok(text) => match post_cast_file(demo_id, &text).await {
+        Ok(text) => match post_cast_file(demo_id, &file.name(), &text).await {
             Ok(response) => {
                 on_success.run(response.clone());
                 state.set(UploadState::Success(response.message));
@@ -152,6 +165,23 @@ async fn upload_file(
             state.set(UploadState::Error(format!("Read failed: {}", e)));
         }
     }
+}
+
+fn validate_cast_file(file: &web_sys::File) -> Result<(), String> {
+    let file_name = file.name();
+    let is_cast = file_name.to_ascii_lowercase().ends_with(".cast");
+    if !is_cast {
+        return Err("Only .cast files are accepted".to_string());
+    }
+
+    if file.size() > MAX_CAST_UPLOAD_BYTES as f64 {
+        return Err(format!(
+            "File too large. Max allowed is {} MB",
+            MAX_CAST_UPLOAD_BYTES / (1024 * 1024)
+        ));
+    }
+
+    Ok(())
 }
 
 /// Read a `web_sys::File` as a UTF-8 string.
@@ -171,7 +201,11 @@ async fn read_file_as_string(file: &web_sys::File) -> Result<String, String> {
 }
 
 /// POST the cast file text to the backend.
-async fn post_cast_file(demo_id: &str, cast_text: &str) -> Result<ImportCastResponse, String> {
+async fn post_cast_file(
+    demo_id: &str,
+    file_name: &str,
+    cast_text: &str,
+) -> Result<ImportCastResponse, String> {
     let url = format!("{}/api/demos/{}/import-cast?strip_trailing_prompt=true", api_base(), demo_id);
 
     // Create a simple multipart form body manually
@@ -180,12 +214,16 @@ async fn post_cast_file(demo_id: &str, cast_text: &str) -> Result<ImportCastResp
 
     // Add file field
     body.push_str(&format!("--{}\r\n", boundary));
-    body.push_str("Content-Disposition: form-data; name=\"file\"; filename=\"recording.cast\"\r\n");
+    body.push_str(&format!(
+        "Content-Disposition: form-data; name=\"file\"; filename=\"{}\"\r\n",
+        file_name
+    ));
     body.push_str("Content-Type: text/plain\r\n\r\n");
     body.push_str(cast_text);
     body.push_str(&format!("\r\n--{}--\r\n", boundary));
 
     let request = Request::post(&url)
+        .credentials(RequestCredentials::Include)
         .header("Content-Type", &format!("multipart/form-data; boundary={}", boundary))
         .body(body)
         .map_err(|e| format!("Request build failed: {}", e))?;
