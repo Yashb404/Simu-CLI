@@ -1112,6 +1112,121 @@ label {
   color: var(--muted);
 }
 
+.terminal-guide-toggle {
+  border: 1px solid var(--border-dim);
+  background: transparent;
+  color: var(--ink-dim);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+}
+
+.terminal-guide-toggle:hover {
+  color: var(--ink);
+  border-color: var(--border);
+}
+
+.terminal-guide {
+  border-bottom: 1px solid var(--border-dim);
+  background: #070707;
+  padding: 10px 14px;
+}
+
+.terminal-guide-heading {
+  color: var(--muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+}
+
+.terminal-guide-list {
+  margin: 0;
+  padding: 0 0 0 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.terminal-guide-item {
+  color: var(--ink-dim);
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.terminal-guide-item code {
+  font-family: "Fira Code", "JetBrains Mono", monospace;
+  font-size: 0.78rem;
+}
+
+.terminal-guide-marker {
+  color: var(--muted);
+  font-family: "Fira Code", "JetBrains Mono", monospace;
+  font-size: 0.72rem;
+  min-width: 26px;
+}
+
+.terminal-guide-item.is-next {
+  color: #79f79a;
+}
+
+.terminal-guide-item.is-next .terminal-guide-marker {
+  color: #79f79a;
+}
+
+.terminal-guide-item.is-done {
+  color: #8ab89b;
+}
+
+.terminal-guide-item.is-done .terminal-guide-marker {
+  color: #8ab89b;
+}
+
+.terminal-chrome.is-compact .terminal-titlebar {
+  padding: 6px 10px;
+}
+
+.terminal-chrome.is-compact .terminal-guide {
+  padding: 8px 10px;
+}
+
+.terminal-chrome.is-compact .terminal-guide-heading {
+  margin-bottom: 6px;
+}
+
+.terminal-chrome.is-compact .terminal-guide-list {
+  gap: 2px;
+}
+
+.terminal-chrome.is-compact .terminal-body {
+  min-height: 160px;
+  max-height: 280px;
+  padding: 10px 10px;
+}
+
+.terminal-chrome.is-compact .terminal-line {
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.terminal-chrome.is-compact .terminal-input-row {
+  padding: 6px 8px;
+}
+
+.terminal-chrome.is-compact .terminal-input,
+.terminal-chrome.is-compact .terminal-prompt-label {
+  font-size: 0.78rem;
+}
+
+.terminal-chrome.is-compact .terminal-run-btn,
+.terminal-chrome.is-compact .terminal-guide-toggle {
+  font-size: 0.64rem;
+  padding: 2px 7px;
+}
+
 .terminal-body {
   background: #050505;
   padding: 12px 14px;
