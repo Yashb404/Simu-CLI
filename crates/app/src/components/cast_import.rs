@@ -145,6 +145,11 @@ async fn upload_file(
 ) {
     state.set(UploadState::Uploading);
 
+    if let Err(msg) = validate_cast_file(file) {
+        state.set(UploadState::Error(msg));
+        return;
+    }
+
     match read_file_as_string(file).await {
         Ok(text) => match post_cast_file(demo_id, &file.name(), &text).await {
             Ok(response) => {
