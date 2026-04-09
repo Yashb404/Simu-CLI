@@ -3,16 +3,11 @@ use std::{num::NonZeroU32, sync::Arc};
 
 use axum::Router;
 use governor::{Quota, RateLimiter};
-use server::{
-    config::Config,
-    middleware,
-    router::create_router,
-    state::AppState,
-};
+use server::{config::Config, middleware, router::create_router, state::AppState};
 use shared::models::user::User;
 use sqlx::PgPool;
-use uuid::Uuid;
 use tower_sessions::{Expiry, MemoryStore, SessionManagerLayer};
+use uuid::Uuid;
 
 static DB_READY: tokio::sync::OnceCell<()> = tokio::sync::OnceCell::const_new();
 
@@ -25,8 +20,9 @@ pub struct DbFixture {
 /// Build a [`Config`] suitable for tests.
 pub fn test_config() -> Config {
     Config {
-        database_url: std::env::var("DATABASE_URL")
-            .unwrap_or_else(|_| "postgres://postgres:password@localhost:5432/cli_demo_studio".to_string()),
+        database_url: std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+            "postgres://postgres:password@localhost:5432/cli_demo_studio".to_string()
+        }),
         github_client_id: "test-client-id".to_string(),
         github_client_secret: server::config::Secret("test-client-secret".to_string()),
         session_secret: server::config::Secret("a".repeat(64)),
@@ -84,8 +80,9 @@ pub fn test_state(pool: PgPool, requests_per_minute: u32) -> AppState {
 }
 
 pub async fn try_db_fixture() -> Option<DbFixture> {
-    let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://postgres:password@localhost:5432/cli_demo_studio".to_string());
+    let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+        "postgres://postgres:password@localhost:5432/cli_demo_studio".to_string()
+    });
 
     let pool = match sqlx::PgPool::connect(&database_url).await {
         Ok(pool) => pool,

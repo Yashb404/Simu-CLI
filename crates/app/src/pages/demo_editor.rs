@@ -11,9 +11,7 @@ use crate::components::cast_import::CastImportButton;
 use crate::components::demo_settings_form::DemoSettingsForm;
 use crate::components::live_preview::LivePreviewPanel;
 use crate::components::step_editors::{
-    add_command_block as add_command_block_step,
-    add_default_step,
-    StepListEditor,
+    StepListEditor, add_command_block as add_command_block_step, add_default_step,
 };
 
 #[cfg(target_arch = "wasm32")]
@@ -68,10 +66,8 @@ fn normalize_command_match_patterns(steps: &mut [Step]) {
 #[component]
 pub fn DemoEditorPage() -> impl IntoView {
     let params = use_params_map();
-    let demo_id = move || {
-        params
-            .with_untracked(|p| p.get("id").unwrap_or_else(|| "unknown".to_string()))
-    };
+    let demo_id =
+        move || params.with_untracked(|p| p.get("id").unwrap_or_else(|| "unknown".to_string()));
     let current_demo_id = demo_id();
 
     let (title, set_title) = signal(String::new());

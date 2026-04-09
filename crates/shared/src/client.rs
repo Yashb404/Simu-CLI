@@ -48,12 +48,14 @@ async fn execute(
     }
 
     let response = match body {
-        Some(payload) => builder
-            .header("content-type", "application/json")
-            .body(payload)
-            .map_err(|e| ClientError::Other(format!("build request: {e}")))?
-            .send()
-            .await,
+        Some(payload) => {
+            builder
+                .header("content-type", "application/json")
+                .body(payload)
+                .map_err(|e| ClientError::Other(format!("build request: {e}")))?
+                .send()
+                .await
+        }
         None => builder.send().await,
     }
     .map_err(|e| ClientError::Other(format!("request failed: {e}")))?;
@@ -65,9 +67,13 @@ async fn execute(
             return Err(ClientError::Unauthorized);
         }
         if body_text.is_empty() {
-            return Err(ClientError::Other(format!("request failed with status {status}")));
+            return Err(ClientError::Other(format!(
+                "request failed with status {status}"
+            )));
         }
-        return Err(ClientError::Other(format!("request failed with status {status}: {body_text}")));
+        return Err(ClientError::Other(format!(
+            "request failed with status {status}: {body_text}"
+        )));
     }
 
     Ok(response)

@@ -404,7 +404,7 @@ mod tests {
     fn test_complex_v2_cast() {
         let cast = complex_cast_v2();
         let result = extract_commands_from_cast(cast, &ParseOptions::default()).unwrap();
-        
+
         // Should extract 5 command/output pairs:
         // 1. "mkdir -p ~/test"
         // 2. "cd ~/test"

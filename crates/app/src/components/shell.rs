@@ -1,9 +1,9 @@
-                            use leptos::prelude::*;
+use leptos::prelude::*;
 use leptos::task::spawn_local;
 use leptos_router::components::{A, Outlet, Redirect};
 
 use crate::api;
-use crate::auth::{refresh_session_state, use_auth_context, SessionState};
+use crate::auth::{SessionState, refresh_session_state, use_auth_context};
 
 #[component]
 pub fn AppShell() -> impl IntoView {

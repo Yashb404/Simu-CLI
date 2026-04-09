@@ -23,7 +23,10 @@ fn validate_step_index(value: i32) -> Result<(), validator::ValidationError> {
 pub struct AnalyticsEventRequest {
     pub demo_id: Uuid,
     pub event_type: AnalyticsEventType,
-    #[cfg_attr(feature = "backend", validate(custom(function = "validate_step_index")))]
+    #[cfg_attr(
+        feature = "backend",
+        validate(custom(function = "validate_step_index"))
+    )]
     pub step_index: Option<i32>,
 }
 
@@ -73,7 +76,10 @@ mod tests {
         };
 
         let result = payload.validate();
-        assert!(result.is_err(), "negative step index should fail validation");
+        assert!(
+            result.is_err(),
+            "negative step index should fail validation"
+        );
     }
 
     #[test]

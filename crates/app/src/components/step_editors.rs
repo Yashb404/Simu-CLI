@@ -1,13 +1,16 @@
 use leptos::prelude::*;
-use std::collections::HashSet;
 use shared::models::demo::{
-    CtaConfig, MatchMode, OutputLine, OutputStyle, PromptConfig, PromptType,
-    SpinnerConfig, SpinnerStyle, Step, StepType,
+    CtaConfig, MatchMode, OutputLine, OutputStyle, PromptConfig, PromptType, SpinnerConfig,
+    SpinnerStyle, Step, StepType,
 };
+use std::collections::HashSet;
 use uuid::Uuid;
 
 pub fn indexed_steps(steps: Vec<Step>) -> Vec<(usize, Step)> {
-    steps.into_iter().enumerate().collect::<Vec<(usize, Step)>>()
+    steps
+        .into_iter()
+        .enumerate()
+        .collect::<Vec<(usize, Step)>>()
 }
 
 pub fn normalize_step_orders(steps: &mut [Step]) {
@@ -180,10 +183,12 @@ fn validate_prompt_config(config: &PromptConfig) -> Vec<String> {
 
     if matches!(config.prompt_type, PromptType::Confirm) {
         if config.yes_output.clone().unwrap_or_default().is_empty() {
-            messages.push("Confirm prompts should include at least one yes-output line.".to_string());
+            messages
+                .push("Confirm prompts should include at least one yes-output line.".to_string());
         }
         if config.no_output.clone().unwrap_or_default().is_empty() {
-            messages.push("Confirm prompts should include at least one no-output line.".to_string());
+            messages
+                .push("Confirm prompts should include at least one no-output line.".to_string());
         }
     }
 
@@ -233,7 +238,9 @@ fn validate_cta_config(config: &CtaConfig) -> Vec<String> {
         .unwrap_or(false);
 
     if has_secondary_label ^ has_secondary_url {
-        messages.push("Provide both secondary label and secondary URL, or leave both empty.".to_string());
+        messages.push(
+            "Provide both secondary label and secondary URL, or leave both empty.".to_string(),
+        );
     }
     if has_secondary_url {
         if let Some(url) = &config.secondary_url {
@@ -580,7 +587,9 @@ fn StepCard(
 #[component]
 fn StepEditorRouter(step: Step, on_update: Callback<Step>) -> impl IntoView {
     match step.step_type {
-        StepType::Command => view! { <CommandBlockEditor step=step on_update=on_update /> }.into_any(),
+        StepType::Command => {
+            view! { <CommandBlockEditor step=step on_update=on_update /> }.into_any()
+        }
         StepType::Output => view! { <OutputEditor step=step on_update=on_update /> }.into_any(),
         StepType::Comment => view! { <CommentEditor step=step on_update=on_update /> }.into_any(),
         StepType::Prompt => view! { <PromptEditor step=step on_update=on_update /> }.into_any(),
@@ -719,15 +728,14 @@ fn CommentEditor(step: Step, on_update: Callback<Step>) -> impl IntoView {
 
 #[component]
 fn PromptEditor(step: Step, on_update: Callback<Step>) -> impl IntoView {
-    let config = step.prompt_config.clone().unwrap_or_else(default_prompt_config);
+    let config = step
+        .prompt_config
+        .clone()
+        .unwrap_or_else(default_prompt_config);
     let prompt_type_value = prompt_type_to_str(&config.prompt_type).to_string();
     let question_value = config.question.clone();
     let default_value = config.default_value.clone().unwrap_or_default();
-    let choices_text = config
-        .choices
-        .clone()
-        .unwrap_or_default()
-        .join("\n");
+    let choices_text = config.choices.clone().unwrap_or_default().join("\n");
     let yes_output_text = config
         .yes_output
         .clone()
@@ -896,7 +904,10 @@ fn PromptEditor(step: Step, on_update: Callback<Step>) -> impl IntoView {
 
 #[component]
 fn SpinnerEditor(step: Step, on_update: Callback<Step>) -> impl IntoView {
-    let config = step.spinner_config.clone().unwrap_or_else(default_spinner_config);
+    let config = step
+        .spinner_config
+        .clone()
+        .unwrap_or_else(default_spinner_config);
     let style_value = spinner_style_to_str(&config.style).to_string();
     let label_value = config.label.clone();
     let duration_value = config.duration_ms.to_string();

@@ -1,12 +1,12 @@
 use std::net::IpAddr;
 
 use axum::{
+    Json,
     body::Body,
     extract::State,
     http::{Request, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
-    Json,
 };
 use serde_json::json;
 
@@ -59,12 +59,7 @@ pub async fn rate_limit_middleware(
 mod tests {
     use super::*;
 
-    use axum::{
-        http::Request as HttpRequest,
-        middleware,
-        routing::get,
-        Router,
-    };
+    use axum::{Router, http::Request as HttpRequest, middleware, routing::get};
     use governor::{Quota, RateLimiter};
     use std::{num::NonZeroU32, sync::Arc};
     use tower::ServiceExt;
@@ -132,10 +127,7 @@ mod tests {
         let app = Router::new()
             .route("/api/ping", get(|| async { "pong" }))
             .with_state(state.clone())
-            .layer(middleware::from_fn_with_state(
-                state,
-                rate_limit_middleware,
-            ));
+            .layer(middleware::from_fn_with_state(state, rate_limit_middleware));
 
         let request_one_result = HttpRequest::builder()
             .uri("/api/ping")

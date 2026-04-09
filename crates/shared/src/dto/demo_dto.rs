@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use crate::models::demo::{DemoSettings, Step, Theme};
 #[cfg(feature = "backend")]
-use crate::validation::{is_valid_hex_color, is_valid_slug, MAX_OUTPUT_LINES_PER_STEP, MAX_STEPS};
+use crate::validation::{MAX_OUTPUT_LINES_PER_STEP, MAX_STEPS, is_valid_hex_color, is_valid_slug};
 
 #[cfg(feature = "backend")]
 use validator::Validate;
@@ -233,7 +233,10 @@ mod tests {
         };
 
         let result = request.validate();
-        assert!(result.is_err(), "invalid theme colors should fail validation");
+        assert!(
+            result.is_err(),
+            "invalid theme colors should fail validation"
+        );
     }
 
     #[test]
@@ -284,7 +287,10 @@ mod tests {
         };
 
         let result = request.validate();
-        assert!(result.is_err(), "too many output lines should fail validation");
+        assert!(
+            result.is_err(),
+            "too many output lines should fail validation"
+        );
     }
 }
 

@@ -1,8 +1,8 @@
 use axum::{
-    extract::{Path, Query, State},
-    http::{header, HeaderValue, StatusCode},
-    response::{IntoResponse, Response},
     Json,
+    extract::{Path, Query, State},
+    http::{HeaderValue, StatusCode, header},
+    response::{IntoResponse, Response},
 };
 use serde::{Deserialize, Serialize};
 use sqlx::types::Json as SqlxJson;
@@ -14,14 +14,16 @@ use crate::{
     auth::{AuthUser, USER_SESSION_KEY},
     error::{ApiError, HandlerResult},
     handlers::owned_demo::OwnedDemo,
-    handlers::{sanitize_pagination},
+    handlers::sanitize_pagination,
     services,
     state::AppState,
 };
 use shared::{
     dto::{CreateDemoRequest, PublicDemoResponse, UpdateDemoRequest},
     error::AppError,
-    models::demo::{Demo, DemoSettings, EngineMode, Step, StepType, Theme, WindowStyle, OutputLine, OutputStyle},
+    models::demo::{
+        Demo, DemoSettings, EngineMode, OutputLine, OutputStyle, Step, StepType, Theme, WindowStyle,
+    },
 };
 
 #[derive(Debug, Deserialize)]
@@ -96,13 +98,12 @@ pub async fn create_demo(
     payload.validate()?;
 
     if let Some(project_id) = payload.project_id {
-        let project_exists: Option<Uuid> = sqlx::query_scalar(
-            "SELECT id FROM projects WHERE id = $1 AND owner_id = $2",
-        )
-        .bind(project_id)
-        .bind(user.id)
-        .fetch_optional(&state.db)
-        .await?;
+        let project_exists: Option<Uuid> =
+            sqlx::query_scalar("SELECT id FROM projects WHERE id = $1 AND owner_id = $2")
+                .bind(project_id)
+                .bind(user.id)
+                .fetch_optional(&state.db)
+                .await?;
 
         if project_exists.is_none() {
             return Err(ApiError(AppError::Validation(
@@ -154,13 +155,10 @@ pub async fn get_demo(
     .await?
     .ok_or(ApiError(AppError::NotFound))?;
 
-    let maybe_user_id: Option<Uuid> = session
-        .get(USER_SESSION_KEY)
-        .await
-        .map_err(|e| {
-            tracing::error!("Session read failure: {e:?}");
-            ApiError(AppError::Internal)
-        })?;
+    let maybe_user_id: Option<Uuid> = session.get(USER_SESSION_KEY).await.map_err(|e| {
+        tracing::error!("Session read failure: {e:?}");
+        ApiError(AppError::Internal)
+    })?;
 
     if !demo.published && maybe_user_id != Some(demo.owner_id) {
         return Err(ApiError(AppError::NotFound));
@@ -188,13 +186,12 @@ pub async fn update_demo(
     }
     if let Some(project_update) = payload.project_id {
         if let Some(target_project_id) = project_update {
-            let project_exists: Option<Uuid> = sqlx::query_scalar(
-                "SELECT id FROM projects WHERE id = $1 AND owner_id = $2",
-            )
-            .bind(target_project_id)
-            .bind(existing.owner_id)
-            .fetch_optional(&state.db)
-            .await?;
+            let project_exists: Option<Uuid> =
+                sqlx::query_scalar("SELECT id FROM projects WHERE id = $1 AND owner_id = $2")
+                    .bind(target_project_id)
+                    .bind(existing.owner_id)
+                    .fetch_optional(&state.db)
+                    .await?;
 
             if project_exists.is_none() {
                 return Err(ApiError(AppError::Validation(
@@ -504,7 +501,7 @@ pub async fn import_cast(
     };
 
     sqlx::query(
-        "UPDATE demos SET steps = $1, version = version + 1, updated_at = now() WHERE id = $2"
+        "UPDATE demos SET steps = $1, version = version + 1, updated_at = now() WHERE id = $2",
     )
     .bind(SqlxJson(&updated_demo.steps))
     .bind(demo_id)
@@ -528,14 +525,10 @@ pub async fn import_cast(
 
 /// Pull the `file` field from the multipart form, decode it as UTF-8.
 async fn read_cast_field(multipart: &mut axum::extract::Multipart) -> HandlerResult<String> {
-    while let Some(field) = multipart
-        .next_field()
-        .await
-        .map_err(|e| {
-            tracing::error!("Multipart read error in import_cast: {:?}", e);
-            ApiError(AppError::Validation("Multipart error".into()))
-        })?
-    {
+    while let Some(field) = multipart.next_field().await.map_err(|e| {
+        tracing::error!("Multipart read error in import_cast: {:?}", e);
+        ApiError(AppError::Validation("Multipart error".into()))
+    })? {
         if let Some(name) = field.name() {
             if name == "file" {
                 let file_name = field.file_name().unwrap_or("").to_ascii_lowercase();
@@ -546,13 +539,10 @@ async fn read_cast_field(multipart: &mut axum::extract::Multipart) -> HandlerRes
                     .into());
                 }
 
-                let data = field
-                    .bytes()
-                    .await
-                    .map_err(|e| {
-                        tracing::error!("File bytes read error in import_cast: {:?}", e);
-                        ApiError(AppError::Validation("Failed to read file data".into()))
-                    })?;
+                let data = field.bytes().await.map_err(|e| {
+                    tracing::error!("File bytes read error in import_cast: {:?}", e);
+                    ApiError(AppError::Validation("Failed to read file data".into()))
+                })?;
 
                 if data.len() > MAX_CAST_UPLOAD_BYTES {
                     return Err(ApiError(AppError::Validation(format!(
@@ -561,8 +551,9 @@ async fn read_cast_field(multipart: &mut axum::extract::Multipart) -> HandlerRes
                     )))
                     .into());
                 }
-                return String::from_utf8(data.to_vec())
-                    .map_err(|e| ApiError(AppError::Validation(format!("Invalid UTF-8: {}", e))).into());
+                return String::from_utf8(data.to_vec()).map_err(|e| {
+                    ApiError(AppError::Validation(format!("Invalid UTF-8: {}", e))).into()
+                });
             }
         }
     }

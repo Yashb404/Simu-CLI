@@ -1,5 +1,5 @@
 use leptos::prelude::*;
-use wasm_bindgen::{closure::Closure, JsCast};
+use wasm_bindgen::{JsCast, closure::Closure};
 use wasm_bindgen_futures::spawn_local;
 
 use crate::api;
@@ -94,10 +94,8 @@ pub fn provide_auth_context() {
                 refresh_session_state(set_session_state);
             }) as Box<dyn FnMut()>);
 
-            let _ = window.add_event_listener_with_callback(
-                "focus",
-                focus_refresh.as_ref().unchecked_ref(),
-            );
+            let _ = window
+                .add_event_listener_with_callback("focus", focus_refresh.as_ref().unchecked_ref());
             focus_refresh.forget();
 
             if let Some(document) = window.document() {

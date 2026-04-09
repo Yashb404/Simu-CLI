@@ -4,7 +4,10 @@ use shared::models::demo::{Step, StepType};
 const META_STEP_FALLBACK: &str = "(meta step)";
 
 fn indexed_steps(steps: Vec<Step>) -> Vec<(usize, Step)> {
-    steps.into_iter().enumerate().collect::<Vec<(usize, Step)>>()
+    steps
+        .into_iter()
+        .enumerate()
+        .collect::<Vec<(usize, Step)>>()
 }
 
 #[component]

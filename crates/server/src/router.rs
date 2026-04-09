@@ -1,11 +1,10 @@
+use crate::{auth::AuthUser, handlers, middleware, state::AppState};
 use axum::{
+    Json, Router,
     http::StatusCode,
     routing::{get, patch, post},
-    Json, Router,
 };
-use crate::{state::AppState, handlers, auth::AuthUser, middleware};
 use shared::models::user::User;
-
 
 pub fn create_router(state: AppState) -> Router {
     Router::new()
@@ -72,22 +71,27 @@ pub fn create_router(state: AppState) -> Router {
             "/api/billing/status",
             get(handlers::billing::get_billing_status),
         )
-        .route(
-            "/api/billing/subscribe",
-            post(handlers::billing::subscribe),
-        )
+        .route("/api/billing/subscribe", post(handlers::billing::subscribe))
         .route("/api/projects", post(handlers::projects::create_project))
-        .route("/api/me/projects", get(handlers::projects::list_my_projects))
+        .route(
+            "/api/me/projects",
+            get(handlers::projects::list_my_projects),
+        )
         .route(
             "/api/projects/{id}",
-            patch(handlers::projects::update_project)
-                .delete(handlers::projects::delete_project),
+            patch(handlers::projects::update_project).delete(handlers::projects::delete_project),
         )
         .nest("/api/auth", handlers::auth::auth_routes())
         // Alias for environments/proxies that strip the /api prefix.
         .nest("/auth", handlers::auth::auth_routes())
         // Never let unmatched API paths fall through to SPA fallback.
-        .route("/api/{*path}", get(api_not_found).post(api_not_found).patch(api_not_found).delete(api_not_found))
+        .route(
+            "/api/{*path}",
+            get(api_not_found)
+                .post(api_not_found)
+                .patch(api_not_found)
+                .delete(api_not_found),
+        )
         .with_state(state)
 }
 
@@ -166,7 +170,10 @@ mod tests {
         };
 
         let response_result = app.oneshot(request).await;
-        assert!(response_result.is_ok(), "health check request should succeed");
+        assert!(
+            response_result.is_ok(),
+            "health check request should succeed"
+        );
         let response = match response_result {
             Ok(response) => response,
             Err(_) => return,

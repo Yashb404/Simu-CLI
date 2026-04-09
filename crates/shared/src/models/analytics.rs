@@ -5,7 +5,10 @@ use uuid::Uuid;
 #[cfg_attr(feature = "backend", derive(sqlx::Type))]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "backend", sqlx(rename_all = "snake_case", type_name = "text"))]
+#[cfg_attr(
+    feature = "backend",
+    sqlx(rename_all = "snake_case", type_name = "text")
+)]
 pub enum AnalyticsEventType {
     View,
     Interaction,

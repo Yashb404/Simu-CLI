@@ -35,7 +35,10 @@ pub fn DemoViewPage() -> impl IntoView {
     });
 
     let script_snippet = Signal::derive(move || {
-        generate_script_snippet(&format!("{}/static/embed.js", script_origin), &demo_id.get())
+        generate_script_snippet(
+            &format!("{}/static/embed.js", script_origin),
+            &demo_id.get(),
+        )
     });
 
     view! {

@@ -40,11 +40,15 @@ pub async fn logging_middleware(mut req: Request<Body>, next: Next) -> Response 
     let path = req.uri().path().to_string();
     let start = Instant::now();
 
-    let mut response = REQUEST_ID_CONTEXT.scope(request_id.clone(), next.run(req)).await;
+    let mut response = REQUEST_ID_CONTEXT
+        .scope(request_id.clone(), next.run(req))
+        .await;
     let elapsed_ms = start.elapsed().as_millis();
 
     if let Ok(header_value) = HeaderValue::from_str(&request_id) {
-        response.headers_mut().insert(REQUEST_ID_HEADER, header_value);
+        response
+            .headers_mut()
+            .insert(REQUEST_ID_HEADER, header_value);
     }
 
     tracing::info!(

@@ -1,8 +1,8 @@
 //! CastImportButton — a simple file-picker that uploads a `.cast` file to the backend
 
+use gloo_net::http::Request;
 use leptos::prelude::*;
 use wasm_bindgen_futures::spawn_local;
-use gloo_net::http::Request;
 use web_sys::RequestCredentials;
 
 use crate::api::api_base;
@@ -65,10 +65,7 @@ pub fn CastImportButton(
     };
 
     let reset_status = move |_| {
-        if matches!(
-            state.get(),
-            UploadState::Success(_) | UploadState::Error(_)
-        ) {
+        if matches!(state.get(), UploadState::Success(_) | UploadState::Error(_)) {
             state.set(UploadState::Idle);
         }
     };
@@ -204,7 +201,11 @@ async fn post_cast_file(
     file_name: &str,
     cast_text: &str,
 ) -> Result<ImportCastResponse, String> {
-    let url = format!("{}/api/demos/{}/import-cast?strip_trailing_prompt=true", api_base(), demo_id);
+    let url = format!(
+        "{}/api/demos/{}/import-cast?strip_trailing_prompt=true",
+        api_base(),
+        demo_id
+    );
 
     // Create a simple multipart form body manually
     let boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW";
@@ -222,7 +223,10 @@ async fn post_cast_file(
 
     let request = Request::post(&url)
         .credentials(RequestCredentials::Include)
-        .header("Content-Type", &format!("multipart/form-data; boundary={}", boundary))
+        .header(
+            "Content-Type",
+            &format!("multipart/form-data; boundary={}", boundary),
+        )
         .body(body)
         .map_err(|e| format!("Request build failed: {}", e))?;
 

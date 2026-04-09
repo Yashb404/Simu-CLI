@@ -1,13 +1,13 @@
+use crate::middleware::logging;
 use axum::{
+    Json,
     extract::Request,
     http::StatusCode,
     response::{IntoResponse, Response},
-    Json,
 };
 use serde_json::json;
 use shared::error::AppError;
 use validator::ValidationErrors;
-use crate::middleware::logging;
 
 #[derive(Debug)]
 pub struct ApiError(pub AppError);
@@ -19,9 +19,15 @@ fn error_status_and_message(err: &AppError) -> (StatusCode, String) {
         AppError::Unauthorized => (StatusCode::UNAUTHORIZED, "Unauthorized".to_string()),
         AppError::Forbidden => (StatusCode::FORBIDDEN, "Forbidden".to_string()),
         AppError::Validation(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
-        AppError::RateLimited => (StatusCode::TOO_MANY_REQUESTS, "Rate limit exceeded".to_string()),
+        AppError::RateLimited => (
+            StatusCode::TOO_MANY_REQUESTS,
+            "Rate limit exceeded".to_string(),
+        ),
         AppError::BadGateway(msg) => (StatusCode::BAD_GATEWAY, msg.clone()),
-        AppError::Internal => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string()),
+        AppError::Internal => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Internal server error".to_string(),
+        ),
     }
 }
 
@@ -59,7 +65,10 @@ impl IntoResponse for CorrelatedError {
 /// in extensions by the logging middleware.
 pub fn with_request_id(err: impl Into<ApiError>, req: &Request) -> CorrelatedError {
     let request_id = req.extensions().get::<String>().cloned();
-    CorrelatedError { inner: err.into(), request_id }
+    CorrelatedError {
+        inner: err.into(),
+        request_id,
+    }
 }
 
 // Automatically wrap shared::AppError
@@ -85,16 +94,21 @@ impl From<sqlx::Error> for ApiError {
 impl From<reqwest::Error> for ApiError {
     fn from(err: reqwest::Error) -> Self {
         tracing::error!("HTTP request failed: {:?}", err);
-        
+
         if err.is_status() {
             if let Some(status) = err.status() {
                 if status.is_client_error() {
-                    return ApiError(AppError::BadGateway(format!("External service error: {}", status)));
+                    return ApiError(AppError::BadGateway(format!(
+                        "External service error: {}",
+                        status
+                    )));
                 }
             }
         }
-        
-        ApiError(AppError::BadGateway("External service unavailable".to_string()))
+
+        ApiError(AppError::BadGateway(
+            "External service unavailable".to_string(),
+        ))
     }
 }
 

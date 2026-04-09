@@ -49,7 +49,8 @@ pub fn DemosPage() -> impl IntoView {
                         set_demos.set(list);
                         set_requires_login.set(false);
                         if count == 0 {
-                            set_status.set("No demos yet. Create your first one below.".to_string());
+                            set_status
+                                .set("No demos yet. Create your first one below.".to_string());
                         } else {
                             set_status.set(format!("Loaded {} demo(s).", count));
                         }
@@ -58,7 +59,10 @@ pub fn DemosPage() -> impl IntoView {
                         let unauthorized = matches!(err, ClientError::Unauthorized);
                         set_requires_login.set(unauthorized);
                         if unauthorized {
-                            set_status.set("You are not logged in. Sign in with GitHub to view demos.".to_string());
+                            set_status.set(
+                                "You are not logged in. Sign in with GitHub to view demos."
+                                    .to_string(),
+                            );
                         } else {
                             set_status.set(format!("Failed to load demos: {}", err));
                         }
@@ -144,7 +148,9 @@ pub fn DemosPage() -> impl IntoView {
                 match api::update_demo_project(&demo_id, project.as_deref()).await {
                     Ok(updated_demo) => {
                         set_demos.update(|items| {
-                            if let Some(existing) = items.iter_mut().find(|item| item.id == updated_demo.id) {
+                            if let Some(existing) =
+                                items.iter_mut().find(|item| item.id == updated_demo.id)
+                            {
                                 *existing = updated_demo;
                             }
                         });

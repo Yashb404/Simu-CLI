@@ -5,15 +5,8 @@ use axum::{
 use tower_sessions::Session;
 use uuid::Uuid;
 
-use crate::{
-    auth::USER_SESSION_KEY,
-    error::ApiError,
-    state::AppState,
-};
-use shared::{
-    error::AppError,
-    models::demo::Demo,
-};
+use crate::{auth::USER_SESSION_KEY, error::ApiError, state::AppState};
+use shared::{error::AppError, models::demo::Demo};
 
 const SELECT_OWNED_DEMO_SQL: &str = r#"
     SELECT id, owner_id, project_id, slug, title, engine_mode, theme, settings, steps,
@@ -27,7 +20,10 @@ pub struct OwnedDemo(pub Demo);
 impl FromRequestParts<AppState> for OwnedDemo {
     type Rejection = ApiError;
 
-    async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
         let Path(demo_id) = Path::<Uuid>::from_request_parts(parts, state)
             .await
             .map_err(|_| ApiError(AppError::NotFound))?;

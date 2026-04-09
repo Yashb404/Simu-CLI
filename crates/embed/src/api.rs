@@ -1,7 +1,7 @@
+#[cfg(target_arch = "wasm32")]
+use shared::client::{HttpMethod, fetch};
 use shared::dto::PublicDemoResponse;
 use shared::models::analytics::AnalyticsEventType;
-#[cfg(target_arch = "wasm32")]
-use shared::client::{fetch, HttpMethod};
 use uuid::Uuid;
 
 #[cfg(target_arch = "wasm32")]

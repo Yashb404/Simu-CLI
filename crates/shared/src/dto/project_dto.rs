@@ -44,6 +44,9 @@ mod tests {
         };
 
         let result = request.validate();
-        assert!(result.is_err(), "description >500 chars should fail validation");
+        assert!(
+            result.is_err(),
+            "description >500 chars should fail validation"
+        );
     }
 }

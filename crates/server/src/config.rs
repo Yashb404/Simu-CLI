@@ -56,8 +56,8 @@ pub struct Config {
 }
 
 fn normalize_origin(url: &str) -> Result<String> {
-    let parsed = reqwest::Url::parse(url)
-        .with_context(|| format!("invalid URL for origin: {url}"))?;
+    let parsed =
+        reqwest::Url::parse(url).with_context(|| format!("invalid URL for origin: {url}"))?;
 
     let scheme = parsed.scheme();
     let host = parsed
@@ -77,8 +77,8 @@ fn normalize_origin(url: &str) -> Result<String> {
 }
 
 fn loopback_aliases(origin: &str) -> Result<Vec<String>> {
-    let parsed = reqwest::Url::parse(origin)
-        .with_context(|| format!("invalid origin URL: {origin}"))?;
+    let parsed =
+        reqwest::Url::parse(origin).with_context(|| format!("invalid origin URL: {origin}"))?;
 
     let scheme = parsed.scheme();
     let host = parsed
@@ -132,17 +132,17 @@ impl Config {
     /// Returns an error when required environment variables are missing or invalid.
     /// The caller should fail startup on error so configuration problems are caught early.
     pub fn from_env() -> Result<Self> {
-        let database_url = env::var("DATABASE_URL")
-            .context("DATABASE_URL must be set")?;
+        let database_url = env::var("DATABASE_URL").context("DATABASE_URL must be set")?;
 
-        let github_client_id = env::var("GITHUB_CLIENT_ID")
-            .context("GITHUB_CLIENT_ID must be set")?;
+        let github_client_id =
+            env::var("GITHUB_CLIENT_ID").context("GITHUB_CLIENT_ID must be set")?;
 
-        let github_client_secret = env::var("GITHUB_CLIENT_SECRET")
-            .context("GITHUB_CLIENT_SECRET must be set")?;
+        let github_client_secret =
+            env::var("GITHUB_CLIENT_SECRET").context("GITHUB_CLIENT_SECRET must be set")?;
 
-        let session_secret = env::var("SESSION_SECRET")
-            .context("SESSION_SECRET must be set (generate with: head -c 32 /dev/urandom | xxd -p)")?;
+        let session_secret = env::var("SESSION_SECRET").context(
+            "SESSION_SECRET must be set (generate with: head -c 32 /dev/urandom | xxd -p)",
+        )?;
 
         // Validate session secret is valid hex and correct length
         if session_secret.len() != 64 {
@@ -163,8 +163,9 @@ impl Config {
 
         let frontend_url = match env::var("FRONTEND_URL") {
             Ok(value) => value,
-            Err(_) => env::var("RENDER_EXTERNAL_URL")
-                .context("FRONTEND_URL must be set (or RENDER_EXTERNAL_URL when running on Render)")?,
+            Err(_) => env::var("RENDER_EXTERNAL_URL").context(
+                "FRONTEND_URL must be set (or RENDER_EXTERNAL_URL when running on Render)",
+            )?,
         };
 
         let cors_allowed_origins = match env::var("CORS_ALLOWED_ORIGINS") {
@@ -256,12 +257,24 @@ mod tests {
     #[test]
     fn loopback_aliases_includes_all_localhost_variants_without_port() {
         let aliases = loopback_aliases("http://localhost").unwrap();
-        assert!(aliases.contains(&"http://localhost".to_string()), "must include localhost");
-        assert!(aliases.contains(&"http://127.0.0.1".to_string()), "must include 127.0.0.1");
-        assert!(aliases.contains(&"http://[::1]".to_string()), "must include [::1]");
+        assert!(
+            aliases.contains(&"http://localhost".to_string()),
+            "must include localhost"
+        );
+        assert!(
+            aliases.contains(&"http://127.0.0.1".to_string()),
+            "must include 127.0.0.1"
+        );
+        assert!(
+            aliases.contains(&"http://[::1]".to_string()),
+            "must include [::1]"
+        );
         // No spurious dots or colons
         for alias in &aliases {
-            assert!(!alias.contains("localhost."), "alias must not contain 'localhost.'");
+            assert!(
+                !alias.contains("localhost."),
+                "alias must not contain 'localhost.'"
+            );
         }
     }
 
@@ -273,7 +286,10 @@ mod tests {
         assert!(aliases.contains(&"http://[::1]:3000".to_string()));
         // No spurious dots before port
         for alias in &aliases {
-            assert!(!alias.contains("localhost.:"), "alias must not contain 'localhost.:'");
+            assert!(
+                !alias.contains("localhost.:"),
+                "alias must not contain 'localhost.:'"
+            );
         }
     }
 

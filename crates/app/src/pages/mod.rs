@@ -4,6 +4,6 @@ pub mod demo_share;
 pub mod demo_view;
 pub mod demos;
 pub mod landing;
-pub mod publish;
 pub mod projects;
+pub mod publish;
 pub mod settings;

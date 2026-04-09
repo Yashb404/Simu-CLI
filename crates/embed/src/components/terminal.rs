@@ -1,17 +1,17 @@
 use leptos::prelude::*;
-use std::collections::BTreeSet;
-use std::sync::Arc;
 use shared::{
     dto::PublicDemoResponse,
     models::demo::{EngineMode, MatchMode, OutputLine, Step, StepType},
 };
+use std::collections::BTreeSet;
+use std::sync::Arc;
 
 use crate::{
+    EmbedConfig,
     api::post_analytics_event,
     input_handler::normalize_input,
     matching::command_matches,
-    messaging::{post_event_to_parent, EmbedEvent},
-    EmbedConfig,
+    messaging::{EmbedEvent, post_event_to_parent},
 };
 use shared::models::analytics::AnalyticsEventType;
 use uuid::Uuid;
@@ -27,7 +27,10 @@ fn line_css_class(line: &str, prompt_string: &str) -> &'static str {
 }
 
 fn indexed_lines(lines: Vec<String>) -> Vec<(usize, String)> {
-    lines.into_iter().enumerate().collect::<Vec<(usize, String)>>()
+    lines
+        .into_iter()
+        .enumerate()
+        .collect::<Vec<(usize, String)>>()
 }
 
 #[derive(Clone, Debug)]
@@ -520,12 +523,17 @@ pub fn TerminalUI(demo: PublicDemoResponse, config: EmbedConfig) -> impl IntoVie
         }
 
         if view_event_demo_id.get().as_deref() != Some(next_demo_id.as_str()) {
-            let _ = post_event_to_parent(&EmbedEvent::view(next_demo_id.clone()), &view_config.api_base);
+            let _ = post_event_to_parent(
+                &EmbedEvent::view(next_demo_id.clone()),
+                &view_config.api_base,
+            );
             if !view_config.api_base.is_empty() {
                 let endpoint = format!("{}/api/analytics/events", view_config.api_base);
                 let demo_id = demo.id;
                 leptos::task::spawn_local(async move {
-                    let _ = post_analytics_event(&endpoint, demo_id, AnalyticsEventType::View, None).await;
+                    let _ =
+                        post_analytics_event(&endpoint, demo_id, AnalyticsEventType::View, None)
+                            .await;
                 });
             }
             set_view_event_demo_id.set(Some(next_demo_id));

@@ -6,42 +6,66 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "backend", sqlx(rename_all = "snake_case"))]
-pub enum EngineMode { Sequential, FreePlay }
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum StepType {
-    Command, Output, Prompt, Spinner,
-    Comment, Clear, Pause, Cta,
+pub enum EngineMode {
+    Sequential,
+    FreePlay,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
-pub enum MatchMode { Exact, Fuzzy, Wildcard, Any }
+pub enum StepType {
+    Command,
+    Output,
+    Prompt,
+    Spinner,
+    Comment,
+    Clear,
+    Pause,
+    Cta,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum MatchMode {
+    Exact,
+    Fuzzy,
+    Wildcard,
+    Any,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum OutputStyle {
-    Normal, Success, Error, Warning,
-    Muted, Bold, Code,
+    Normal,
+    Success,
+    Error,
+    Warning,
+    Muted,
+    Bold,
+    Code,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OutputLine {
     pub text: String,
     pub style: OutputStyle,
-    pub color: Option<String>,   // hex override e.g. "#FF6B6B"
-    pub prefix: Option<String>,  // "✓", "✗", "→" etc
+    pub color: Option<String>,  // hex override e.g. "#FF6B6B"
+    pub prefix: Option<String>, // "✓", "✗", "→" etc
     pub indent: u8,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum SpinnerStyle { Dots, Bar, Braille, Line }
+pub enum SpinnerStyle {
+    Dots,
+    Bar,
+    Braille,
+    Line,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SpinnerConfig {
-    pub style: SpinnerStyle, 
+    pub style: SpinnerStyle,
     pub label: String,
     pub duration_ms: u32,
     pub finish_text: String,
@@ -50,7 +74,12 @@ pub struct SpinnerConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum PromptType { Confirm, Input, Password, Select }
+pub enum PromptType {
+    Confirm,
+    Input,
+    Password,
+    Select,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PromptConfig {
@@ -80,10 +109,10 @@ pub struct Step {
     // Command steps
     pub input: Option<String>,
     pub match_mode: Option<MatchMode>,
-    pub match_pattern: Option<String>,  // compiled wildcard → stored as regex
+    pub match_pattern: Option<String>, // compiled wildcard → stored as regex
     #[serde(default)]
     pub short_description: Option<String>,
-    pub description: Option<String>,    // shown in auto-generated help
+    pub description: Option<String>, // shown in auto-generated help
     // Output steps
     pub output: Option<Vec<OutputLine>>,
     // Specialized step configs
@@ -98,13 +127,18 @@ pub struct Step {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum WindowStyle { MacOs, Linux, Windows, None }
+pub enum WindowStyle {
+    MacOs,
+    Linux,
+    Windows,
+    None,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Theme {
-    pub window_style: WindowStyle, 
+    pub window_style: WindowStyle,
     pub window_title: String,
-    pub preset: Option<String>,     // "dracula", "monokai", etc.
+    pub preset: Option<String>, // "dracula", "monokai", etc.
     pub bg_color: String,
     pub fg_color: String,
     pub cursor_color: String,

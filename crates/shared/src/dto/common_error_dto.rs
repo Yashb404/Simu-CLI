@@ -20,7 +20,10 @@ fn validate_command_text(value: &str) -> Result<(), validator::ValidationError> 
 pub struct RecordCommonErrorRequest {
     pub demo_id: Uuid,
     #[cfg_attr(feature = "backend", validate(length(max = 500)))]
-    #[cfg_attr(feature = "backend", validate(custom(function = "validate_command_text")))]
+    #[cfg_attr(
+        feature = "backend",
+        validate(custom(function = "validate_command_text"))
+    )]
     pub command_text: String,
 }
 

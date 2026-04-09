@@ -1,10 +1,10 @@
-pub mod models;
-pub mod dto;
 pub mod client;
+pub mod dto;
 pub mod error;
-pub mod validation;
+pub mod models;
 pub mod services;
+pub mod validation;
 
 pub use services::cast_parser::{
-    extract_commands_from_cast, CommandInteraction, ParseOptions, strip_trailing_prompt,
+    CommandInteraction, ParseOptions, extract_commands_from_cast, strip_trailing_prompt,
 };

@@ -10,7 +10,9 @@ pub fn LandingPage() -> impl IntoView {
 
     move || match auth.session_state.get() {
         SessionState::LoggedIn(_) => view! { <Redirect path="/dashboard" /> }.into_any(),
-        SessionState::Error(message) => view! { <MarketingView auth_error=Some(message) /> }.into_any(),
+        SessionState::Error(message) => {
+            view! { <MarketingView auth_error=Some(message) /> }.into_any()
+        }
         SessionState::Checking | SessionState::LoggedOut => {
             view! { <MarketingView auth_error=None /> }.into_any()
         }
@@ -109,4 +111,3 @@ fn MarketingView(auth_error: Option<String>) -> impl IntoView {
         </div>
     }
 }
-

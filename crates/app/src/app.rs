@@ -1,24 +1,16 @@
 use leptos::prelude::*;
-use leptos_meta::{provide_meta_context, Title};
+use leptos_meta::{Title, provide_meta_context};
 use leptos_router::{
     components::{ParentRoute, Redirect, Route, Router, Routes},
     path,
 };
 
-use crate::auth::{
-    provide_auth_context,
-};
+use crate::auth::provide_auth_context;
 use crate::components::shell::AppShell;
 use crate::pages::{
-    analytics::AnalyticsPage,
-    demo_editor::DemoEditorPage,
-    demo_share::ShareDemoPage,
-    demo_view::DemoViewPage,
-    demos::DemosPage,
-    landing::LandingPage,
-    publish::PublishPage,
-    projects::ProjectsPage,
-    settings::SettingsPage,
+    analytics::AnalyticsPage, demo_editor::DemoEditorPage, demo_share::ShareDemoPage,
+    demo_view::DemoViewPage, demos::DemosPage, landing::LandingPage, projects::ProjectsPage,
+    publish::PublishPage, settings::SettingsPage,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -57,8 +49,8 @@ fn load_theme_mode() -> ThemeMode {
 }
 
 fn persist_theme_mode(theme: ThemeMode) {
-    if let Some(storage) = web_sys::window()
-        .and_then(|window| window.local_storage().ok().flatten())
+    if let Some(storage) =
+        web_sys::window().and_then(|window| window.local_storage().ok().flatten())
     {
         let _ = storage.set_item(THEME_STORAGE_KEY, theme.as_str());
     }
