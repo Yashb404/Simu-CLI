@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: cli-demo-studio
+    env: docker
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: API_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: RUST_LOG
+        value: server=info,tower_sessions=info

@@ -50,7 +50,7 @@ pub fn github_oauth_client(config: &Config) -> Result<BasicClient<
     EndpointSet     // HasTokenUrl
 >, anyhow::Error> {
     Ok(BasicClient::new(ClientId::new(config.github_client_id.clone()))
-        .set_client_secret(ClientSecret::new(config.github_client_secret.clone()))
+        .set_client_secret(ClientSecret::new(config.github_client_secret.0.clone()))
         .set_auth_uri(AuthUrl::new("https://github.com/login/oauth/authorize".to_string())?)
         .set_token_uri(TokenUrl::new("https://github.com/login/oauth/access_token".to_string())?)
         .set_redirect_uri(RedirectUrl::new(config.github_redirect_uri())?))

@@ -10,7 +10,6 @@ use shared::dto::demo_dto::ImportCastResponse;
 
 const MAX_CAST_UPLOAD_BYTES: u64 = 5 * 1024 * 1024;
 
-// ── Upload state machine ──────────────────────────────────────────────────────
 
 #[derive(Clone, PartialEq)]
 enum UploadState {
@@ -36,9 +35,11 @@ impl UploadState {
 #[component]
 pub fn CastImportButton(
     demo_id: String,
-    on_success: Callback<ImportCastResponse>,
+    /// Parent-owned signal; written to Some(response) on successful import.
+    on_imported: RwSignal<Option<ImportCastResponse>>,
 ) -> impl IntoView {
     let state = RwSignal::new(UploadState::Idle);
+    let input_id = "cast-file-input";
 
     // Handle native file input change
     let on_file_input = {
@@ -46,21 +47,19 @@ pub fn CastImportButton(
         move |ev: leptos::ev::Event| {
             let target = event_target::<web_sys::HtmlInputElement>(&ev);
             if let Some(files) = target.files() {
-                if files.length() > 0 {
-                    if let Some(file) = files.get(0) {
-                        if let Err(msg) = validate_cast_file(&file) {
-                            state.set(UploadState::Error(msg));
-                            return;
-                        }
-
-                        let demo_id = demo_id.clone();
-                        let state_clone = state;
-                        let on_success_clone = on_success;
-
-                        spawn_local(async move {
-                            upload_file(&file, &demo_id, state_clone, on_success_clone).await;
-                        });
+                if let Some(file) = files.get(0) {
+                    if let Err(msg) = validate_cast_file(&file) {
+                        state.set(UploadState::Error(msg));
+                        return;
                     }
+
+                    let demo_id = demo_id.clone();
+                    let state_clone = state;
+                    let response_signal = on_imported;
+
+                    spawn_local(async move {
+                        upload_file(&file, &demo_id, state_clone, response_signal).await;
+                    });
                 }
             }
         }
@@ -75,15 +74,17 @@ pub fn CastImportButton(
         }
     };
 
+
     view! {
         <div class="cast-import-zone">
             <input
+                id=input_id
                 type="file"
                 accept=".cast"
                 class="cast-import-hidden-input"
                 on:change=on_file_input
             />
-            <label class="cast-import-label">
+            <label for=input_id class="cast-import-label">
                 <span class="cast-import-icon">"[REC]"</span>
                 <div>
                     <div class="cast-import-primary">
@@ -142,19 +143,15 @@ async fn upload_file(
     file: &web_sys::File,
     demo_id: &str,
     state: RwSignal<UploadState>,
-    on_success: Callback<ImportCastResponse>,
+    response_signal: RwSignal<Option<ImportCastResponse>>,
 ) {
     state.set(UploadState::Uploading);
-
-    if let Err(msg) = validate_cast_file(file) {
-        state.set(UploadState::Error(msg));
-        return;
-    }
 
     match read_file_as_string(file).await {
         Ok(text) => match post_cast_file(demo_id, &file.name(), &text).await {
             Ok(response) => {
-                on_success.run(response.clone());
+                // Store response in signal instead of calling callback
+                response_signal.set(Some(response.clone()));
                 state.set(UploadState::Success(response.message));
             }
             Err(e) => {

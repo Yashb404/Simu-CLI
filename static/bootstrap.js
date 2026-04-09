@@ -9,9 +9,9 @@
     return;
   }
 
-  var demoId = script.getAttribute("data-demo-id");
+  var demoId = script.getAttribute("data-demo") || script.getAttribute("data-demo-id");
   if (!demoId) {
-    console.warn("[cli-demo-studio] Missing data-demo-id attribute on bootstrap script.");
+    console.warn("[cli-demo-studio] Missing data-demo attribute on bootstrap script.");
     return;
   }
 

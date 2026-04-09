@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use shared::{
-    client::{fetch, send, HttpMethod},
+    client::{fetch, fetch_typed, send, ClientError, HttpMethod},
     dto::UpdateDemoRequest,
     models::demo::{Demo, DemoSettings, Step, Theme},
 };
@@ -80,6 +80,19 @@ fn api_url(path: &str) -> String {
     format!("{base}{path}")
 }
 
+fn encode_query_value(value: &str) -> String {
+    value
+        .chars()
+        .flat_map(|c| {
+            if c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '~') {
+                vec![c]
+            } else {
+                format!("%{:02X}", c as u32).chars().collect()
+            }
+        })
+        .collect()
+}
+
 fn build_query_path(path: &str, params: Vec<(&str, String)>) -> String {
     if params.is_empty() {
         return api_url(path);
@@ -87,7 +100,11 @@ fn build_query_path(path: &str, params: Vec<(&str, String)>) -> String {
 
     let query = params
         .into_iter()
-        .map(|(key, value)| format!("{key}={value}"))
+        .map(|(key, value)| {
+            // Percent-encode the value portion only
+            let encoded = encode_query_value(&value);
+            format!("{key}={encoded}")
+        })
         .collect::<Vec<_>>()
         .join("&");
 
@@ -250,6 +267,30 @@ pub async fn list_demos_with_filters(
     let url = build_query_path("/api/me/demos", params);
     fetch(HttpMethod::Get, &url, None, true).await
 }
+
+pub async fn list_demos_with_filters_typed(
+    limit: Option<u32>,
+    offset: Option<u32>,
+    project_id: Option<&str>,
+    published: Option<bool>,
+) -> Result<Vec<DashboardDemo>, ClientError> {
+    let mut params = Vec::new();
+    if let Some(limit) = limit {
+        params.push(("limit", limit.to_string()));
+    }
+    if let Some(offset) = offset {
+        params.push(("offset", offset.to_string()));
+    }
+    if let Some(project_id) = project_id {
+        params.push(("project_id", project_id.to_string()));
+    }
+    if let Some(published) = published {
+        params.push(("published", published.to_string()));
+    }
+
+    let url = build_query_path("/api/me/demos", params);
+    fetch_typed(HttpMethod::Get, &url, None, true).await
+}
 pub async fn get_demo(id: &str) -> Result<DashboardDemo, String> {
     fetch(HttpMethod::Get, &api_url(&format!("/api/demos/{id}")), None, true).await
 }
@@ -373,4 +414,16 @@ pub async fn get_analytics_funnel_with_limit(
 
     let url = build_query_path(&format!("/api/demos/{id}/analytics/funnel"), params);
     fetch(HttpMethod::Get, &url, None, true).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::encode_query_value;
+
+    #[test]
+    fn query_path_encodes_special_chars() {
+        let encoded = encode_query_value("hello world & more");
+        assert_eq!(encoded, "hello%20world%20%26%20more");
+        assert!(!encoded.contains(' '));
+    }
 }

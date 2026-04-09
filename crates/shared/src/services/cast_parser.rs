@@ -188,22 +188,25 @@ fn flush_interaction(
 ///   real terminal would.
 /// * **`\r` / `\n`** — stripped (they are the Enter key that ends the command).
 fn clean_input(raw: &str) -> String {
-    let mut result = String::new();
-    for ch in raw.chars() {
-        match ch {
-            '\x08' | '\x7f' => {
-                // Backspace or DEL — erase the preceding character
-                result.pop();
-            }
-            '\r' | '\n' => {
-                // Enter — skip (already handled by state machine)
-            }
-            _ => {
-                result.push(ch);
-            }
+    let stripped = strip_backspaces(raw);
+    stripped
+        .chars()
+        .filter(|ch| *ch != '\r' && *ch != '\n')
+        .collect::<String>()
+        .trim()
+        .to_string()
+}
+
+fn strip_backspaces(s: &str) -> String {
+    let mut out = String::new();
+    for ch in s.chars() {
+        if ch == '\x08' || ch == '\x7f' {
+            out.pop();
+        } else {
+            out.push(ch);
         }
     }
-    result.trim().to_string()
+    out
 }
 
 /// Strip the leading newline that most shells echo back immediately after the
@@ -644,13 +647,16 @@ invalid json here
         assert_eq!(result[0].command, "for i in 1 2 3; do");
         assert_eq!(result[1].command, "echo $i");
     }
-}
 
-#[cfg(test)]
-mod test_helpers {
-    // Helper to test build_parse_options without circular dependency
-    pub struct TestImportCastQuery {
-        pub strip_trailing_prompt: bool,
-        pub prompt_patterns: Vec<String>,
+    #[test]
+    fn test_backspace_stripped_from_command() {
+        let cast = "{\"version\": 2}\n\
+            [0.1, \"i\", \"ech\"]\n\
+            [0.2, \"i\", \"\\u0008\\u0008\\u0008ls\"]\n\
+            [0.3, \"i\", \"\\n\"]\n\
+            [0.4, \"o\", \"\\nfile1\\n\"]\n";
+        let result = extract_commands_from_cast(cast, &ParseOptions::default()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].command, "ls");
     }
 }

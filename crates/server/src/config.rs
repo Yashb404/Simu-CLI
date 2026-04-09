@@ -2,6 +2,16 @@ use anyhow::{Context, Result};
 use std::env;
 use time::Duration;
 
+/// Wrapper for secrets that should not appear in debug logs
+#[derive(Clone)]
+pub struct Secret(pub String);
+
+impl std::fmt::Debug for Secret {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[REDACTED]")
+    }
+}
+
 /// Application configuration loaded from environment variables at startup
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -12,10 +22,10 @@ pub struct Config {
     pub github_client_id: String,
 
     /// GitHub OAuth client secret
-    pub github_client_secret: String,
+    pub github_client_secret: Secret,
 
     /// Session encryption secret (64-byte hex string)
-    pub session_secret: String,
+    pub session_secret: Secret,
 
     /// API server URL (used in OAuth redirect URI)
     pub api_url: String,
@@ -28,6 +38,9 @@ pub struct Config {
 
     /// Rate limiting: requests per minute per IP
     pub rate_limit_requests_per_minute: u32,
+
+    /// Maximum number of DB pool connections
+    pub db_max_connections: u32,
 
     /// Session timeout duration
     pub session_timeout: Duration,
@@ -174,6 +187,11 @@ impl Config {
             .parse::<u32>()
             .context("RATE_LIMIT_REQUESTS_PER_MINUTE must be a valid u32")?;
 
+        let db_max_connections = env::var("DB_MAX_CONNECTIONS")
+            .unwrap_or_else(|_| "5".to_string())
+            .parse::<u32>()
+            .context("DB_MAX_CONNECTIONS must be a valid u32")?;
+
         let session_timeout_days = env::var("SESSION_TIMEOUT_DAYS")
             .unwrap_or_else(|_| "7".to_string())
             .parse::<i64>()
@@ -190,12 +208,13 @@ impl Config {
         Ok(Config {
             database_url,
             github_client_id,
-            github_client_secret,
-            session_secret,
+            github_client_secret: Secret(github_client_secret),
+            session_secret: Secret(session_secret),
             api_url,
             frontend_url,
             port,
             rate_limit_requests_per_minute,
+            db_max_connections,
             session_timeout: Duration::days(session_timeout_days),
             session_cookie_secure,
             log_level,

@@ -2,9 +2,23 @@
 
 This repository is prepared for hosted development with a robust CI pipeline and recurring smoke checks.
 
+## Fastest Deploy Path (Render)
+
+1. Push this branch to GitHub.
+2. In Render, create a Blueprint from this repo using `render.yaml`.
+3. Set required env vars in Render dashboard:
+	- `DATABASE_URL`
+	- `GITHUB_CLIENT_ID`
+	- `GITHUB_CLIENT_SECRET`
+	- `SESSION_SECRET` (must be 64 hex chars)
+	- `API_URL` (your public Render URL)
+	- `FRONTEND_URL` (same public Render URL)
+4. Deploy and verify `GET /api/health` returns `OK`.
+
 ## What is included
 
 - `Dockerfile`: builds app, embed runtime, and server in one image.
+- `render.yaml`: Render blueprint for one-click service provisioning.
 - `.dockerignore`: trims Docker build context.
 - `.env.example`: required and optional runtime configuration values.
 - `.github/workflows/ci.yml`: quality gates for formatting, linting, tests, native/wasm checks, and release builds.

@@ -33,11 +33,11 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("Starting CLI Demo Studio server...");
     tracing::debug!("Config: API URL = {}, Port = {}", config.api_url, config.port);
-    tracing::debug!("Session secret loaded ({} hex chars)", config.session_secret.len());
+    tracing::debug!("Session secret loaded");
 
     // Create database connection pool
     let db = PgPoolOptions::new()
-        .max_connections(5)
+        .max_connections(config.db_max_connections)
         .connect(&config.database_url)
         .await?;
 

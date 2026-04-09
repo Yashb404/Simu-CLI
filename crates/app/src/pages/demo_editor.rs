@@ -10,6 +10,7 @@ use crate::api;
 use crate::components::cast_import::CastImportButton;
 use crate::components::demo_settings_form::DemoSettingsForm;
 use crate::components::live_preview::LivePreviewPanel;
+use shared::dto::demo_dto::ImportCastResponse;
 use crate::components::step_editors::{
     add_command_block as add_command_block_step,
     add_default_step,
@@ -42,15 +43,15 @@ pub fn DemoEditorPage() -> impl IntoView {
     let params = use_params_map();
     let demo_id = move || {
         params
-            .read()
-            .get("id")
-            .unwrap_or_else(|| "unknown".to_string())
+            .with_untracked(|p| p.get("id").unwrap_or_else(|| "unknown".to_string()))
     };
+    let current_demo_id = demo_id();
 
     let (title, set_title) = signal(String::new());
     let (slug, set_slug) = signal(String::new());
     let (steps, set_steps) = signal(Vec::<Step>::new());
     let (steps_version, set_steps_version) = signal(0u32);
+    let last_cast_import = RwSignal::new(None::<ImportCastResponse>);
     let (settings, set_settings) = signal(Some(DemoSettings {
         engine_mode: EngineMode::Sequential,
         autoplay: false,
@@ -106,6 +107,14 @@ pub fn DemoEditorPage() -> impl IntoView {
                 }
             }
         });
+    });
+
+    // Watch for cast file imports and update steps accordingly
+    Effect::new(move |_| {
+        if last_cast_import.get().is_some() {
+            set_steps_version.update(|v| *v += 1);
+            set_status.set("Steps imported successfully!".to_string());
+        }
     });
 
     let save_demo = move |_| {
@@ -275,7 +284,12 @@ pub fn DemoEditorPage() -> impl IntoView {
     });
 
     let (is_resizing, set_is_resizing) = signal(false);
-    let (script_pane_px, set_script_pane_px) = signal(560.0_f64);
+    let stored_script_pane_px = web_sys::window()
+        .and_then(|w| w.local_storage().ok().flatten())
+        .and_then(|ls| ls.get_item("script_pane_px").ok().flatten())
+        .and_then(|v| v.parse::<f64>().ok())
+        .unwrap_or(560.0_f64);
+    let (script_pane_px, set_script_pane_px) = signal(stored_script_pane_px);
 
     let on_splitter_down = {
         let set_is_resizing = set_is_resizing;
@@ -303,6 +317,9 @@ pub fn DemoEditorPage() -> impl IntoView {
             let max_width = (viewport_width - 360.0_f64).max(min_width);
             let next = (ev.client_x() as f64).clamp(min_width, max_width);
             set_script_pane_px.set(next);
+            if let Some(ls) = web_sys::window().and_then(|w| w.local_storage().ok().flatten()) {
+                let _ = ls.set_item("script_pane_px", &next.to_string());
+            }
         }
     };
 
@@ -356,11 +373,8 @@ pub fn DemoEditorPage() -> impl IntoView {
 
                     <div class="script-content">
                         <CastImportButton
-                            demo_id=demo_id()
-                            on_success={Callback::new(move |resp: shared::dto::demo_dto::ImportCastResponse| {
-                                set_steps_version.update(|v| *v += 1);
-                                set_status.set(resp.message);
-                            })}
+                            demo_id=current_demo_id.clone()
+                            on_imported=last_cast_import
                         />
 
                         <p class="text-muted">

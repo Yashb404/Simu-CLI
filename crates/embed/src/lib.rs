@@ -117,27 +117,3 @@ pub fn start() {
     console_error_panic_hook::set_once();
     mount();
 }
-
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-pub struct CliSimulator {
-    container_selector: String,
-    demo_id: String,
-}
-
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-impl CliSimulator {
-    #[wasm_bindgen(constructor)]
-    pub fn new(container_selector: String, demo_id: String) -> Self {
-        Self {
-            container_selector,
-            demo_id,
-        }
-    }
-
-    pub fn start(&self) {
-        let _ = (&self.container_selector, &self.demo_id);
-        mount();
-    }
-}

@@ -1,7 +1,6 @@
 use axum::{
     extract::{Query, State},
     http::header,
-    http::HeaderMap,
     http::StatusCode,
     response::{Html, IntoResponse, Redirect, Response},
     routing::{get, post},
@@ -20,30 +19,11 @@ pub fn auth_routes() -> Router<AppState> {
         .route("/logout", post(logout))
 }
 
-fn request_origin(host: Option<&str>, headers: &HeaderMap, fallback_origin: &str) -> String {
-    let scheme = headers
-        .get("x-forwarded-proto")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("http");
-    let host = host.unwrap_or_else(|| {
-        fallback_origin
-            .trim_start_matches("https://")
-            .trim_start_matches("http://")
-            .trim_end_matches('/')
-    });
-    format!("{scheme}://{host}")
-}
-
 async fn github_login(
     State(state): State<AppState>,
-    headers: HeaderMap,
     session: Session,
 ) -> Result<Response, Response> {
-    let host = headers.get("host").and_then(|value| value.to_str().ok());
-    let redirect_uri = format!(
-        "{}/api/auth/github/callback",
-        request_origin(host, &headers, &state.config.api_url)
-    );
+    let redirect_uri = state.config.github_redirect_uri();
 
     let client = github_oauth_client(&state.config)
         .map_err(|e| {
@@ -139,7 +119,6 @@ struct GithubUser {
 
 async fn github_callback(
     State(state): State<AppState>,
-    headers: HeaderMap,
     session: Session,
     Query(query): Query<AuthRequest>,
 ) -> Result<Redirect, Response> {
@@ -170,10 +149,16 @@ async fn github_callback(
 
     let redirect_uri = redirect_uri.unwrap_or_else(|| state.config.github_redirect_uri());
 
+    // Validate the redirect URI against the configured allow-list
+    if redirect_uri != state.config.github_redirect_uri() {
+        tracing::warn!("Unexpected OAuth redirect URI in session: {redirect_uri}");
+        return Err((StatusCode::BAD_REQUEST, "Invalid redirect URI").into_response());
+    }
+
     let client = github_oauth_client(&state.config)
         .map_err(|e| {
             tracing::error!("Failed to create GitHub OAuth client: {:?}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Configuration error").into_response()
+            (StatusCode::INTERNAL_SERVER_ERROR, "Configuration error"). into_response()
         })?
         .set_redirect_uri(RedirectUrl::new(redirect_uri.clone()).map_err(|e| {
             tracing::error!("Invalid OAuth redirect URI {redirect_uri}: {:?}", e);
@@ -243,17 +228,18 @@ async fn github_callback(
 
     tracing::info!("User {} authenticated successfully", user.username);
 
-    let frontend_host = headers.get("host").and_then(|value| value.to_str().ok());
-    let frontend_origin = request_origin(frontend_host, &headers, &state.config.frontend_url);
-    Ok(Redirect::to(&format!("{}/dashboard", frontend_origin)))
+    Ok(Redirect::to(&format!("{}/dashboard", state.config.frontend_url)))
 }
 
-async fn logout(session: Session) -> Result<Redirect, StatusCode> {
+async fn logout(
+    State(state): State<AppState>,
+    session: Session,
+) -> Result<Redirect, StatusCode> {
     session.delete().await
         .map_err(|e| {
             tracing::error!("Failed to delete session: {:?}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
     
-    Ok(Redirect::to("/"))
+    Ok(Redirect::to(&state.config.frontend_url))
 }

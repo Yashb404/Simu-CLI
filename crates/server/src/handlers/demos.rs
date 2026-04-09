@@ -460,24 +460,20 @@ pub async fn import_cast(
     State(state): State<AppState>,
     Path(demo_id): Path<Uuid>,
     Query(query): Query<ImportCastQuery>,
-    session: Session,
+    AuthUser(user): AuthUser,
     mut multipart: axum::extract::Multipart,
 ) -> HandlerResult<impl IntoResponse> {
-    let user_id = session
-        .get::<Uuid>(USER_SESSION_KEY)
-        .await
-        .map_err(|_e| ApiError(AppError::Internal))
-        .and_then(|u| u.ok_or(ApiError(AppError::Unauthorized)))?;
-
-    // Verify demo exists and is owned by user (owner_id might be field name)
     let demo = sqlx::query_as::<_, Demo>(
         "SELECT id, owner_id, project_id, slug, title, engine_mode, theme, settings, steps, published, version, created_at, updated_at FROM demos WHERE id = $1 AND owner_id = $2"
     )
     .bind(demo_id)
-    .bind(user_id)
+    .bind(user.id)
     .fetch_optional(&state.db)
     .await
-    .map_err(|_e| ApiError(AppError::Internal))?
+    .map_err(|e| {
+        tracing::error!("DB error fetching demo: {:?}", e);
+        ApiError(AppError::Internal)
+    })?
     .ok_or(ApiError(AppError::NotFound))?;
 
     // Read the cast file from multipart form
@@ -492,7 +488,15 @@ pub async fn import_cast(
 
     // Convert interactions to steps and append to existing steps
     let mut all_steps = demo.steps;
-    let _new_step_count = append_steps_from_interactions(&mut all_steps, &interactions);
+    append_steps_from_interactions(&mut all_steps, &interactions);
+
+    // Enforce step count limit
+    if all_steps.len() > shared::validation::MAX_STEPS {
+        return Err(ApiError(AppError::Validation(format!(
+            "Import would exceed the maximum of {} steps per demo",
+            shared::validation::MAX_STEPS
+        ))));
+    }
 
     // Update the demo with new steps
     let updated_demo = Demo {
@@ -507,7 +511,10 @@ pub async fn import_cast(
     .bind(demo_id)
     .execute(&state.db)
     .await
-    .map_err(|_e| ApiError(AppError::Internal))?;
+    .map_err(|e| {
+        tracing::error!("DB error updating demo: {:?}", e);
+        ApiError(AppError::Internal)
+    })?;
 
     Ok(Json(ImportCastResponse {
         pairs_imported: interactions.len(),
@@ -525,7 +532,10 @@ async fn read_cast_field(multipart: &mut axum::extract::Multipart) -> HandlerRes
     while let Some(field) = multipart
         .next_field()
         .await
-        .map_err(|_e| ApiError(AppError::Validation("Multipart error".into())))?
+        .map_err(|e| {
+            tracing::error!("Multipart read error in import_cast: {:?}", e);
+            ApiError(AppError::Validation("Multipart error".into()))
+        })?
     {
         if let Some(name) = field.name() {
             if name == "file" {
@@ -540,7 +550,10 @@ async fn read_cast_field(multipart: &mut axum::extract::Multipart) -> HandlerRes
                 let data = field
                     .bytes()
                     .await
-                    .map_err(|_e| ApiError(AppError::Validation("Failed to read file data".into())))?;
+                    .map_err(|e| {
+                        tracing::error!("File bytes read error in import_cast: {:?}", e);
+                        ApiError(AppError::Validation("Failed to read file data".into()))
+                    })?;
 
                 if data.len() > MAX_CAST_UPLOAD_BYTES {
                     return Err(ApiError(AppError::Validation(format!(
@@ -587,7 +600,7 @@ fn build_parse_options(query: &ImportCastQuery) -> shared::ParseOptions {
 fn append_steps_from_interactions(
     steps: &mut Vec<Step>,
     interactions: &[shared::CommandInteraction],
-) -> usize {
+) {
     let next_order = steps.iter().map(|s| s.order).max().unwrap_or(-1) + 1;
 
     for (idx, interaction) in interactions.iter().enumerate() {
@@ -645,8 +658,6 @@ fn append_steps_from_interactions(
         steps.push(command_step);
         steps.push(output_step);
     }
-
-    interactions.len()
 }
 
 #[cfg(test)]
