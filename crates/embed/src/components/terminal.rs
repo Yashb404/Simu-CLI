@@ -7,10 +7,14 @@ use shared::{
 };
 
 use crate::{
+    api::post_analytics_event,
     input_handler::normalize_input,
     matching::command_matches,
     messaging::{post_event_to_parent, EmbedEvent},
+    EmbedConfig,
 };
+use shared::models::analytics::AnalyticsEventType;
+use uuid::Uuid;
 
 fn line_css_class(line: &str, prompt_string: &str) -> &'static str {
     if line.starts_with(prompt_string) {
@@ -136,7 +140,7 @@ impl CliEngine {
         }
     }
 
-    fn run_command(&mut self, raw_input: &str) -> Option<(Vec<String>, bool)> {
+    fn run_command(&mut self, raw_input: &str) -> Option<(Vec<String>, bool, Option<i32>)> {
         let command = normalize_input(raw_input);
         if command.is_empty() {
             return None;
@@ -144,6 +148,7 @@ impl CliEngine {
 
         let mut next_lines = vec![format!("{} {}", self.prompt_string, command.clone())];
         let mut completed = false;
+        let mut matched_step_index = None;
 
         if let Some(command_idx) = self.next_command_index(&command) {
             self.completed_command_steps.insert(command_idx);
@@ -151,11 +156,12 @@ impl CliEngine {
             next_lines.extend(playback_lines);
             self.cursor = self.cursor.max(next_cursor);
             completed = self.cursor >= self.steps.len();
+            matched_step_index = Some(command_idx as i32);
         } else {
             next_lines.push(self.not_found_message.to_string());
         }
 
-        Some((next_lines, completed))
+        Some((next_lines, completed, matched_step_index))
     }
 
     fn next_command_index(&self, command: &str) -> Option<usize> {
@@ -294,6 +300,7 @@ impl CliEngine {
 }
 
 fn run_terminal_command(
+    config: EmbedConfig,
     engine: ReadSignal<Option<CliEngine>>,
     set_engine: WriteSignal<Option<CliEngine>>,
     input: ReadSignal<String>,
@@ -303,18 +310,22 @@ fn run_terminal_command(
     let raw_input = input.get();
 
     let mut event_demo_id = None;
+    let mut event_demo_uuid = None;
     let mut next_lines = None;
     let mut is_completion = false;
+    let mut step_index = None;
 
     set_engine.update(|maybe_engine| {
         let Some(engine) = maybe_engine.as_mut() else {
             return;
         };
 
-        if let Some((lines, completed)) = engine.run_command(&raw_input) {
+        if let Some((lines, completed, matched_step_index)) = engine.run_command(&raw_input) {
             event_demo_id = Some(engine.demo_id.clone());
+            event_demo_uuid = Uuid::parse_str(&engine.demo_id).ok();
             next_lines = Some(lines);
             is_completion = completed;
+            step_index = matched_step_index;
         }
     });
 
@@ -328,9 +339,40 @@ fn run_terminal_command(
     };
 
     if let Some(demo_id) = event_demo_id {
-        let _ = post_event_to_parent(&EmbedEvent::interaction(demo_id.clone(), &raw_input));
+        let _ = post_event_to_parent(
+            &EmbedEvent::interaction(demo_id.clone(), &raw_input),
+            &config.api_base,
+        );
+
+        if let Some(demo_uuid) = event_demo_uuid {
+            let endpoint = format!("{}/api/analytics/events", config.api_base);
+            let interaction_step_index = step_index;
+            leptos::task::spawn_local(async move {
+                let _ = post_analytics_event(
+                    &endpoint,
+                    demo_uuid,
+                    AnalyticsEventType::Interaction,
+                    interaction_step_index,
+                )
+                .await;
+            });
+        }
+
         if is_completion {
-            let _ = post_event_to_parent(&EmbedEvent::completion(demo_id));
+            let _ = post_event_to_parent(&EmbedEvent::completion(demo_id), &config.api_base);
+            if let Some(demo_uuid) = event_demo_uuid {
+                let endpoint = format!("{}/api/analytics/events", config.api_base);
+                let completion_step_index = step_index;
+                leptos::task::spawn_local(async move {
+                    let _ = post_analytics_event(
+                        &endpoint,
+                        demo_uuid,
+                        AnalyticsEventType::Completion,
+                        completion_step_index,
+                    )
+                    .await;
+                });
+            }
         }
     }
 
@@ -339,7 +381,7 @@ fn run_terminal_command(
 }
 
 #[component]
-pub fn TerminalUI(demo: PublicDemoResponse) -> impl IntoView {
+pub fn TerminalUI(demo: PublicDemoResponse, config: EmbedConfig) -> impl IntoView {
     let (input, set_input) = signal(String::new());
     let (history, set_history) = signal(vec!["Preview runtime initialized.".to_string()]);
     let (engine, set_engine) = signal(Option::<CliEngine>::None);
@@ -350,6 +392,9 @@ pub fn TerminalUI(demo: PublicDemoResponse) -> impl IntoView {
     let window_title = demo.theme.window_title.clone();
     let prompt_string = demo.theme.prompt_string.clone();
     let guide_commands = Arc::new(ordered_command_guide(&demo.steps));
+    let view_config = config.clone();
+    let keydown_config = config.clone();
+    let click_config = config.clone();
 
     Effect::new(move |_| {
         if let Some(saved) = load_compact_mode_preference() {
@@ -370,7 +415,14 @@ pub fn TerminalUI(demo: PublicDemoResponse) -> impl IntoView {
         }
 
         if view_event_demo_id.get().as_deref() != Some(next_demo_id.as_str()) {
-            let _ = post_event_to_parent(&EmbedEvent::view(next_demo_id.clone()));
+            let _ = post_event_to_parent(&EmbedEvent::view(next_demo_id.clone()), &view_config.api_base);
+            if !view_config.api_base.is_empty() {
+                let endpoint = format!("{}/api/analytics/events", view_config.api_base);
+                let demo_id = demo.id;
+                leptos::task::spawn_local(async move {
+                    let _ = post_analytics_event(&endpoint, demo_id, AnalyticsEventType::View, None).await;
+                });
+            }
             set_view_event_demo_id.set(Some(next_demo_id));
         }
     });
@@ -480,7 +532,7 @@ pub fn TerminalUI(demo: PublicDemoResponse) -> impl IntoView {
                     on:input=move |ev| set_input.set(event_target_value(&ev))
                     on:keydown=move |ev: leptos::ev::KeyboardEvent| {
                         if ev.key() == "Enter" {
-                            run_terminal_command(engine, set_engine, input, set_input, set_history);
+                            run_terminal_command(keydown_config.clone(), engine, set_engine, input, set_input, set_history);
                         }
                     }
                     placeholder="type a command..."
@@ -491,7 +543,7 @@ pub fn TerminalUI(demo: PublicDemoResponse) -> impl IntoView {
                     type="button"
                     class="terminal-run-btn"
                     on:click=move |_| {
-                        run_terminal_command(engine, set_engine, input, set_input, set_history);
+                        run_terminal_command(click_config.clone(), engine, set_engine, input, set_input, set_history);
                     }
                 >
                     "RUN"

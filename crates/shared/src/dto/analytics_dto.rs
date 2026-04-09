@@ -1,10 +1,13 @@
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use uuid::Uuid;
-use validator::Validate;
 
 use crate::models::analytics::AnalyticsEventType;
 
+#[cfg(feature = "backend")]
+use validator::Validate;
+
+#[cfg(feature = "backend")]
 fn validate_step_index(value: i32) -> Result<(), validator::ValidationError> {
     if value >= 0 {
         Ok(())
@@ -15,11 +18,12 @@ fn validate_step_index(value: i32) -> Result<(), validator::ValidationError> {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[cfg_attr(feature = "backend", derive(Validate))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnalyticsEventRequest {
     pub demo_id: Uuid,
     pub event_type: AnalyticsEventType,
-    #[validate(custom(function = "validate_step_index"))]
+    #[cfg_attr(feature = "backend", validate(custom(function = "validate_step_index")))]
     pub step_index: Option<i32>,
 }
 
@@ -34,7 +38,7 @@ pub struct AnalyticsExportQuery {
     pub limit: Option<i64>,
 }
 
-#[cfg_attr(not(target_arch = "wasm32"), derive(sqlx::FromRow))]
+#[cfg_attr(feature = "backend", derive(sqlx::FromRow))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnalyticsSeriesPoint {
     pub bucket: OffsetDateTime,
@@ -42,21 +46,21 @@ pub struct AnalyticsSeriesPoint {
     pub total: i64,
 }
 
-#[cfg_attr(not(target_arch = "wasm32"), derive(sqlx::FromRow))]
+#[cfg_attr(feature = "backend", derive(sqlx::FromRow))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReferrerCount {
     pub referrer: String,
     pub total: i64,
 }
 
-#[cfg_attr(not(target_arch = "wasm32"), derive(sqlx::FromRow))]
+#[cfg_attr(feature = "backend", derive(sqlx::FromRow))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FunnelPoint {
     pub step_index: i32,
     pub total: i64,
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "backend"))]
 mod tests {
     use super::*;
 

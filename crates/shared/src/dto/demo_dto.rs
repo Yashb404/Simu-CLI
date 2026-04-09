@@ -1,10 +1,14 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use validator::Validate;
 
 use crate::models::demo::{DemoSettings, Step, Theme};
+#[cfg(feature = "backend")]
 use crate::validation::{is_valid_hex_color, is_valid_slug, MAX_OUTPUT_LINES_PER_STEP, MAX_STEPS};
 
+#[cfg(feature = "backend")]
+use validator::Validate;
+
+#[cfg(feature = "backend")]
 fn validate_slug(value: &str) -> Result<(), validator::ValidationError> {
     if is_valid_slug(value) {
         Ok(())
@@ -15,6 +19,7 @@ fn validate_slug(value: &str) -> Result<(), validator::ValidationError> {
     }
 }
 
+#[cfg(feature = "backend")]
 fn validate_steps(value: &Vec<Step>) -> Result<(), validator::ValidationError> {
     if value.len() > MAX_STEPS {
         let mut err = validator::ValidationError::new("too_many_steps");
@@ -65,6 +70,7 @@ fn validate_steps(value: &Vec<Step>) -> Result<(), validator::ValidationError> {
     Ok(())
 }
 
+#[cfg(feature = "backend")]
 fn validate_theme(value: &Theme) -> Result<(), validator::ValidationError> {
     if !is_valid_hex_color(&value.bg_color)
         || !is_valid_hex_color(&value.fg_color)
@@ -84,6 +90,7 @@ fn validate_theme(value: &Theme) -> Result<(), validator::ValidationError> {
     Ok(())
 }
 
+#[cfg(feature = "backend")]
 fn validate_settings(value: &DemoSettings) -> Result<(), validator::ValidationError> {
     if value.loop_delay_ms > 60_000 {
         let mut err = validator::ValidationError::new("invalid_loop_delay");
@@ -100,25 +107,27 @@ fn validate_settings(value: &DemoSettings) -> Result<(), validator::ValidationEr
     Ok(())
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[cfg_attr(feature = "backend", derive(Validate))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateDemoRequest {
-    #[validate(length(min = 1, max = 120))]
+    #[cfg_attr(feature = "backend", validate(length(min = 1, max = 120)))]
     pub title: String,
     pub project_id: Option<Uuid>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[cfg_attr(feature = "backend", derive(Validate))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateDemoRequest {
-    #[validate(length(min = 1, max = 120))]
+    #[cfg_attr(feature = "backend", validate(length(min = 1, max = 120)))]
     pub title: Option<String>,
     pub project_id: Option<Option<Uuid>>,
-    #[validate(custom(function = "validate_slug"))]
+    #[cfg_attr(feature = "backend", validate(custom(function = "validate_slug")))]
     pub slug: Option<String>,
-    #[validate(custom(function = "validate_theme"))]
+    #[cfg_attr(feature = "backend", validate(custom(function = "validate_theme")))]
     pub theme: Option<Theme>,
-    #[validate(custom(function = "validate_settings"))]
+    #[cfg_attr(feature = "backend", validate(custom(function = "validate_settings")))]
     pub settings: Option<DemoSettings>,
-    #[validate(custom(function = "validate_steps"))]
+    #[cfg_attr(feature = "backend", validate(custom(function = "validate_steps")))]
     pub steps: Option<Vec<Step>>,
 }
 
@@ -132,7 +141,7 @@ pub struct PublicDemoResponse {
     pub steps: Vec<Step>,
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "backend"))]
 mod tests {
     use super::*;
     use crate::{

@@ -2,10 +2,10 @@ use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-#[cfg_attr(not(target_arch = "wasm32"), derive(sqlx::Type))]
+#[cfg_attr(feature = "backend", derive(sqlx::Type))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(not(target_arch = "wasm32"), sqlx(rename_all = "snake_case"))]
+#[cfg_attr(feature = "backend", sqlx(rename_all = "snake_case"))]
 pub enum EngineMode { Sequential, FreePlay }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -123,7 +123,7 @@ pub struct DemoSettings {
     pub not_found_message: String,
 }
 
-#[cfg_attr(not(target_arch = "wasm32"), derive(sqlx::FromRow))]
+#[cfg_attr(feature = "backend", derive(sqlx::FromRow))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Demo {
     pub id: Uuid,
@@ -133,11 +133,11 @@ pub struct Demo {
     pub slug: Option<String>,
     pub published: bool,
     pub version: i32,
-    #[cfg_attr(not(target_arch = "wasm32"), sqlx(json))]
+    #[cfg_attr(feature = "backend", sqlx(json))]
     pub theme: Theme,
-    #[cfg_attr(not(target_arch = "wasm32"), sqlx(json))]
+    #[cfg_attr(feature = "backend", sqlx(json))]
     pub settings: DemoSettings,
-    #[cfg_attr(not(target_arch = "wasm32"), sqlx(json))]
+    #[cfg_attr(feature = "backend", sqlx(json))]
     pub steps: Vec<Step>,
     pub created_at: OffsetDateTime,
     pub updated_at: OffsetDateTime,

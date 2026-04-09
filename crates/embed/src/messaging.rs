@@ -1,4 +1,6 @@
 use serde::Serialize;
+#[cfg(target_arch = "wasm32")]
+use url::Url;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -42,20 +44,37 @@ impl EmbedEvent {
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn post_event_to_parent(event: &EmbedEvent) -> Result<(), String> {
+fn validated_target_origin(api_base: &str) -> Result<String, String> {
+    let parsed = Url::parse(api_base).map_err(|e| format!("invalid api_base origin: {e}"))?;
+    match parsed.scheme() {
+        "http" | "https" => {}
+        scheme => return Err(format!("unsupported target origin scheme: {scheme}")),
+    }
+
+    let origin = parsed.origin().ascii_serialization();
+    if origin == "null" {
+        return Err("api_base did not resolve to a concrete origin".to_string());
+    }
+
+    Ok(origin)
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn post_event_to_parent(event: &EmbedEvent, api_base: &str) -> Result<(), String> {
     use wasm_bindgen::JsValue;
 
     let window = web_sys::window().ok_or_else(|| "window is not available".to_string())?;
+    let target_origin = validated_target_origin(api_base)?;
     // TODO: Switch to structured JsValue payload once we standardize postMessage contracts.
     let payload = serde_json::to_string(event).map_err(|e| format!("serialize event: {e}"))?;
     let js_value = JsValue::from_str(&payload);
 
     window
-        .post_message(&js_value, "*")
+        .post_message(&js_value, &target_origin)
         .map_err(|e| format!("postMessage failed: {e:?}"))
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn post_event_to_parent(_event: &EmbedEvent) -> Result<(), String> {
+pub fn post_event_to_parent(_event: &EmbedEvent, _api_base: &str) -> Result<(), String> {
     Ok(())
 }

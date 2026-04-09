@@ -1,35 +1,51 @@
-(function() {
-    // 1. Find the script tag that invoked us
-    var currentScript = document.currentScript;
-    if (!currentScript) {
-        console.error("CLI Demo Studio: Cannot find script tag.");
-        return;
+(function embedCliDemo() {
+  var script = document.currentScript;
+  if (!script) {
+    var scripts = document.getElementsByTagName("script");
+    script = scripts[scripts.length - 1] || null;
+  }
+
+  if (!script) {
+    console.error("[cli-demo-studio] Unable to locate embed script.");
+    return;
+  }
+
+  var demoId = script.getAttribute("data-demo") || script.getAttribute("data-demo-id");
+  if (!demoId) {
+    console.error("[cli-demo-studio] Missing data-demo attribute.");
+    return;
+  }
+
+  var scriptUrl = new URL(script.src, window.location.href);
+  var runtimeUrl = new URL("/embed-runtime/index.html", scriptUrl.origin);
+  runtimeUrl.searchParams.set("demo_id", demoId);
+  runtimeUrl.searchParams.set("api_base", scriptUrl.origin);
+
+  var targetSelector = script.getAttribute("data-target");
+  var mountNode = targetSelector ? document.querySelector(targetSelector) : null;
+
+  if (!mountNode && script.previousElementSibling && script.previousElementSibling.tagName === "DIV") {
+    mountNode = script.previousElementSibling;
+  }
+
+  if (!mountNode) {
+    mountNode = document.createElement("div");
+    if (script.parentNode) {
+      script.parentNode.insertBefore(mountNode, script.nextSibling);
     }
+  }
 
-    // 2. Extract the demo ID
-    var demoId = currentScript.getAttribute("data-demo");
-    if (!demoId) {
-        console.error("CLI Demo Studio: Missing data-demo attribute.");
-        return;
-    }
+  var iframe = document.createElement("iframe");
+  iframe.src = runtimeUrl.toString();
+  iframe.loading = "lazy";
+  iframe.referrerPolicy = "strict-origin-when-cross-origin";
+  iframe.sandbox = script.getAttribute("data-sandbox") || "allow-scripts allow-same-origin";
+  iframe.style.width = script.getAttribute("data-width") || "100%";
+  iframe.style.height = script.getAttribute("data-height") || "480px";
+  iframe.style.border = "2px solid #000";
+  iframe.style.borderRadius = "0";
+  iframe.style.background = "#fff";
 
-    // 3. Determine host URL from the script source
-    var scriptUrl = new URL(currentScript.src);
-    var baseUrl = scriptUrl.origin;
-
-    // 4. Construct the iframe for the embed runtime
-    var iframe = document.createElement("iframe");
-    iframe.src = baseUrl + "/embed-runtime/index.html?demo_id=" + encodeURIComponent(demoId) + "&api_base=" + encodeURIComponent(baseUrl);
-    iframe.style.width = "100%";
-    iframe.style.height = "480px";
-    iframe.style.border = "2px solid #000";
-    iframe.style.borderRadius = "0";
-    var sandboxPolicy = currentScript.getAttribute("data-sandbox") || "allow-scripts allow-same-origin";
-    iframe.setAttribute("sandbox", sandboxPolicy);
-    iframe.setAttribute("loading", "lazy");
-
-    // 5. Inject right after the script tag
-    if (currentScript.parentNode) {
-        currentScript.parentNode.insertBefore(iframe, currentScript.nextSibling);
-    }
+  mountNode.innerHTML = "";
+  mountNode.appendChild(iframe);
 })();
