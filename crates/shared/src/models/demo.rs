@@ -81,6 +81,8 @@ pub struct Step {
     pub input: Option<String>,
     pub match_mode: Option<MatchMode>,
     pub match_pattern: Option<String>,  // compiled wildcard → stored as regex
+    #[serde(default)]
+    pub short_description: Option<String>,
     pub description: Option<String>,    // shown in auto-generated help
     // Output steps
     pub output: Option<Vec<OutputLine>>,

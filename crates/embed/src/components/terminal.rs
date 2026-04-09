@@ -30,20 +30,56 @@ fn indexed_lines(lines: Vec<String>) -> Vec<(usize, String)> {
     lines.into_iter().enumerate().collect::<Vec<(usize, String)>>()
 }
 
-fn ordered_command_guide(steps: &[Step]) -> Vec<String> {
+#[derive(Clone, Debug)]
+struct GuideEntry {
+    command: String,
+    description: Option<String>,
+}
+
+fn command_guide_entries(steps: &[Step]) -> Vec<GuideEntry> {
     steps
         .iter()
         .filter(|step| step.step_type == StepType::Command)
         .filter_map(|step| {
-            step
+            let command = step
                 .input
                 .as_deref()
                 .or(step.match_pattern.as_deref())
                 .map(str::trim)
                 .filter(|value| !value.is_empty())
-                .map(str::to_string)
+                .map(str::to_string)?;
+
+            Some(GuideEntry {
+                command,
+                description: step
+                    .short_description
+                    .clone()
+                    .filter(|value| !value.trim().is_empty()),
+            })
         })
         .collect()
+}
+
+fn builtin_help_lines(entries: &[GuideEntry]) -> Vec<String> {
+    let mut lines = vec![
+        "Available commands:".to_string(),
+        "  help  - Show the guide inside the terminal".to_string(),
+        "  clear - Clear the current terminal output".to_string(),
+    ];
+
+    if !entries.is_empty() {
+        lines.push(String::new());
+        lines.push("Demo guide:".to_string());
+        lines.extend(entries.iter().map(|entry| {
+            let description = entry
+                .description
+                .clone()
+                .unwrap_or_else(|| "No guide description yet".to_string());
+            format!("  {} - {}", entry.command, description)
+        }));
+    }
+
+    lines
 }
 
 fn command_step_indices(steps: &[Step]) -> Vec<usize> {
@@ -301,6 +337,7 @@ impl CliEngine {
 
 fn run_terminal_command(
     config: EmbedConfig,
+    guide_entries: Arc<Vec<GuideEntry>>,
     engine: ReadSignal<Option<CliEngine>>,
     set_engine: WriteSignal<Option<CliEngine>>,
     input: ReadSignal<String>,
@@ -308,6 +345,72 @@ fn run_terminal_command(
     history: WriteSignal<Vec<String>>,
 ) {
     let raw_input = input.get();
+    let normalized_input = normalize_input(&raw_input);
+
+    if normalized_input.is_empty() {
+        return;
+    }
+
+    let prompt_prefix = engine
+        .get()
+        .as_ref()
+        .map(|runtime| runtime.prompt_string.clone())
+        .unwrap_or_else(|| "$".to_string());
+    let demo_id = engine.get().as_ref().map(|runtime| runtime.demo_id.clone());
+
+    if normalized_input == "clear" {
+        history.set(Vec::new());
+        set_input.set(String::new());
+
+        if let Some(demo_id) = demo_id {
+            let _ = post_event_to_parent(
+                &EmbedEvent::interaction(demo_id.clone(), &raw_input),
+                &config.api_base,
+            );
+            if let Ok(demo_uuid) = Uuid::parse_str(&demo_id) {
+                let endpoint = format!("{}/api/analytics/events", config.api_base);
+                leptos::task::spawn_local(async move {
+                    let _ = post_analytics_event(
+                        &endpoint,
+                        demo_uuid,
+                        AnalyticsEventType::Interaction,
+                        None,
+                    )
+                    .await;
+                });
+            }
+        }
+
+        return;
+    }
+
+    if normalized_input == "help" {
+        let mut lines = vec![format!("{} {}", prompt_prefix, normalized_input)];
+        lines.extend(builtin_help_lines(&guide_entries));
+        history.update(|items| items.extend(lines));
+        set_input.set(String::new());
+
+        if let Some(demo_id) = demo_id {
+            let _ = post_event_to_parent(
+                &EmbedEvent::interaction(demo_id.clone(), &raw_input),
+                &config.api_base,
+            );
+            if let Ok(demo_uuid) = Uuid::parse_str(&demo_id) {
+                let endpoint = format!("{}/api/analytics/events", config.api_base);
+                leptos::task::spawn_local(async move {
+                    let _ = post_analytics_event(
+                        &endpoint,
+                        demo_uuid,
+                        AnalyticsEventType::Interaction,
+                        None,
+                    )
+                    .await;
+                });
+            }
+        }
+
+        return;
+    }
 
     let mut event_demo_id = None;
     let mut event_demo_uuid = None;
@@ -391,7 +494,9 @@ pub fn TerminalUI(demo: PublicDemoResponse, config: EmbedConfig) -> impl IntoVie
 
     let window_title = demo.theme.window_title.clone();
     let prompt_string = demo.theme.prompt_string.clone();
-    let guide_commands = Arc::new(ordered_command_guide(&demo.steps));
+    let guide_entries = Arc::new(command_guide_entries(&demo.steps));
+    let guide_entries_for_input = Arc::clone(&guide_entries);
+    let guide_entries_for_button = Arc::clone(&guide_entries);
     let view_config = config.clone();
     let keydown_config = config.clone();
     let click_config = config.clone();
@@ -432,9 +537,9 @@ pub fn TerminalUI(demo: PublicDemoResponse, config: EmbedConfig) -> impl IntoVie
     view! {
         <section class=move || {
             if compact_mode.get() {
-                "terminal-chrome is-compact"
+                "terminal-chrome is-compact relative overflow-hidden"
             } else {
-                "terminal-chrome"
+                "terminal-chrome relative overflow-hidden"
             }
         } aria-label="CLI simulator terminal">
             <div class="terminal-titlebar">
@@ -447,70 +552,105 @@ pub fn TerminalUI(demo: PublicDemoResponse, config: EmbedConfig) -> impl IntoVie
                 <button
                     type="button"
                     class="terminal-guide-toggle"
-                    aria-expanded=move || guide_open.get().to_string()
-                    on:click=move |_| set_guide_open.update(|open| *open = !*open)
-                >
-                    {move || if guide_open.get() { "Hide Guide" } else { "Show Guide" }}
-                </button>
-                <button
-                    type="button"
-                    class="terminal-guide-toggle"
                     aria-pressed=move || compact_mode.get().to_string()
                     on:click=move |_| set_compact_mode.update(|compact| *compact = !*compact)
                 >
                     {move || if compact_mode.get() { "Full" } else { "Compact" }}
                 </button>
             </div>
-            <Show when=move || guide_open.get()>
-                <div class="terminal-guide" role="region" aria-label="Recommended command guide">
-                    <p class="terminal-guide-heading">"Recommended Command Order"</p>
-                    <ol class="terminal-guide-list">
-                        {
-                            let guide_commands = Arc::clone(&guide_commands);
-                            view! {
-                        <For
-                            each=move || indexed_lines((*guide_commands).clone())
-                            key=|entry| entry.0
-                            children=move |(idx, command)| {
-                                let item_state = move || {
-                                    engine
-                                        .get()
-                                        .as_ref()
-                                        .map(|runtime| runtime.guide_item_state(idx))
-                                        .unwrap_or(GuideItemState::Pending)
-                                };
-                                let item_class = move || {
-                                    match item_state() {
-                                        GuideItemState::Next => {
-                                        "terminal-guide-item is-next"
-                                        }
-                                        GuideItemState::Completed => {
-                                            "terminal-guide-item is-done"
-                                        }
-                                        GuideItemState::Pending => {
-                                        "terminal-guide-item"
-                                        }
-                                    }
-                                };
-                                view! {
-                                    <li class=item_class>
-                                        <span class="terminal-guide-marker" aria-hidden="true">
-                                            {move || match item_state() {
-                                                GuideItemState::Completed => "[x]",
-                                                GuideItemState::Next => "[>]",
-                                                GuideItemState::Pending => "[ ]",
-                                            }}
-                                        </span>
-                                        <code>{command}</code>
-                                    </li>
-                                }
-                            }
-                        />
-                            }
-                        }
-                    </ol>
+            <div
+                class=move || {
+                    if guide_open.get() {
+                        "pointer-events-auto absolute inset-0 z-20 bg-black/45 opacity-100 transition-opacity duration-300 ease-out"
+                    } else {
+                        "pointer-events-none absolute inset-0 z-20 bg-black/0 opacity-0 transition-opacity duration-300 ease-out"
+                    }
+                }
+                on:click=move |_| set_guide_open.set(false)
+            ></div>
+            <aside
+                class=move || {
+                    if guide_open.get() {
+                        "pointer-events-auto absolute inset-y-3 right-3 z-30 w-[min(320px,calc(100%-24px))] rounded-2xl border border-zinc-800/80 bg-zinc-950/95 p-4 shadow-2xl backdrop-blur-xl transition-all duration-300 ease-out translate-x-0 opacity-100"
+                    } else {
+                        "pointer-events-none absolute inset-y-3 right-3 z-30 w-[min(320px,calc(100%-24px))] rounded-2xl border border-zinc-800/80 bg-zinc-950/95 p-4 shadow-2xl backdrop-blur-xl transition-all duration-300 ease-out translate-x-full opacity-0"
+                    }
+                }
+                role="region"
+                aria-label="Recommended command guide"
+            >
+                <div class="mb-4 flex items-start justify-between gap-3">
+                    <div class="space-y-1">
+                        <p class="text-[11px] uppercase tracking-[0.22em] text-zinc-500">"Mini Guide"</p>
+                        <h3 class="text-base font-semibold text-zinc-100">"Commands To Try"</h3>
+                        <p class="text-xs text-zinc-400">"Click a command to insert it into the prompt, or type `help` in the terminal."</p>
+                    </div>
+                    <button
+                        type="button"
+                        class="rounded-full border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-400 transition-all duration-200 ease-in-out hover:border-zinc-700 hover:text-zinc-200"
+                        on:click=move |_| set_guide_open.set(false)
+                    >
+                        "Close"
+                    </button>
                 </div>
-            </Show>
+                <div class="space-y-2 overflow-y-auto pb-3">
+                    {
+                        let guide_entries_for_each = Arc::clone(&guide_entries);
+                        let guide_entries_for_children = Arc::clone(&guide_entries);
+                        view! {
+                            <For
+                                each=move || indexed_lines((*guide_entries_for_each).iter().map(|entry| entry.command.clone()).collect())
+                                key=|entry| entry.0
+                                children=move |(idx, command)| {
+                                    let description = guide_entries_for_children
+                                        .get(idx)
+                                        .and_then(|entry| entry.description.clone())
+                                        .unwrap_or_else(|| "No guide description yet".to_string());
+                                    let item_state = move || {
+                                        engine
+                                            .get()
+                                            .as_ref()
+                                            .map(|runtime| runtime.guide_item_state(idx))
+                                            .unwrap_or(GuideItemState::Pending)
+                                    };
+                                    let item_class = move || match item_state() {
+                                        GuideItemState::Next => "border-emerald-500/40 bg-emerald-500/10 text-emerald-100",
+                                        GuideItemState::Completed => "border-zinc-700 bg-zinc-900/90 text-zinc-300",
+                                        GuideItemState::Pending => "border-zinc-800 bg-zinc-950/80 text-zinc-100",
+                                    };
+                                    view! {
+                                        <button
+                                            type="button"
+                                            class=move || format!("group flex w-full items-start gap-3 rounded-2xl border px-3 py-3 text-left transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:border-zinc-600 {}", item_class())
+                                            on:click={
+                                                let command = command.clone();
+                                                move |_| {
+                                                    set_input.set(command.clone());
+                                                }
+                                            }
+                                        >
+                                            <span class="mt-0.5 text-xs font-medium uppercase tracking-[0.22em] text-zinc-500">
+                                                {move || match item_state() {
+                                                    GuideItemState::Completed => "Done",
+                                                    GuideItemState::Next => "Next",
+                                                    GuideItemState::Pending => "Try",
+                                                }}
+                                            </span>
+                                            <div class="min-w-0 space-y-1">
+                                                <code class="block font-mono text-sm text-current">{command.clone()}</code>
+                                                <p class="text-xs leading-5 text-zinc-400 group-hover:text-zinc-300">{description}</p>
+                                            </div>
+                                        </button>
+                                    }
+                                }
+                            />
+                        }
+                    }
+                </div>
+                <div class="mt-2 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-3 text-xs text-zinc-400">
+                    <p>"Built-ins: `help` shows this guide in the terminal, and `clear` wipes the output."</p>
+                </div>
+            </aside>
             <div class="terminal-body">
                 <For
                     each=move || indexed_lines(history.get())
@@ -521,6 +661,15 @@ pub fn TerminalUI(demo: PublicDemoResponse, config: EmbedConfig) -> impl IntoVie
                     }
                 />
             </div>
+            <button
+                type="button"
+                class="absolute bottom-4 right-4 z-10 inline-flex items-center gap-2 rounded-full border border-zinc-700/80 bg-zinc-950/90 px-3 py-2 text-xs font-medium uppercase tracking-[0.18em] text-zinc-200 shadow-xl transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:border-zinc-600 hover:bg-zinc-900"
+                aria-expanded=move || guide_open.get().to_string()
+                on:click=move |_| set_guide_open.update(|open| *open = !*open)
+            >
+                <span class="grid h-6 w-6 place-items-center rounded-full bg-zinc-100 text-[11px] font-bold text-zinc-950">"?"</span>
+                <span>"Guide"</span>
+            </button>
             <div class="terminal-input-row">
                 <span class="terminal-prompt-label">{format!("{} ", prompt_display)}</span>
                 <label class="sr-only" for="terminal-input">"Terminal input"</label>
@@ -532,7 +681,7 @@ pub fn TerminalUI(demo: PublicDemoResponse, config: EmbedConfig) -> impl IntoVie
                     on:input=move |ev| set_input.set(event_target_value(&ev))
                     on:keydown=move |ev: leptos::ev::KeyboardEvent| {
                         if ev.key() == "Enter" {
-                            run_terminal_command(keydown_config.clone(), engine, set_engine, input, set_input, set_history);
+                            run_terminal_command(keydown_config.clone(), Arc::clone(&guide_entries_for_input), engine, set_engine, input, set_input, set_history);
                         }
                     }
                     placeholder="type a command..."
@@ -543,7 +692,7 @@ pub fn TerminalUI(demo: PublicDemoResponse, config: EmbedConfig) -> impl IntoVie
                     type="button"
                     class="terminal-run-btn"
                     on:click=move |_| {
-                        run_terminal_command(click_config.clone(), engine, set_engine, input, set_input, set_history);
+                        run_terminal_command(click_config.clone(), Arc::clone(&guide_entries_for_button), engine, set_engine, input, set_input, set_history);
                     }
                 >
                     "RUN"

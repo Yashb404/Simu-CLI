@@ -613,6 +613,7 @@ fn append_steps_from_interactions(
             input: Some(interaction.command.clone()),
             match_mode: None,
             match_pattern: None,
+            short_description: None,
             description: None,
             output: None,
             prompt_config: None,
@@ -631,6 +632,7 @@ fn append_steps_from_interactions(
             input: None,
             match_mode: None,
             match_pattern: None,
+            short_description: None,
             description: None,
             output: Some(
                 interaction

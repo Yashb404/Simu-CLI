@@ -16,6 +16,34 @@ use crate::components::step_editors::{
     StepListEditor,
 };
 
+#[cfg(target_arch = "wasm32")]
+const EDITOR_SPLIT_RATIO_KEY: &str = "demo_editor_split_ratio";
+
+#[cfg(target_arch = "wasm32")]
+fn load_editor_split_ratio() -> f64 {
+    web_sys::window()
+        .and_then(|w| w.local_storage().ok().flatten())
+        .and_then(|ls| ls.get_item(EDITOR_SPLIT_RATIO_KEY).ok().flatten())
+        .and_then(|v| v.parse::<f64>().ok())
+        .map(|value| value.clamp(0.34, 0.74))
+        .unwrap_or(0.56)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn load_editor_split_ratio() -> f64 {
+    0.56
+}
+
+#[cfg(target_arch = "wasm32")]
+fn persist_editor_split_ratio(value: f64) {
+    if let Some(storage) = web_sys::window().and_then(|w| w.local_storage().ok().flatten()) {
+        let _ = storage.set_item(EDITOR_SPLIT_RATIO_KEY, &value.to_string());
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn persist_editor_split_ratio(_value: f64) {}
+
 fn normalize_command_match_patterns(steps: &mut [Step]) {
     for step in steps.iter_mut() {
         if step.step_type != StepType::Command {
@@ -273,26 +301,17 @@ pub fn DemoEditorPage() -> impl IntoView {
             .unwrap_or_else(|| "command not found".to_string())
     });
 
-    let (is_resizing, set_is_resizing) = signal(false);
-    let stored_script_pane_px = web_sys::window()
-        .and_then(|w| w.local_storage().ok().flatten())
-        .and_then(|ls| ls.get_item("script_pane_px").ok().flatten())
-        .and_then(|v| v.parse::<f64>().ok())
-        .unwrap_or(560.0_f64);
-    let (script_pane_px, set_script_pane_px) = signal(stored_script_pane_px);
+    let is_resizing = RwSignal::new(false);
+    let split_ratio = RwSignal::new(load_editor_split_ratio());
 
     let on_splitter_down = {
-        let set_is_resizing = set_is_resizing;
         move |ev: web_sys::PointerEvent| {
             ev.prevent_default();
-            set_is_resizing.set(true);
+            is_resizing.set(true);
         }
     };
 
     let on_editor_pointer_move = {
-        let is_resizing = is_resizing;
-        let set_script_pane_px = set_script_pane_px;
-
         move |ev: web_sys::PointerEvent| {
             if !is_resizing.get() {
                 return;
@@ -303,65 +322,89 @@ pub fn DemoEditorPage() -> impl IntoView {
                 .and_then(|width| width.as_f64())
                 .unwrap_or(1200.0_f64);
 
-            let min_width = 360.0_f64;
-            let max_width = (viewport_width - 360.0_f64).max(min_width);
-            let next = (ev.client_x() as f64).clamp(min_width, max_width);
-            set_script_pane_px.set(next);
-            if let Some(ls) = web_sys::window().and_then(|w| w.local_storage().ok().flatten()) {
-                let _ = ls.set_item("script_pane_px", &next.to_string());
-            }
+            let next = ((ev.client_x() as f64) / viewport_width).clamp(0.34, 0.74);
+            split_ratio.set(next);
+            persist_editor_split_ratio(next);
         }
     };
 
     let on_editor_pointer_up = {
-        let set_is_resizing = set_is_resizing;
         move |_ev: web_sys::PointerEvent| {
-            set_is_resizing.set(false);
+            is_resizing.set(false);
         }
     };
 
     view! {
-        <div class="editor-workspace">
-            <header class="editor-topbar">
-                <div class="inline-actions">
+        <div class="editor-workspace min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(24,24,27,0.9),_rgba(9,9,11,1)_42%)] text-zinc-100">
+            <header class="editor-topbar border-b border-zinc-800/80 bg-zinc-950/85 px-6 py-5 backdrop-blur-xl">
+                <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div class="inline-actions flex flex-1 flex-col gap-3">
+                    <div class="flex items-center gap-3 text-[11px] uppercase tracking-[0.24em] text-zinc-500">
+                        <span>"Demo Builder"</span>
+                        <span class="h-px flex-1 bg-zinc-800"></span>
+                        <span>"Split Workspace"</span>
+                    </div>
                     <input
-                        class="editor-title-input"
+                        class="editor-title-input w-full rounded-2xl border border-zinc-800 bg-zinc-950/90 px-4 py-3 text-2xl font-semibold tracking-tight text-zinc-50 shadow-[0_20px_80px_-32px_rgba(0,0,0,0.8)] transition-all duration-200 ease-in-out placeholder:text-zinc-500 focus:border-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-700/40"
                         prop:value=move || title.get()
                         on:input=move |ev| set_title.set(event_target_value(&ev))
                         placeholder="Untitled demo"
                     />
-                    <p class="status">{move || status.get()}</p>
+                    <p class="status text-sm text-zinc-400">{move || status.get()}</p>
                 </div>
-                <div class="action-bar">
-                    <button type="button" class="btn-primary" on:click=save_demo>
+                <div class="action-bar flex items-center gap-3">
+                    <button type="button" class="btn-primary rounded-xl border border-zinc-700 bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-950 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:bg-white" on:click=save_demo>
                         "Save Draft"
                     </button>
-                    <button type="button" class="btn-outline" on:click=publish_demo>
+                    <button type="button" class="btn-outline rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-medium text-emerald-200 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:border-emerald-400/60 hover:bg-emerald-500/20" on:click=publish_demo>
                         "Publish & Get Code"
                     </button>
+                </div>
                 </div>
             </header>
 
             <main
-                class="editor-main"
+                class=move || {
+                    if is_resizing.get() {
+                        "editor-main flex min-h-[calc(100vh-112px)] touch-none select-none bg-transparent"
+                    } else {
+                        "editor-main flex min-h-[calc(100vh-112px)] bg-transparent"
+                    }
+                }
                 on:pointermove=on_editor_pointer_move
                 on:pointerup=on_editor_pointer_up
                 on:pointercancel=on_editor_pointer_up
                 on:pointerleave=on_editor_pointer_up
             >
-                <aside class="script-pane" style=move || format!("flex-basis: {}px;", script_pane_px.get())>
-                    <div class="script-toolbar">
-                        <button type="button" class="btn-primary-light" on:click=add_command_block>"+ Command Block"</button>
-                        <button type="button" on:click=add_command_step>"+ Command"</button>
-                        <button type="button" on:click=add_output_step>"+ Output"</button>
-                        <button type="button" on:click=add_comment_step>"+ Comment"</button>
-                        <button type="button" on:click=add_prompt_step>"+ Prompt"</button>
-                        <button type="button" on:click=add_spinner_step>"+ Spinner"</button>
-                        <button type="button" on:click=add_cta_step>"+ CTA"</button>
-                        <button type="button" on:click=add_pause_step>"+ Pause"</button>
+                <aside
+                    class="script-pane flex min-w-0 shrink-0 flex-col border-r border-zinc-800/80 bg-zinc-950/55 backdrop-blur-xl"
+                    style=move || format!("flex-basis: calc({:.4}% - 6px);", split_ratio.get() * 100.0)
+                >
+                    <div class="script-toolbar flex flex-wrap gap-2 border-b border-zinc-800/70 px-5 py-4">
+                        <button type="button" class="btn-primary-light rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs font-medium text-zinc-100 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:border-zinc-600 hover:bg-zinc-800" on:click=add_command_block>"+ Command Block"</button>
+                        <button type="button" class="rounded-xl border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs font-medium text-zinc-300 transition-all duration-200 ease-in-out hover:border-zinc-700 hover:bg-zinc-900" on:click=add_command_step>"+ Command"</button>
+                        <button type="button" class="rounded-xl border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs font-medium text-zinc-300 transition-all duration-200 ease-in-out hover:border-zinc-700 hover:bg-zinc-900" on:click=add_output_step>"+ Output"</button>
+                        <button type="button" class="rounded-xl border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs font-medium text-zinc-300 transition-all duration-200 ease-in-out hover:border-zinc-700 hover:bg-zinc-900" on:click=add_comment_step>"+ Comment"</button>
+                        <button type="button" class="rounded-xl border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs font-medium text-zinc-300 transition-all duration-200 ease-in-out hover:border-zinc-700 hover:bg-zinc-900" on:click=add_prompt_step>"+ Prompt"</button>
+                        <button type="button" class="rounded-xl border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs font-medium text-zinc-300 transition-all duration-200 ease-in-out hover:border-zinc-700 hover:bg-zinc-900" on:click=add_spinner_step>"+ Spinner"</button>
+                        <button type="button" class="rounded-xl border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs font-medium text-zinc-300 transition-all duration-200 ease-in-out hover:border-zinc-700 hover:bg-zinc-900" on:click=add_cta_step>"+ CTA"</button>
+                        <button type="button" class="rounded-xl border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs font-medium text-zinc-300 transition-all duration-200 ease-in-out hover:border-zinc-700 hover:bg-zinc-900" on:click=add_pause_step>"+ Pause"</button>
                     </div>
 
-                    <div class="script-content">
+                    <div class="script-content flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-5">
+                        <section class="rounded-2xl border border-zinc-800/70 bg-zinc-950/80 p-4 shadow-[0_24px_80px_-36px_rgba(0,0,0,0.85)]">
+                            <div class="flex items-start justify-between gap-4">
+                                <div class="space-y-1">
+                                    <p class="text-[11px] uppercase tracking-[0.2em] text-zinc-500">"Script Pane"</p>
+                                    <h2 class="text-lg font-semibold text-zinc-50">"Scenario Authoring"</h2>
+                                    <p class="text-sm text-zinc-400">"Compose commands, narration, prompts, and guided hints for your interactive CLI demo."</p>
+                                </div>
+                                <div class="rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-400">
+                                    {move || format!("{:.0}% width", split_ratio.get() * 100.0)}
+                                </div>
+                            </div>
+                        </section>
+
                         <CastImportButton
                             demo_id=current_demo_id.clone()
                             on_success={Callback::new(move |resp: shared::dto::demo_dto::ImportCastResponse| {
@@ -370,7 +413,7 @@ pub fn DemoEditorPage() -> impl IntoView {
                             })}
                         />
 
-                        <p class="text-muted">
+                        <p class="text-muted text-sm text-zinc-500">
                             "Upload a .cast file to automatically append command/output steps below."
                         </p>
 
@@ -388,10 +431,10 @@ pub fn DemoEditorPage() -> impl IntoView {
                         <StepListEditor steps=steps set_steps=set_steps />
 
                         <Show when=move || !published_slug.get().is_empty()>
-                            <section class="panel embed-panel">
-                                <h3>"Embed Snippet"</h3>
-                                <p class="text-muted">"Copy and paste this into your documentation or website."</p>
-                                <textarea readonly rows="3" class="code-block">
+                            <section class="panel embed-panel rounded-2xl border border-zinc-800/70 bg-zinc-950/80 p-4 shadow-[0_20px_70px_-36px_rgba(0,0,0,0.9)]">
+                                <h3 class="text-base font-semibold text-zinc-50">"Embed Snippet"</h3>
+                                <p class="text-muted mt-2 text-sm text-zinc-500">"Copy and paste this into your documentation or website."</p>
+                                <textarea readonly rows="3" class="code-block mt-3 w-full rounded-xl border border-zinc-800 bg-zinc-950 p-3 font-mono text-xs text-zinc-300">
                                     {move || {
                                         format!(
                                             "<script src=\"{}/static/embed.js\" data-demo=\"{}\"></script>",
@@ -408,16 +451,28 @@ pub fn DemoEditorPage() -> impl IntoView {
                 <div
                     class=move || {
                         if is_resizing.get() {
-                            "editor-splitter is-active".to_string()
+                            "editor-splitter is-active relative z-20 w-3 cursor-col-resize bg-transparent before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-zinc-500/80 before:shadow-[0_0_20px_rgba(244,244,245,0.15)]".to_string()
                         } else {
-                            "editor-splitter".to_string()
+                            "editor-splitter relative z-20 w-3 cursor-col-resize bg-transparent transition-colors duration-200 ease-in-out hover:bg-zinc-800/30 before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-zinc-700".to_string()
                         }
                     }
                     on:pointerdown=on_splitter_down
                 />
 
-                <section class="stage-pane">
-                    <div class="terminal-container">
+                <section class="stage-pane min-w-0 flex-1 bg-[linear-gradient(180deg,rgba(24,24,27,0.65),rgba(9,9,11,0.9))]">
+                    <div class="terminal-container flex h-full flex-col gap-5 px-6 py-5">
+                        <section class="rounded-2xl border border-zinc-800/70 bg-zinc-950/70 p-4 shadow-[0_24px_80px_-40px_rgba(0,0,0,0.85)]">
+                            <div class="flex items-start justify-between gap-4">
+                                <div class="space-y-1">
+                                    <p class="text-[11px] uppercase tracking-[0.2em] text-zinc-500">"Runtime Pane"</p>
+                                    <h2 class="text-lg font-semibold text-zinc-50">"Live Terminal Preview"</h2>
+                                    <p class="text-sm text-zinc-400">"Preview your guided command flow while you edit the script on the left."</p>
+                                </div>
+                                <div class="rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-400">
+                                    "Resizable"
+                                </div>
+                            </div>
+                        </section>
                         <LivePreviewPanel
                             steps=steps
                             prompt_string=prompt_string

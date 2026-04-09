@@ -262,6 +262,7 @@ pub fn create_default_step(step_type: StepType, order: i32) -> Step {
         input: None,
         match_mode: None,
         match_pattern: None,
+        short_description: None,
         description: None,
         output: None,
         prompt_config: None,
@@ -324,11 +325,21 @@ pub fn add_command_block(steps: &mut Vec<Step>) {
 
 fn summarize_step(step: &Step) -> String {
     match step.step_type {
-        StepType::Command => step
-            .input
-            .clone()
-            .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| "(empty command)".to_string()),
+        StepType::Command => {
+            let command = step
+                .input
+                .clone()
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or_else(|| "(empty command)".to_string());
+            let guide = step
+                .short_description
+                .clone()
+                .filter(|value| !value.trim().is_empty());
+
+            guide
+                .map(|text| format!("{command} - {text}"))
+                .unwrap_or(command)
+        }
         StepType::Output => {
             let lines = step.output.clone().unwrap_or_default();
             if lines.is_empty() {
@@ -536,28 +547,28 @@ fn StepCard(
 
     view! {
         <div
-            class="step-block"
+            class="step-block mb-4 overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/70 shadow-[0_22px_70px_-38px_rgba(0,0,0,0.95)] backdrop-blur-sm transition-all duration-200 ease-in-out hover:border-zinc-700"
             draggable="true"
             on:dragstart=move |ev| on_drag_start.run(ev)
             on:dragover=move |ev| on_drag_over.run(ev)
             on:drop=move |ev| on_drop.run(ev)
         >
-            <button type="button" class="step-block-header" on:click=move |ev| on_toggle.run(ev)>
-                <div class="drag-handle">"⋮⋮"</div>
-                <span class=format!("step-badge {step_type_class}")>{step_type_label}</span>
-                <span class="step-seq">{format!("{}.", index + 1)}</span>
-                <span class="step-summary">{step_summary}</span>
-                <span class="step-card-indicator">
+            <button type="button" class="step-block-header flex w-full items-center gap-3 border-b border-zinc-800/70 px-4 py-4 text-left transition-all duration-200 ease-in-out hover:bg-zinc-900/80" on:click=move |ev| on_toggle.run(ev)>
+                <div class="drag-handle text-zinc-600">"⋮⋮"</div>
+                <span class=format!("step-badge {step_type_class} rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] {}", step_type_class)>{step_type_label}</span>
+                <span class="step-seq text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">{format!("{}.", index + 1)}</span>
+                <span class="step-summary min-w-0 flex-1 truncate text-sm text-zinc-200">{step_summary}</span>
+                <span class="step-card-indicator text-xs uppercase tracking-[0.18em] text-zinc-500">
                     {move || if expanded.get() { "Collapse" } else { "Edit" }}
                 </span>
             </button>
 
             <Show when=move || expanded.get()>
-                <div class="step-block-body">
-                    <header class="inline-actions">
-                        <button type="button" on:click=move |ev| on_move_up.run(ev)>"Up"</button>
-                        <button type="button" on:click=move |ev| on_move_down.run(ev)>"Down"</button>
-                        <button type="button" on:click=move |ev| on_remove.run(ev)>"Remove"</button>
+                <div class="step-block-body space-y-4 px-4 py-4">
+                    <header class="inline-actions flex items-center gap-2">
+                        <button type="button" class="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-300 transition-all duration-200 ease-in-out hover:border-zinc-700 hover:bg-zinc-800" on:click=move |ev| on_move_up.run(ev)>"Up"</button>
+                        <button type="button" class="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-300 transition-all duration-200 ease-in-out hover:border-zinc-700 hover:bg-zinc-800" on:click=move |ev| on_move_down.run(ev)>"Down"</button>
+                        <button type="button" class="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs text-red-200 transition-all duration-200 ease-in-out hover:border-red-400/60 hover:bg-red-500/20" on:click=move |ev| on_remove.run(ev)>"Remove"</button>
                     </header>
                     <StepEditorRouter step=step_for_editor.clone() on_update=on_update />
                 </div>
@@ -583,16 +594,18 @@ fn StepEditorRouter(step: Step, on_update: Callback<Step>) -> impl IntoView {
 #[component]
 fn CommandBlockEditor(step: Step, on_update: Callback<Step>) -> impl IntoView {
     let command_value = step.input.clone().unwrap_or_default();
+    let short_description_value = step.short_description.clone().unwrap_or_default();
     let match_pattern_value = step
         .match_pattern
         .clone()
         .unwrap_or_else(|| command_value.clone());
     let step_for_command = step.clone();
+    let step_for_short_description = step.clone();
     let step_for_pattern = step;
 
     view! {
-        <div class="command-block-editor">
-            <section class="command-block-section">
+        <div class="command-block-editor flex flex-col gap-4">
+            <section class="command-block-section flex flex-col gap-4 rounded-2xl border border-zinc-800/90 bg-zinc-950/70 p-4 shadow-[0_18px_50px_-24px_rgba(0,0,0,0.75)] backdrop-blur-sm transition-all duration-200 ease-in-out">
                 <h4>"Command"</h4>
                 <label>
                     "Command to execute"
@@ -618,6 +631,23 @@ fn CommandBlockEditor(step: Step, on_update: Callback<Step>) -> impl IntoView {
                             if should_sync_pattern {
                                 updated.match_pattern = Some(next);
                             }
+                            on_update.run(updated);
+                        }
+                    />
+                </label>
+                <label>
+                    "Guide description"
+                    <input
+                        placeholder="Short explanation shown in the guide and help output"
+                        prop:value=short_description_value
+                        on:input=move |ev| {
+                            let next = event_target_value(&ev);
+                            let mut updated = step_for_short_description.clone();
+                            updated.short_description = if next.trim().is_empty() {
+                                None
+                            } else {
+                                Some(next)
+                            };
                             on_update.run(updated);
                         }
                     />
