@@ -104,6 +104,25 @@ fn validate_settings(value: &DemoSettings) -> Result<(), validator::ValidationEr
         return Err(err);
     }
 
+    if let Some(url) = &value.documentation_url {
+        let trimmed = url.trim();
+        if trimmed.len() > 500 {
+            let mut err = validator::ValidationError::new("invalid_documentation_url");
+            err.message = Some("documentation_url must be <= 500 chars".into());
+            return Err(err);
+        }
+
+        if !trimmed.is_empty()
+            && !(trimmed.starts_with("https://") || trimmed.starts_with("http://"))
+        {
+            let mut err = validator::ValidationError::new("invalid_documentation_url");
+            err.message = Some(
+                "documentation_url must start with http:// or https:// when provided".into(),
+            );
+            return Err(err);
+        }
+    }
+
     Ok(())
 }
 
@@ -282,6 +301,7 @@ mod tests {
                 show_restart_button: true,
                 show_hints: false,
                 not_found_message: "command not found".to_string(),
+                documentation_url: None,
             }),
             steps: Some(steps),
         };

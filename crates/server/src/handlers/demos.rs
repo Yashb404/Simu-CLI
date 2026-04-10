@@ -58,6 +58,7 @@ fn default_settings() -> DemoSettings {
         show_restart_button: true,
         show_hints: false,
         not_found_message: "command not found".to_string(),
+        documentation_url: None,
     }
 }
 

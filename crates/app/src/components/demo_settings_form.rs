@@ -100,6 +100,13 @@ pub fn DemoSettingsForm(
             .unwrap_or_else(|| "command not found".to_string())
     });
 
+    let documentation_url = Signal::derive(move || {
+        settings
+            .get()
+            .and_then(|cfg| cfg.documentation_url)
+            .unwrap_or_default()
+    });
+
     let engine_mode = Signal::derive(move || {
         settings
             .get()
@@ -231,6 +238,27 @@ pub fn DemoSettingsForm(
                                 }
                             });
                         }
+                    />
+                </label>
+
+                <label class="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-on-surface-variant md:col-span-2">
+                    "Documentation URL"
+                    <input
+                        class="rounded-2xl border border-outline-variant bg-surface-container-high px-4 py-3 text-sm normal-case tracking-normal text-on-surface outline-none transition-all duration-200 placeholder:text-on-surface-variant/50 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        prop:value=documentation_url
+                        on:input=move |ev| {
+                            let next = event_target_value(&ev);
+                            set_settings.update(|value| {
+                                if let Some(settings) = value.as_mut() {
+                                    settings.documentation_url = if next.trim().is_empty() {
+                                        None
+                                    } else {
+                                        Some(next.clone())
+                                    };
+                                }
+                            });
+                        }
+                        placeholder="https://docs.example.com"
                     />
                 </label>
 

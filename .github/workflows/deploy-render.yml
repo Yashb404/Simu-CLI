@@ -5,7 +5,7 @@ on:
     inputs:
       deploy_hook_url:
         description: "Render deploy hook URL"
-        required: true
+        required: false
         type: string
 
 permissions:
@@ -19,9 +19,41 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Resolve deploy hook URL
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          input_url="${{ github.event.inputs.deploy_hook_url || '' }}"
+          secret_url="${{ secrets.RENDER_DEPLOY_HOOK_URL || '' }}"
+          variable_url="${{ vars.RENDER_DEPLOY_HOOK_URL || '' }}"
+
+          if [ -n "${input_url}" ]; then
+            echo "deploy_hook_url=${input_url%/}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ -n "${secret_url}" ]; then
+            echo "deploy_hook_url=${secret_url%/}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ -n "${variable_url}" ]; then
+            echo "deploy_hook_url=${variable_url%/}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Set RENDER_DEPLOY_HOOK_URL as a repository secret or variable, or pass deploy_hook_url manually." >&2
+          exit 1
+
       - name: Trigger Render deploy hook
         shell: bash
         run: |
+          set -euo pipefail
           curl --fail --show-error --silent \
+            --retry 3 \
+            --retry-all-errors \
+            --retry-delay 2 \
             -X POST \
-            "${{ inputs.deploy_hook_url }}"
+            "${{ steps.resolve.outputs.deploy_hook_url }}"

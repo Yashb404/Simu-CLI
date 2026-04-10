@@ -23,12 +23,13 @@ enum CreatorViewMode {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum CanvasState {
-    Workspace,
     ImportPublish,
     ScriptBuilder,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+const DASHBOARD_DEMOS_ROUTE: &str = "/dashboard/demos";
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum PublishState {
     Idle,
     Saving,
@@ -90,13 +91,20 @@ fn TopNav(
     set_canvas_state: WriteSignal<CanvasState>,
     theme_mode: Signal<ThemeMode>,
     set_theme_mode: WriteSignal<ThemeMode>,
+    on_back_to_dashboard: Callback<()>,
     on_save: Callback<()>,
     on_publish: Callback<()>,
 ) -> impl IntoView {
     view! {
         <header class="bg-background border-b border-outline-variant flex flex-wrap justify-between items-center px-6 py-3 gap-3 min-h-14 w-full sticky top-0 z-50">
             <div class="flex items-center gap-8 min-w-0">
-            <div class="text-lg font-black text-primary tracking-tighter shrink-0">"SimuCLI Demo Creator"</div>
+                <button
+                    class="shrink-0 rounded border border-outline-variant px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant hover:text-on-surface"
+                    on:click=move |_| on_back_to_dashboard.run(())
+                >
+                    "Back to Demos"
+                </button>
+                <div class="text-lg font-black text-primary tracking-tighter shrink-0">"SimuCLI Demo Creator"</div>
                 <input
                     class="bg-transparent border-none outline-none text-on-surface placeholder:text-zinc-500 text-sm md:text-base min-w-[220px]"
                     prop:value=move || title.get()
@@ -116,107 +124,119 @@ fn TopNav(
             </div>
 
             <div class="flex items-center gap-3 flex-wrap">
-                <div class="flex items-center gap-2 rounded-lg border border-outline-variant/20 bg-surface-container-low px-2 py-1">
-                    <span class="text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">"Theme"</span>
-                    <select
-                        class="rounded-md border border-outline-variant bg-surface-container px-2 py-1 text-xs font-semibold text-on-surface outline-none"
-                        prop:value=move || theme_mode.get().as_str()
-                        on:change=move |ev| {
-                            let value = event_target_value(&ev);
-                            set_theme_mode.set(ThemeMode::from_str(&value));
-                        }
-                    >
-                        <option value="terminal">"Terminal"</option>
-                        <option value="dark">"Dark"</option>
-                        <option value="light">"Light"</option>
-                    </select>
-                </div>
+                <Show when=move || matches!(view_mode.get(), CreatorViewMode::Developer)>
+                    <div class="flex bg-surface-container-low p-1 rounded-lg border border-outline-variant/20">
+                        <button
+                            class=move || {
+                                if matches!(view_mode.get(), CreatorViewMode::Developer) {
+                                    "px-3 py-1 text-xs font-bold bg-surface-container text-primary rounded-md shadow-sm"
+                                } else {
+                                    "px-3 py-1 text-xs font-bold text-zinc-500 hover:text-zinc-200"
+                                }
+                            }
+                            on:click=move |_| set_view_mode.set(CreatorViewMode::Developer)
+                        >
+                            "Dev View"
+                        </button>
+                        <button
+                            class=move || {
+                                if matches!(view_mode.get(), CreatorViewMode::User) {
+                                    "px-3 py-1 text-xs font-bold bg-surface-container text-primary rounded-md shadow-sm"
+                                } else {
+                                    "px-3 py-1 text-xs font-bold text-zinc-500 hover:text-zinc-200"
+                                }
+                            }
+                            on:click=move |_| set_view_mode.set(CreatorViewMode::User)
+                        >
+                            "User View"
+                        </button>
+                    </div>
+                </Show>
 
-                <div class="flex bg-surface-container-low p-1 rounded-lg border border-outline-variant/20">
-                    <button
-                        class=move || {
-                            if matches!(view_mode.get(), CreatorViewMode::Developer) {
-                                "px-3 py-1 text-xs font-bold bg-surface-container text-primary rounded-md shadow-sm"
-                            } else {
-                                "px-3 py-1 text-xs font-bold text-zinc-500 hover:text-zinc-200"
-                            }
+                <Show
+                    when=move || matches!(view_mode.get(), CreatorViewMode::Developer)
+                    fallback=move || {
+                        view! {
+                            <button
+                                class="bg-primary px-3 py-1.5 rounded text-sm font-bold text-on-primary hover:opacity-90 active:scale-95 transition-all"
+                                on:click=move |_| set_view_mode.set(CreatorViewMode::Developer)
+                            >
+                                "Back to Developer"
+                            </button>
                         }
-                        on:click=move |_| set_view_mode.set(CreatorViewMode::Developer)
-                    >
-                        "Dev View"
-                    </button>
-                    <button
-                        class=move || {
-                            if matches!(view_mode.get(), CreatorViewMode::User) {
-                                "px-3 py-1 text-xs font-bold bg-surface-container text-primary rounded-md shadow-sm"
-                            } else {
-                                "px-3 py-1 text-xs font-bold text-zinc-500 hover:text-zinc-200"
-                            }
-                        }
-                        on:click=move |_| set_view_mode.set(CreatorViewMode::User)
-                    >
-                        "User View"
-                    </button>
-                </div>
-
-                <div class="hidden md:flex bg-surface-container-low p-1 rounded-lg border border-outline-variant/20">
-                    <button
-                        class=move || {
-                            if matches!(canvas_state.get(), CanvasState::Workspace) {
-                                "px-3 py-1 text-[10px] font-bold bg-surface-container text-primary rounded-md"
-                            } else {
-                                "px-3 py-1 text-[10px] font-bold text-zinc-500 hover:text-zinc-200"
-                            }
-                        }
-                        on:click=move |_| set_canvas_state.set(CanvasState::Workspace)
-                    >
-                        "Workspace"
-                    </button>
-                    <button
-                        class=move || {
-                            if matches!(canvas_state.get(), CanvasState::ImportPublish) {
-                                "px-3 py-1 text-[10px] font-bold bg-surface-container text-primary rounded-md"
-                            } else {
-                                "px-3 py-1 text-[10px] font-bold text-zinc-500 hover:text-zinc-200"
-                            }
-                        }
-                        on:click=move |_| set_canvas_state.set(CanvasState::ImportPublish)
-                    >
-                        "Import"
-                    </button>
-                    <button
-                        class=move || {
-                            if matches!(canvas_state.get(), CanvasState::ScriptBuilder) {
-                                "px-3 py-1 text-[10px] font-bold bg-surface-container text-primary rounded-md"
-                            } else {
-                                "px-3 py-1 text-[10px] font-bold text-zinc-500 hover:text-zinc-200"
-                            }
-                        }
-                        on:click=move |_| set_canvas_state.set(CanvasState::ScriptBuilder)
-                    >
-                        "Builder"
-                    </button>
-                </div>
-
-                <button
-                    class="bg-surface-container-highest px-3 py-1.5 rounded text-sm font-bold text-on-surface hover:bg-surface-bright transition-colors"
-                    on:click=move |_| on_save.run(())
+                    }
                 >
-                    "Save"
-                </button>
-                <button
-                    class="bg-primary px-3 py-1.5 rounded text-sm font-bold text-on-primary hover:opacity-90 active:scale-95 transition-all"
-                    on:click=move |_| on_publish.run(())
-                >
-                    "Publish"
-                </button>
+                    <div class="flex items-center gap-2 rounded-lg border border-outline-variant/20 bg-surface-container-low px-2 py-1">
+                        <span class="text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">"Theme"</span>
+                        <select
+                            class="rounded-md border border-outline-variant bg-surface-container px-2 py-1 text-xs font-semibold text-on-surface outline-none"
+                            prop:value=move || theme_mode.get().as_str()
+                            on:change=move |ev| {
+                                let value = event_target_value(&ev);
+                                set_theme_mode.set(ThemeMode::from_str(&value));
+                            }
+                        >
+                            <option value="terminal">"Terminal"</option>
+                            <option value="dark">"Dark"</option>
+                            <option value="light">"Light"</option>
+                        </select>
+                    </div>
+
+                    <div class="hidden md:flex bg-surface-container-low p-1 rounded-lg border border-outline-variant/20">
+                        <button
+                            class=move || {
+                                if matches!(canvas_state.get(), CanvasState::ScriptBuilder) {
+                                    "px-3 py-1 text-[10px] font-bold bg-surface-container text-primary rounded-md"
+                                } else {
+                                    "px-3 py-1 text-[10px] font-bold text-zinc-500 hover:text-zinc-200"
+                                }
+                            }
+                            on:click=move |_| set_canvas_state.set(CanvasState::ScriptBuilder)
+                        >
+                            "Editor"
+                        </button>
+                        <button
+                            class=move || {
+                                if matches!(canvas_state.get(), CanvasState::ImportPublish) {
+                                    "px-3 py-1 text-[10px] font-bold bg-surface-container text-primary rounded-md"
+                                } else {
+                                    "px-3 py-1 text-[10px] font-bold text-zinc-500 hover:text-zinc-200"
+                                }
+                            }
+                            on:click=move |_| set_canvas_state.set(CanvasState::ImportPublish)
+                        >
+                            "Import"
+                        </button>
+                    </div>
+
+                    <button
+                        class="bg-surface-container-highest px-3 py-1.5 rounded text-sm font-bold text-on-surface hover:bg-surface-bright transition-colors"
+                        on:click=move |_| on_save.run(())
+                    >
+                        "Save"
+                    </button>
+                    <button
+                        class="bg-primary px-3 py-1.5 rounded text-sm font-bold text-on-primary hover:opacity-90 active:scale-95 transition-all"
+                        on:click=move |_| on_publish.run(())
+                    >
+                        "Publish"
+                    </button>
+                </Show>
             </div>
         </header>
     }
 }
 
 #[component]
-fn SideNav() -> impl IntoView {
+fn SideNav(
+    active_canvas: ReadSignal<CanvasState>,
+    on_new_step: Callback<()>,
+    on_add_output: Callback<()>,
+    on_add_prompt: Callback<()>,
+    on_add_pause: Callback<()>,
+    on_open_guide: Callback<()>,
+    on_open_logs: Callback<()>,
+) -> impl IntoView {
     view! {
         <aside class="bg-surface-container-low w-16 md:w-64 border-r border-outline-variant flex flex-col shrink-0">
             <div class="p-4 flex items-center gap-3 border-b border-outline-variant md:px-6">
@@ -231,53 +251,98 @@ fn SideNav() -> impl IntoView {
 
             <nav class="flex-1 py-4">
                 <div class="px-3 mb-4 hidden md:block">
-                    <button class="w-full bg-primary text-on-primary font-bold text-xs py-2 rounded-lg flex items-center justify-center gap-2 uppercase tracking-widest">
+                    <button class="w-full bg-primary text-on-primary font-bold text-xs py-2 rounded-lg flex items-center justify-center gap-2 uppercase tracking-widest" on:click=move |_| on_new_step.run(())>
                         <span class="material-symbols-outlined text-sm">"add"</span>
                         "New Step"
                     </button>
                 </div>
 
                 <div class="space-y-1">
-                    <a class="flex items-center gap-4 px-4 md:px-6 py-3 bg-surface-container text-primary font-bold border-l-4 border-primary" href="#">
+                    <button
+                        class=move || {
+                            if matches!(active_canvas.get(), CanvasState::ScriptBuilder) {
+                                "w-full text-left flex items-center gap-4 px-4 md:px-6 py-3 bg-surface-container text-primary font-bold border-l-4 border-primary"
+                            } else {
+                                "w-full text-left flex items-center gap-4 px-4 md:px-6 py-3 text-zinc-400 hover:bg-surface-container hover:text-zinc-100 transition-colors"
+                            }
+                        }
+                        on:click=move |_| on_new_step.run(())
+                    >
                         <span class="material-symbols-outlined">"terminal"</span>
                         <span class="hidden md:block font-mono text-xs">"Command"</span>
-                    </a>
-                    <a class="flex items-center gap-4 px-4 md:px-6 py-3 text-zinc-400 hover:bg-surface-container hover:text-zinc-100 transition-colors" href="#">
+                    </button>
+                    <button class="w-full text-left flex items-center gap-4 px-4 md:px-6 py-3 text-zinc-400 hover:bg-surface-container hover:text-zinc-100 transition-colors" on:click=move |_| on_add_output.run(())>
                         <span class="material-symbols-outlined">"output"</span>
                         <span class="hidden md:block font-mono text-xs">"Output"</span>
-                    </a>
-                    <a class="flex items-center gap-4 px-4 md:px-6 py-3 text-zinc-400 hover:bg-surface-container hover:text-zinc-100 transition-colors" href="#">
+                    </button>
+                    <button class="w-full text-left flex items-center gap-4 px-4 md:px-6 py-3 text-zinc-400 hover:bg-surface-container hover:text-zinc-100 transition-colors" on:click=move |_| on_add_pause.run(())>
                         <span class="material-symbols-outlined">"timer"</span>
                         <span class="hidden md:block font-mono text-xs">"Delay"</span>
-                    </a>
-                    <a class="flex items-center gap-4 px-4 md:px-6 py-3 text-zinc-400 hover:bg-surface-container hover:text-zinc-100 transition-colors" href="#">
+                    </button>
+                    <button class="w-full text-left flex items-center gap-4 px-4 md:px-6 py-3 text-zinc-400 hover:bg-surface-container hover:text-zinc-100 transition-colors" on:click=move |_| on_add_prompt.run(())>
                         <span class="material-symbols-outlined">"keyboard"</span>
                         <span class="hidden md:block font-mono text-xs">"Input"</span>
-                    </a>
-                    <a class="flex items-center gap-4 px-4 md:px-6 py-3 text-zinc-400 hover:bg-surface-container hover:text-zinc-100 transition-colors" href="#">
+                    </button>
+                    <button class="w-full text-left flex items-center gap-4 px-4 md:px-6 py-3 text-zinc-400 hover:bg-surface-container hover:text-zinc-100 transition-colors" on:click=move |_| on_add_pause.run(())>
                         <span class="material-symbols-outlined">"pause_circle"</span>
                         <span class="hidden md:block font-mono text-xs">"Wait"</span>
-                    </a>
+                    </button>
                 </div>
             </nav>
 
             <div class="mt-auto border-t border-outline-variant py-4 space-y-1">
-                <a class="flex items-center gap-4 px-4 md:px-6 py-2 bg-surface-container text-primary font-bold border-l-4 border-primary" href="#">
+                <button
+                    class=move || {
+                        if matches!(active_canvas.get(), CanvasState::ScriptBuilder) {
+                            "w-full text-left flex items-center gap-4 px-4 md:px-6 py-2 bg-surface-container text-primary font-bold border-l-4 border-primary"
+                        } else {
+                            "w-full text-left flex items-center gap-4 px-4 md:px-6 py-2 text-zinc-400 hover:bg-surface-container hover:text-zinc-100 transition-colors"
+                        }
+                    }
+                    on:click=move |_| on_open_guide.run(())
+                >
                     <span class="material-symbols-outlined">"help"</span>
                     <span class="hidden md:block font-mono text-xs">"Guide"</span>
-                </a>
-                <a class="flex items-center gap-4 px-4 md:px-6 py-2 text-zinc-400 hover:bg-surface-container hover:text-zinc-100 transition-colors" href="#">
+                </button>
+                <button
+                    class=move || {
+                        if matches!(active_canvas.get(), CanvasState::ImportPublish) {
+                            "w-full text-left flex items-center gap-4 px-4 md:px-6 py-2 bg-surface-container text-primary font-bold border-l-4 border-primary"
+                        } else {
+                            "w-full text-left flex items-center gap-4 px-4 md:px-6 py-2 text-zinc-400 hover:bg-surface-container hover:text-zinc-100 transition-colors"
+                        }
+                    }
+                    on:click=move |_| on_open_logs.run(())
+                >
                     <span class="material-symbols-outlined">"description"</span>
                     <span class="hidden md:block font-mono text-xs">"Logs"</span>
-                </a>
+                </button>
             </div>
         </aside>
     }
 }
 
 #[component]
-fn GuidePanel(steps: ReadSignal<Vec<Step>>, open: ReadSignal<bool>, set_open: WriteSignal<bool>) -> impl IntoView {
+fn GuidePanel(
+    steps: ReadSignal<Vec<Step>>,
+    docs_url: Signal<Option<String>>,
+    open: ReadSignal<bool>,
+    set_open: WriteSignal<bool>,
+) -> impl IntoView {
     let entries = Signal::derive(move || command_guide_entries(&steps.get()));
+    let open_docs = Callback::new(move |_| {
+        let target_url = docs_url
+            .get()
+            .unwrap_or_else(|| "https://github.com/Yashb404/Simu-CLI#readme".to_string());
+        let normalized = if target_url.starts_with("http://") || target_url.starts_with("https://") {
+            target_url
+        } else {
+            format!("https://{}", target_url)
+        };
+        if let Some(window) = web_sys::window() {
+            let _ = window.open_with_url_and_target(&normalized, "_blank");
+        }
+    });
 
     view! {
         <div
@@ -324,7 +389,10 @@ fn GuidePanel(steps: ReadSignal<Vec<Step>>, open: ReadSignal<bool>, set_open: Wr
             </div>
 
             <div class="p-4 bg-background border-t border-outline-variant">
-                <button class="w-full bg-surface-container-highest text-on-surface text-xs font-bold py-2.5 rounded hover:bg-surface-bright transition-all flex items-center justify-center gap-2">
+                <button
+                    class="w-full bg-surface-container-highest text-on-surface text-xs font-bold py-2.5 rounded hover:bg-surface-bright transition-all flex items-center justify-center gap-2"
+                    on:click=move |_| open_docs.run(())
+                >
                     <span class="material-symbols-outlined text-sm">"open_in_new"</span>
                     "Full Documentation"
                 </button>
@@ -334,95 +402,13 @@ fn GuidePanel(steps: ReadSignal<Vec<Step>>, open: ReadSignal<bool>, set_open: Wr
 }
 
 #[component]
-fn WorkspaceState(
-    steps: ReadSignal<Vec<Step>>,
-    prompt_string: Signal<String>,
-    not_found_message: Signal<String>,
-    theme: ReadSignal<Option<Theme>>,
-    developer_mode: Signal<bool>,
-    guide_open: ReadSignal<bool>,
-    set_guide_open: WriteSignal<bool>,
-) -> impl IntoView {
-    view! {
-        <div class="flex-1 flex overflow-hidden">
-            <div class="flex-1 flex flex-col p-6 gap-6 relative overflow-y-auto">
-                <div class="flex justify-between items-end">
-                    <div>
-                        <h1 class="text-2xl font-black tracking-tight text-on-surface">"Terminal Environment"</h1>
-                        <p class="text-on-surface-variant font-mono text-xs">"simucli_project_0x882.sh"</p>
-                    </div>
-                    <div class="flex items-center gap-2 px-3 py-1 bg-surface-container rounded text-[10px] font-mono text-zinc-500">
-                        <div class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></div>
-                        "STATUS: READY"
-                    </div>
-                </div>
-
-                <div class="flex-1 grid grid-cols-1 xl:grid-cols-2 gap-4 min-h-[520px]">
-                    <div class="flex flex-col bg-surface-container-lowest rounded-lg border border-outline-variant/20 overflow-hidden shadow-2xl">
-                        <div class="bg-surface-container-low px-4 py-2 flex items-center justify-between border-b border-outline-variant/10">
-                            <div class="flex items-center gap-4">
-                                <div class="flex gap-1.5">
-                                    <div class="w-2.5 h-2.5 rounded-full bg-error"></div>
-                                    <div class="w-2.5 h-2.5 rounded-full bg-amber-400"></div>
-                                    <div class="w-2.5 h-2.5 rounded-full bg-primary"></div>
-                                </div>
-                                <span class="text-[10px] font-mono text-on-surface-variant tracking-wider">"bash -- session-01"</span>
-                            </div>
-                            <button class="text-zinc-600 text-sm" on:click=move |_| set_guide_open.set(!guide_open.get())>
-                                <span class="material-symbols-outlined">"help"</span>
-                            </button>
-                        </div>
-                        <div class="flex-1 min-h-0">
-                            <LivePreviewPanel
-                                steps=steps
-                                prompt_string=prompt_string
-                                not_found_message=not_found_message
-                                theme=theme
-                                developer_mode=developer_mode
-                                show_header=false
-                                show_internal_guide=false
-                                show_titlebar=false
-                            />
-                        </div>
-                    </div>
-
-                    <div class="flex flex-col bg-surface-container-lowest rounded-lg border border-outline-variant/20 overflow-hidden opacity-90">
-                        <div class="bg-surface-container-low px-4 py-2 flex items-center justify-between border-b border-outline-variant/10">
-                            <div class="flex items-center gap-4">
-                                <div class="flex gap-1.5">
-                                    <div class="w-2.5 h-2.5 rounded-full bg-zinc-700"></div>
-                                    <div class="w-2.5 h-2.5 rounded-full bg-zinc-700"></div>
-                                    <div class="w-2.5 h-2.5 rounded-full bg-zinc-700"></div>
-                                </div>
-                                <span class="text-[10px] font-mono text-on-surface-variant tracking-wider">"error-log -- debug-view"</span>
-                            </div>
-                            <span class="material-symbols-outlined text-zinc-600 text-sm">"close"</span>
-                        </div>
-                        <div class="flex-1 p-6 font-mono text-xs leading-relaxed overflow-y-auto bg-black/40 text-zinc-400">
-                            <div class="mb-2">"2026-04-10 14:02:12 [ERROR] Failed to connect to mirror-primary.simu.dev"</div>
-                            <div class="mb-2 text-error">"2026-04-10 14:02:12 [CRITICAL] Package 'cli-utils' not found in current environment."</div>
-                            <div class="mb-2">"> Try running 'simu help' to see available packages."</div>
-                            <div class="mt-6">"> simu run build-deploy"</div>
-                            <div class="text-error mt-1">"zsh: command not found: simu"</div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-
-            <Show when=move || matches!(developer_mode.get(), true)>
-                <GuidePanel steps=steps open=guide_open set_open=set_guide_open />
-            </Show>
-        </div>
-    }
-}
-
-#[component]
 fn UserPreviewState(
+    title: ReadSignal<String>,
     steps: ReadSignal<Vec<Step>>,
     prompt_string: Signal<String>,
     not_found_message: Signal<String>,
     theme: ReadSignal<Option<Theme>>,
+    on_open_workspace_guide: Callback<()>,
 ) -> impl IntoView {
     let user_mode = Signal::derive(|| false);
 
@@ -440,7 +426,14 @@ fn UserPreviewState(
                             </div>
                             <div class="ml-4 flex items-center gap-2 text-zinc-500 font-mono text-[11px] uppercase tracking-widest">
                                 <span class="material-symbols-outlined text-[14px]">"desktop_windows"</span>
-                                "Simulated-Terminal-v1"
+                                {move || {
+                                    let current = title.get();
+                                    if current.trim().is_empty() {
+                                        "Simulated-Terminal-v1".to_string()
+                                    } else {
+                                        current
+                                    }
+                                }}
                             </div>
                         </div>
                         <div class="flex items-center gap-4 text-zinc-400">
@@ -462,7 +455,10 @@ fn UserPreviewState(
                         />
                     </div>
 
-                    <button class="absolute bottom-6 right-6 flex items-center gap-2 bg-surface-container hover:bg-surface-container-high text-primary px-4 py-2 rounded-lg border border-primary/30 shadow-lg transition-all duration-200">
+                    <button
+                        class="absolute bottom-6 right-6 flex items-center gap-2 bg-surface-container hover:bg-surface-container-high text-primary px-4 py-2 rounded-lg border border-primary/30 shadow-lg transition-all duration-200"
+                        on:click=move |_| on_open_workspace_guide.run(())
+                    >
                         <span class="material-symbols-outlined text-[20px]">"help_center"</span>
                         <span class="text-xs font-bold uppercase tracking-wider">"User Guide"</span>
                     </button>
@@ -475,11 +471,55 @@ fn UserPreviewState(
 #[component]
 fn ImportPublishState(
     demo_id: String,
+    steps: ReadSignal<Vec<Step>>,
+    status: ReadSignal<String>,
+    publish_state: ReadSignal<PublishState>,
+    last_import_pairs: ReadSignal<usize>,
+    last_import_message: ReadSignal<String>,
     published_slug: ReadSignal<String>,
     publish_modal_open: ReadSignal<bool>,
     set_publish_modal_open: WriteSignal<bool>,
     on_import_success: Callback<ImportCastResponse>,
 ) -> impl IntoView {
+    let import_demo_id = demo_id.clone();
+    let log_demo_id = demo_id;
+
+    let import_progress = Signal::derive(move || match publish_state.get() {
+        PublishState::Publishing => 85,
+        PublishState::Success => 100,
+        _ => {
+            if last_import_pairs.get() > 0 {
+                100
+            } else {
+                0
+            }
+        }
+    });
+
+    let open_demo = {
+        let published_slug = published_slug;
+        Callback::new(move |_| {
+            let slug = published_slug.get();
+            if slug.trim().is_empty() {
+                return;
+            }
+            if let Some(window) = web_sys::window() {
+                let _ = window.location().set_href(&format!("/d/{}", slug));
+            }
+        })
+    };
+
+    let open_analytics = {
+        let analytics_demo_id = import_demo_id.clone();
+        Callback::new(move |_| {
+            if let Some(window) = web_sys::window() {
+                let _ = window
+                    .location()
+                    .set_href(&format!("/dashboard/demos/{}/analytics", analytics_demo_id));
+            }
+        })
+    };
+
     view! {
         <div class="flex-1 overflow-y-auto p-8 bg-background">
             <div class="max-w-5xl mx-auto">
@@ -493,7 +533,7 @@ fn ImportPublishState(
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="lg:col-span-2 space-y-6">
                         <div class="bg-surface-container border-2 border-dashed border-outline-variant p-8 rounded-xl">
-                            <CastImportButton demo_id=demo_id on_success=on_import_success />
+                            <CastImportButton demo_id=import_demo_id.clone() on_success=on_import_success />
                         </div>
 
                         <div class="bg-surface-container-low p-6 rounded-xl border border-surface-container">
@@ -501,14 +541,32 @@ fn ImportPublishState(
                                 <div class="flex items-center gap-3">
                                     <span class="material-symbols-outlined text-primary">"insert_drive_file"</span>
                                     <div>
-                                        <p class="text-sm font-bold text-on-surface">"deployment_workflow_v2.cast"</p>
-                                        <p class="text-[10px] font-mono text-on-surface-variant">"4.2 MB -- Processing frames..."</p>
+                                        <p class="text-sm font-bold text-on-surface">
+                                            {move || {
+                                                let pairs = last_import_pairs.get();
+                                                if pairs == 0 {
+                                                    "No cast imported yet".to_string()
+                                                } else {
+                                                    format!("{} pairs extracted", pairs)
+                                                }
+                                            }}
+                                        </p>
+                                        <p class="text-[10px] font-mono text-on-surface-variant">
+                                            {move || {
+                                                let message = last_import_message.get();
+                                                if message.trim().is_empty() {
+                                                    "Waiting for cast upload...".to_string()
+                                                } else {
+                                                    message
+                                                }
+                                            }}
+                                        </p>
                                     </div>
                                 </div>
-                                <span class="font-mono text-xs text-primary font-bold">"65%"</span>
+                                <span class="font-mono text-xs text-primary font-bold">{move || format!("{}%", import_progress.get())}</span>
                             </div>
                             <div class="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
-                                <div class="h-full bg-primary w-[65%] rounded-full"></div>
+                                <div class="h-full bg-primary rounded-full" style=move || format!("width: {}%;", import_progress.get())></div>
                             </div>
                         </div>
                     </div>
@@ -517,18 +575,33 @@ fn ImportPublishState(
                         <div class="bg-surface-container p-5 rounded-xl">
                             <h4 class="font-mono text-[10px] uppercase tracking-widest text-on-surface-variant mb-4">"Validation Checks"</h4>
                             <ul class="space-y-4 text-xs">
-                                <li class="text-on-surface">"Format Integrity: Valid JSON-lines structure detected."</li>
-                                <li class="text-on-surface">"Timestamp Sync: Wait times normalized for player speed."</li>
-                                <li class="text-on-surface-variant">"Metadata Extraction: Waiting for upload completion..."</li>
+                                <li class="text-on-surface">"Format Integrity: JSON lines validated by parser."</li>
+                                <li class="text-on-surface">{move || format!("Step Sync: {} total steps in editor.", steps.get().len())}</li>
+                                <li class="text-on-surface-variant">{move || {
+                                    let current = status.get();
+                                    if current.trim().is_empty() {
+                                        "Metadata Extraction: waiting for upload completion...".to_string()
+                                    } else {
+                                        format!("Runtime Status: {}", current)
+                                    }
+                                }}</li>
                             </ul>
                         </div>
 
                         <div class="bg-black p-4 rounded-xl border border-surface-container-high font-mono text-[10px] text-primary/70 leading-relaxed">
                             <p>"> init ingest_v2"</p>
-                            <p>"> loading buffer [0x42A...]"</p>
-                            <p>"> frame_count: 1,420"</p>
-                            <p>"> duration: 04:12.4"</p>
-                            <p class="text-primary font-bold">"> status: streaming_payload"</p>
+                            <p>{move || format!("> demo_id: {}", log_demo_id)}</p>
+                            <p>{move || format!("> pairs_imported: {}", last_import_pairs.get())}</p>
+                            <p>{move || format!("> step_count: {}", steps.get().len())}</p>
+                            <p>{move || format!("> publish_state: {:?}", publish_state.get())}</p>
+                            <p class="text-primary font-bold">{move || {
+                                let message = last_import_message.get();
+                                if message.trim().is_empty() {
+                                    "> status: awaiting_upload".to_string()
+                                } else {
+                                    format!("> status: {}", message)
+                                }
+                            }}</p>
                         </div>
                     </div>
                 </div>
@@ -565,10 +638,10 @@ fn ImportPublishState(
                             </div>
 
                             <div class="grid grid-cols-2 gap-4">
-                                <button class="w-full py-3 bg-surface-container-highest hover:bg-surface-bright text-on-surface font-bold text-xs rounded-lg transition-all border border-outline-variant">
+                                <button class="w-full py-3 bg-surface-container-highest hover:bg-surface-bright text-on-surface font-bold text-xs rounded-lg transition-all border border-outline-variant" on:click=move |_| open_demo.run(())>
                                     "View Demo"
                                 </button>
-                                <button class="w-full py-3 bg-primary text-on-primary font-bold text-xs rounded-lg transition-all">
+                                <button class="w-full py-3 bg-primary text-on-primary font-bold text-xs rounded-lg transition-all" on:click=move |_| open_analytics.run(())>
                                     "Go to Analytics"
                                 </button>
                             </div>
@@ -594,19 +667,52 @@ fn ScriptBuilderState(
     set_steps: WriteSignal<Vec<Step>>,
     step_filter: ReadSignal<String>,
     set_step_filter: WriteSignal<String>,
+    docs_url: Signal<Option<String>>,
     prompt_string: Signal<String>,
     not_found_message: Signal<String>,
+    guide_open: ReadSignal<bool>,
+    set_guide_open: WriteSignal<bool>,
+    on_open_guide: Callback<()>,
 ) -> impl IntoView {
     let developer_mode = Signal::derive(|| true);
+    let filtered_step_count = Signal::derive(move || {
+        let query = step_filter.get().trim().to_ascii_lowercase();
+        steps
+            .get()
+            .into_iter()
+            .filter(|step| {
+                query.is_empty()
+                    || format!("{:?}", step.step_type)
+                        .to_ascii_lowercase()
+                        .contains(&query)
+                    || step
+                        .description
+                        .as_ref()
+                        .map(|value| value.to_ascii_lowercase().contains(&query))
+                        .unwrap_or(false)
+                    || step
+                        .short_description
+                        .as_ref()
+                        .map(|value| value.to_ascii_lowercase().contains(&query))
+                        .unwrap_or(false)
+                    || step
+                        .input
+                        .as_ref()
+                        .map(|value| value.to_ascii_lowercase().contains(&query))
+                        .unwrap_or(false)
+            })
+            .count()
+    });
 
     view! {
-        <div class="flex-1 flex overflow-hidden bg-background">
-            <section class="w-1/2 min-w-0 flex flex-col bg-surface border-r border-surface-container">
+        <div class="h-full min-h-0 flex bg-background overflow-hidden">
+            <div class="h-full min-h-0 flex-1 flex flex-col xl:flex-row overflow-y-auto xl:overflow-hidden">
+            <section class="w-full xl:w-1/2 min-w-0 min-h-0 flex flex-col overflow-hidden bg-surface border-b xl:border-b-0 xl:border-r border-surface-container">
                 <header class="p-6 border-b border-surface-container-low">
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-xl font-black text-on-surface tracking-tight">"Script Steps"</h2>
                         <span class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest bg-surface-container-low px-2 py-1 rounded">
-                            {move || format!("{} Nodes", steps.get().len())}
+                            {move || format!("{} / {} Nodes", filtered_step_count.get(), steps.get().len())}
                         </span>
                     </div>
                     <div class="relative">
@@ -619,7 +725,7 @@ fn ScriptBuilderState(
                     </div>
                 </header>
 
-                <div class="flex-1 overflow-y-auto p-6 space-y-6">
+                <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6 pb-28 space-y-6">
                     <DemoSettingsForm
                         title=title
                         set_title=set_title
@@ -634,8 +740,11 @@ fn ScriptBuilderState(
                 </div>
             </section>
 
-            <section class="w-1/2 min-w-0 flex flex-col bg-surface-container-lowest p-6 relative">
-                <button class="absolute top-10 right-10 z-30 flex items-center gap-2 bg-surface-container/80 px-4 py-2 rounded-full border border-outline-variant/30 text-[10px] font-bold uppercase tracking-widest text-primary shadow-2xl">
+            <section class="w-full xl:w-1/2 min-w-0 min-h-[360px] xl:min-h-0 flex flex-col bg-surface-container-lowest p-6 relative overflow-hidden">
+                <button
+                    class="absolute top-10 right-10 z-30 flex items-center gap-2 bg-surface-container/80 px-4 py-2 rounded-full border border-outline-variant/30 text-[10px] font-bold uppercase tracking-widest text-primary shadow-2xl"
+                    on:click=move |_| on_open_guide.run(())
+                >
                     <span class="material-symbols-outlined text-sm">"help_center"</span>
                     "Open Guide"
                 </button>
@@ -652,6 +761,10 @@ fn ScriptBuilderState(
                     />
                 </div>
             </section>
+            </div>
+            <Show when=move || guide_open.get()>
+                <GuidePanel steps=steps docs_url=docs_url open=guide_open set_open=set_guide_open />
+            </Show>
         </div>
     }
 }
@@ -675,6 +788,7 @@ pub fn DemoEditorPage() -> impl IntoView {
         show_restart_button: true,
         show_hints: false,
         not_found_message: "command not found".to_string(),
+        documentation_url: None,
     }));
     let (theme, set_theme) = signal(Some(Theme {
         window_style: WindowStyle::MacOs,
@@ -692,10 +806,12 @@ pub fn DemoEditorPage() -> impl IntoView {
     let (published_slug, set_published_slug) = signal(String::new());
     let (step_filter, set_step_filter) = signal(String::new());
     let (view_mode, set_view_mode) = signal(CreatorViewMode::Developer);
-    let (canvas_state, set_canvas_state) = signal(CanvasState::Workspace);
+    let (canvas_state, set_canvas_state) = signal(CanvasState::ScriptBuilder);
     let (publish_modal_open, set_publish_modal_open) = signal(false);
     let (guide_open, set_guide_open) = signal(true);
     let (publish_state, set_publish_state) = signal(PublishState::Idle);
+    let (last_import_pairs, set_last_import_pairs) = signal(0usize);
+    let (last_import_message, set_last_import_message) = signal(String::new());
     let theme_controller = use_context::<ThemeController>();
     let (_fallback_theme_mode, fallback_set_theme_mode) = signal(ThemeMode::Terminal);
     let theme_mode = Signal::derive(move || {
@@ -863,38 +979,34 @@ pub fn DemoEditorPage() -> impl IntoView {
 
     let on_import_success = Callback::new(move |resp: ImportCastResponse| {
         set_steps_version.update(|v| *v += 1);
+        set_last_import_pairs.set(resp.pairs_imported);
+        set_last_import_message.set(resp.message.clone());
         set_status.set(resp.message);
     });
 
-    let add_command_step = move |_| {
-        set_steps.update(|items| {
-            add_default_step(items, StepType::Command);
-        });
-    };
-
-    let add_command_block = move |_| {
+    let add_command_block = Callback::new(move |_| {
         set_steps.update(|items| {
             add_command_block_step(items);
         });
-    };
+    });
 
-    let add_output_step = move |_| {
+    let add_output_step = Callback::new(move |_| {
         set_steps.update(|items| {
             add_default_step(items, StepType::Output);
         });
-    };
+    });
 
-    let add_prompt_step = move |_| {
+    let add_prompt_step = Callback::new(move |_| {
         set_steps.update(|items| {
             add_default_step(items, StepType::Prompt);
         });
-    };
+    });
 
-    let add_pause_step = move |_| {
+    let add_pause_step = Callback::new(move |_| {
         set_steps.update(|items| {
             add_default_step(items, StepType::Pause);
         });
-    };
+    });
 
     let prompt_string = Signal::derive(move || {
         theme
@@ -910,7 +1022,19 @@ pub fn DemoEditorPage() -> impl IntoView {
             .unwrap_or_else(|| "command not found".to_string())
     });
 
-    let developer_mode = Signal::derive(move || matches!(view_mode.get(), CreatorViewMode::Developer));
+    let documentation_url = Signal::derive(move || {
+        settings
+            .get()
+            .and_then(|cfg| cfg.documentation_url)
+            .and_then(|url| {
+                let trimmed = url.trim().to_string();
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed)
+                }
+            })
+    });
 
     view! {
         <div class="min-h-screen bg-background text-on-surface overflow-hidden">
@@ -927,44 +1051,73 @@ pub fn DemoEditorPage() -> impl IntoView {
                     .as_ref()
                     .map(|controller| controller.set_mode)
                     .unwrap_or(fallback_set_theme_mode)
+                on_back_to_dashboard=Callback::new(move |_| {
+                    if let Some(window) = web_sys::window() {
+                        let _ = window.location().set_href(DASHBOARD_DEMOS_ROUTE);
+                    }
+                })
                 on_save=save_demo
                 on_publish=publish_demo
             />
 
-            <div class="flex h-[calc(100vh-3.5rem)] overflow-hidden">
+            <div class="flex h-[calc(100vh-3.5rem)] min-h-0 overflow-hidden">
                 <Show when=move || !matches!(view_mode.get(), CreatorViewMode::User)>
-                    <SideNav />
+                    <SideNav
+                        active_canvas=canvas_state
+                        on_new_step=Callback::new(move |_| {
+                            set_canvas_state.set(CanvasState::ScriptBuilder);
+                            add_command_block.run(());
+                        })
+                        on_add_output=Callback::new(move |_| {
+                            set_canvas_state.set(CanvasState::ScriptBuilder);
+                            add_output_step.run(());
+                        })
+                        on_add_prompt=Callback::new(move |_| {
+                            set_canvas_state.set(CanvasState::ScriptBuilder);
+                            add_prompt_step.run(());
+                        })
+                        on_add_pause=Callback::new(move |_| {
+                            set_canvas_state.set(CanvasState::ScriptBuilder);
+                            add_pause_step.run(());
+                        })
+                        on_open_guide=Callback::new(move |_| {
+                            set_canvas_state.set(CanvasState::ScriptBuilder);
+                            set_guide_open.set(true);
+                        })
+                        on_open_logs=Callback::new(move |_| {
+                            set_canvas_state.set(CanvasState::ImportPublish);
+                        })
+                    />
                 </Show>
 
-                <main class="flex-1 overflow-hidden">
+                <main class="flex-1 min-h-0 overflow-hidden">
                     {move || {
                         if matches!(view_mode.get(), CreatorViewMode::User) {
                             view! {
                                 <UserPreviewState
+                                    title=title
                                     steps=steps
                                     prompt_string=prompt_string
                                     not_found_message=not_found_message
                                     theme=theme
+                                    on_open_workspace_guide=Callback::new(move |_| {
+                                        set_view_mode.set(CreatorViewMode::Developer);
+                                        set_canvas_state.set(CanvasState::ScriptBuilder);
+                                        set_guide_open.set(true);
+                                    })
                                 />
                             }
                                 .into_any()
                         } else {
                             match canvas_state.get() {
-                                CanvasState::Workspace => view! {
-                                    <WorkspaceState
-                                        steps=steps
-                                        prompt_string=prompt_string
-                                        not_found_message=not_found_message
-                                        theme=theme
-                                        developer_mode=developer_mode
-                                        guide_open=guide_open
-                                        set_guide_open=set_guide_open
-                                    />
-                                }
-                                .into_any(),
                                 CanvasState::ImportPublish => view! {
                                     <ImportPublishState
                                         demo_id=current_demo_id.clone()
+                                        steps=steps
+                                        status=status
+                                        publish_state=publish_state
+                                        last_import_pairs=last_import_pairs
+                                        last_import_message=last_import_message
                                         published_slug=published_slug
                                         publish_modal_open=publish_modal_open
                                         set_publish_modal_open=set_publish_modal_open
@@ -986,8 +1139,14 @@ pub fn DemoEditorPage() -> impl IntoView {
                                         set_steps=set_steps
                                         step_filter=step_filter
                                         set_step_filter=set_step_filter
+                                        docs_url=documentation_url
                                         prompt_string=prompt_string
                                         not_found_message=not_found_message
+                                        guide_open=guide_open
+                                        set_guide_open=set_guide_open
+                                        on_open_guide=Callback::new(move |_| {
+                                            set_guide_open.set(true);
+                                        })
                                     />
                                 }
                                 .into_any(),
@@ -997,20 +1156,33 @@ pub fn DemoEditorPage() -> impl IntoView {
                 </main>
             </div>
 
+            <Show when=move || matches!(view_mode.get(), CreatorViewMode::Developer)>
             <div class="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#0e0e10] flex items-center justify-around z-50 px-4 border-t border-[#19191d]">
-                <button class="flex flex-col items-center gap-1 text-[#4ae176]" on:click=add_command_block>
+                <button class="flex flex-col items-center gap-1 text-[#4ae176]" on:click=move |_| {
+                    set_canvas_state.set(CanvasState::ScriptBuilder);
+                    add_command_block.run(());
+                }>
                     <span class="material-symbols-outlined">"terminal"</span>
                     <span class="text-[10px] font-bold">"Command"</span>
                 </button>
-                <button class="flex flex-col items-center gap-1 text-zinc-500" on:click=add_output_step>
+                <button class="flex flex-col items-center gap-1 text-zinc-500" on:click=move |_| {
+                    set_canvas_state.set(CanvasState::ScriptBuilder);
+                    add_output_step.run(());
+                }>
                     <span class="material-symbols-outlined">"output"</span>
                     <span class="text-[10px] font-bold">"Output"</span>
                 </button>
-                <button class="flex flex-col items-center gap-1 text-zinc-500" on:click=add_prompt_step>
+                <button class="flex flex-col items-center gap-1 text-zinc-500" on:click=move |_| {
+                    set_canvas_state.set(CanvasState::ScriptBuilder);
+                    add_prompt_step.run(());
+                }>
                     <span class="material-symbols-outlined">"keyboard"</span>
                     <span class="text-[10px] font-bold">"Input"</span>
                 </button>
-                <button class="flex flex-col items-center gap-1 text-zinc-500" on:click=add_pause_step>
+                <button class="flex flex-col items-center gap-1 text-zinc-500" on:click=move |_| {
+                    set_canvas_state.set(CanvasState::ScriptBuilder);
+                    add_pause_step.run(());
+                }>
                     <span class="material-symbols-outlined">"pause_circle"</span>
                     <span class="text-[10px] font-bold">"Wait"</span>
                 </button>
@@ -1027,10 +1199,7 @@ pub fn DemoEditorPage() -> impl IntoView {
                     <span class="text-[10px] font-bold">"Publish"</span>
                 </button>
             </div>
-
-            <div class="hidden">
-                <button on:click=add_command_step></button>
-            </div>
+            </Show>
         </div>
     }
 }

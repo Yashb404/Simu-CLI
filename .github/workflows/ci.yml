@@ -4,8 +4,10 @@ on:
   push:
     branches:
       - main
+      - demo-overhaul
       - frontend
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -43,13 +45,11 @@ jobs:
           --health-retries 5
     env:
       DATABASE_URL: postgres://postgres:password@localhost:5432/cli_demo_studio
-      GITHUB_CLIENT_ID: ci-client
-      GITHUB_CLIENT_SECRET: ci-secret
-      SESSION_SECRET: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
       API_URL: http://127.0.0.1:3001
       FRONTEND_URL: http://127.0.0.1:3001
       CORS_ALLOWED_ORIGINS: http://127.0.0.1:3001
       SESSION_COOKIE_SECURE: "false"
+      SQLX_OFFLINE: "false"
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -58,22 +58,35 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: native
-      - name: Wait for Postgres
+      - name: Prepare test environment
+        shell: bash
         run: |
-          for i in {1..30}; do
-            pg_isready -h localhost -p 5432 -U postgres && exit 0
+          set -euo pipefail
+          echo "GITHUB_CLIENT_ID=ci-$(openssl rand -hex 8)" >> "$GITHUB_ENV"
+          echo "GITHUB_CLIENT_SECRET=ci-$(openssl rand -hex 16)" >> "$GITHUB_ENV"
+          echo "SESSION_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+      - name: Wait for Postgres
+        shell: bash
+        run: |
+          set -euo pipefail
+          for _ in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U postgres; then
+              exit 0
+            fi
             sleep 1
           done
           echo "Postgres did not become ready in time" >&2
           exit 1
       - name: Lint
-        run: cargo clippy -p server -p shared --all-targets -- -D warnings
+        run: cargo clippy --locked -p server -p shared --all-targets --all-features -- -D warnings
       - name: Check
-        run: cargo check -p server -p shared
+        run: cargo check --locked -p server -p shared --all-targets --all-features
+      - name: Test shared crate
+        run: cargo test --locked -p shared --all-targets --all-features -- --test-threads=1
+      - name: Test server crate
+        run: cargo test --locked -p server --all-targets --all-features -- --include-ignored --test-threads=1
       - name: Release build
-        run: cargo build -p server --release
-      - name: Test
-        run: cargo test -p server -p shared -- --test-threads=1
+        run: cargo build --locked -p server --release
 
   wasm:
     name: WASM Builds
@@ -103,14 +116,12 @@ jobs:
       - name: Verify Trunk
         run: trunk --version
       - name: Check app
-        run: cargo check --target wasm32-unknown-unknown -p app
+        run: cargo check --locked --target wasm32-unknown-unknown -p app
       - name: Check embed
-        run: cargo check --target wasm32-unknown-unknown -p embed
+        run: cargo check --locked --target wasm32-unknown-unknown -p embed
       - name: Build dashboard assets
-        run: |
-          cd crates/app
-          trunk build index.html --release
+        working-directory: crates/app
+        run: trunk build index.html --release
       - name: Build embed runtime assets
-        run: |
-          cd crates/embed
-          trunk build index.html --release -d ../../dist-embed
+        working-directory: crates/embed
+        run: trunk build index.html --release -d ../../dist-embed

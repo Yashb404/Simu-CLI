@@ -157,6 +157,8 @@ pub struct DemoSettings {
     pub show_restart_button: bool,
     pub show_hints: bool,
     pub not_found_message: String,
+    #[serde(default)]
+    pub documentation_url: Option<String>,
 }
 
 #[cfg_attr(feature = "backend", derive(sqlx::FromRow))]
