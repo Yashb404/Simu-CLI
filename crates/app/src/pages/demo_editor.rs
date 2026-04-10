@@ -667,6 +667,8 @@ fn ScriptBuilderState(
     set_steps: WriteSignal<Vec<Step>>,
     step_filter: ReadSignal<String>,
     set_step_filter: WriteSignal<String>,
+    show_settings: ReadSignal<bool>,
+    set_show_settings: WriteSignal<bool>,
     docs_url: Signal<Option<String>>,
     prompt_string: Signal<String>,
     not_found_message: Signal<String>,
@@ -711,9 +713,17 @@ fn ScriptBuilderState(
                 <header class="p-6 border-b border-surface-container-low">
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-xl font-black text-on-surface tracking-tight">"Script Steps"</h2>
-                        <span class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest bg-surface-container-low px-2 py-1 rounded">
-                            {move || format!("{} / {} Nodes", filtered_step_count.get(), steps.get().len())}
-                        </span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest bg-surface-container-low px-2 py-1 rounded">
+                                {move || format!("{} / {} Nodes", filtered_step_count.get(), steps.get().len())}
+                            </span>
+                            <button
+                                class="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded border border-outline-variant/20 text-on-surface-variant hover:text-on-surface hover:border-primary/40 transition-colors"
+                                on:click=move |_| set_show_settings.set(!show_settings.get())
+                            >
+                                {move || if show_settings.get() { "Hide Settings" } else { "Show Settings" }}
+                            </button>
+                        </div>
                     </div>
                     <div class="relative">
                         <input
@@ -726,16 +736,18 @@ fn ScriptBuilderState(
                 </header>
 
                 <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6 pb-28 space-y-6">
-                    <DemoSettingsForm
-                        title=title
-                        set_title=set_title
-                        slug=slug
-                        set_slug=set_slug
-                        settings=settings
-                        set_settings=set_settings
-                        theme=theme
-                        set_theme=set_theme
-                    />
+                    <Show when=move || show_settings.get()>
+                        <DemoSettingsForm
+                            title=title
+                            set_title=set_title
+                            slug=slug
+                            set_slug=set_slug
+                            settings=settings
+                            set_settings=set_settings
+                            theme=theme
+                            set_theme=set_theme
+                        />
+                    </Show>
                     <StepListEditor steps=steps set_steps=set_steps filter=step_filter />
                 </div>
             </section>
@@ -809,6 +821,7 @@ pub fn DemoEditorPage() -> impl IntoView {
     let (canvas_state, set_canvas_state) = signal(CanvasState::ScriptBuilder);
     let (publish_modal_open, set_publish_modal_open) = signal(false);
     let (guide_open, set_guide_open) = signal(true);
+    let (show_settings, set_show_settings) = signal(true);
     let (publish_state, set_publish_state) = signal(PublishState::Idle);
     let (last_import_pairs, set_last_import_pairs) = signal(0usize);
     let (last_import_message, set_last_import_message) = signal(String::new());
@@ -1139,6 +1152,8 @@ pub fn DemoEditorPage() -> impl IntoView {
                                         set_steps=set_steps
                                         step_filter=step_filter
                                         set_step_filter=set_step_filter
+                                        show_settings=show_settings
+                                        set_show_settings=set_show_settings
                                         docs_url=documentation_url
                                         prompt_string=prompt_string
                                         not_found_message=not_found_message
