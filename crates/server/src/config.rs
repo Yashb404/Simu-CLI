@@ -126,6 +126,22 @@ fn parse_cors_allowed_origins(raw: &str) -> Result<Vec<String>> {
     Ok(origins)
 }
 
+fn require_secure_cookie_compatible_api_url(api_url: &str, secure: bool) -> Result<()> {
+    if !secure {
+        return Ok(());
+    }
+
+    let parsed = reqwest::Url::parse(api_url)
+        .with_context(|| format!("API_URL must be a valid URL: {api_url}"))?;
+    if parsed.scheme() != "https" {
+        anyhow::bail!(
+            "SESSION_COOKIE_SECURE=true requires an https API_URL. Set SESSION_COOKIE_SECURE=false for local http development."
+        );
+    }
+
+    Ok(())
+}
+
 impl Config {
     /// Load configuration from environment variables
     ///
@@ -202,6 +218,7 @@ impl Config {
             .unwrap_or_else(|_| "false".to_string())
             .parse::<bool>()
             .context("SESSION_COOKIE_SECURE must be true or false")?;
+        require_secure_cookie_compatible_api_url(&api_url, session_cookie_secure)?;
 
         let log_level = env::var("RUST_LOG")
             .unwrap_or_else(|_| "server=debug,tower_sessions=debug".to_string());
@@ -297,5 +314,12 @@ mod tests {
     fn loopback_aliases_for_non_localhost_only_returns_self() {
         let aliases = loopback_aliases("https://example.com").unwrap();
         assert_eq!(aliases, vec!["https://example.com".to_string()]);
+    }
+
+    #[test]
+    fn secure_session_cookie_requires_https_api_url() {
+        assert!(require_secure_cookie_compatible_api_url("https://example.com", true).is_ok());
+        assert!(require_secure_cookie_compatible_api_url("http://localhost:3001", false).is_ok());
+        assert!(require_secure_cookie_compatible_api_url("http://localhost:3001", true).is_err());
     }
 }
