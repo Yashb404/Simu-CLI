@@ -116,9 +116,8 @@ fn validate_settings(value: &DemoSettings) -> Result<(), validator::ValidationEr
             && !(trimmed.starts_with("https://") || trimmed.starts_with("http://"))
         {
             let mut err = validator::ValidationError::new("invalid_documentation_url");
-            err.message = Some(
-                "documentation_url must start with http:// or https:// when provided".into(),
-            );
+            err.message =
+                Some("documentation_url must start with http:// or https:// when provided".into());
             return Err(err);
         }
     }

@@ -1,7 +1,7 @@
 use leptos::prelude::*;
 use leptos::task::spawn_local;
-use leptos_router::hooks::use_location;
 use leptos_router::components::{A, Outlet, Redirect};
+use leptos_router::hooks::use_location;
 
 use crate::api;
 use crate::auth::{SessionState, refresh_session_state, use_auth_context};
@@ -18,10 +18,7 @@ pub fn AppShell() -> impl IntoView {
         let third = segments.next();
         let fourth = segments.next();
 
-        first == Some("dashboard")
-            && second == Some("demos")
-            && third.is_some()
-            && fourth.is_none()
+        first == Some("dashboard") && second == Some("demos") && third.is_some() && fourth.is_none()
     });
 
     view! {

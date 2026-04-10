@@ -334,7 +334,8 @@ fn GuidePanel(
         let target_url = docs_url
             .get()
             .unwrap_or_else(|| "https://github.com/Yashb404/Simu-CLI#readme".to_string());
-        let normalized = if target_url.starts_with("http://") || target_url.starts_with("https://") {
+        let normalized = if target_url.starts_with("http://") || target_url.starts_with("https://")
+        {
             target_url
         } else {
             format!("https://{}", target_url)
