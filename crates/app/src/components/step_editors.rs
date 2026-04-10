@@ -391,10 +391,10 @@ fn summarize_step(step: &Step) -> String {
 
 fn step_badge_class(step_type: &StepType) -> &'static str {
     match step_type {
-        StepType::Command => "command",
-        StepType::Output => "output",
-        StepType::Pause => "pause",
-        _ => "other",
+        StepType::Command => "border-primary/30 bg-primary/10 text-primary",
+        StepType::Output => "border-sky-400/30 bg-sky-400/10 text-sky-200",
+        StepType::Pause => "border-amber-400/30 bg-amber-400/10 text-amber-200",
+        _ => "border-outline bg-surface-container-high text-on-surface-variant",
     }
 }
 
@@ -402,15 +402,27 @@ fn step_badge_class(step_type: &StepType) -> &'static str {
 pub fn StepListEditor(
     steps: ReadSignal<Vec<Step>>,
     set_steps: WriteSignal<Vec<Step>>,
+    filter: ReadSignal<String>,
 ) -> impl IntoView {
     let (expanded_steps, set_expanded_steps) = signal(HashSet::<Uuid>::new());
     let (dragged_idx, set_dragged_idx) = signal(None::<usize>);
 
     view! {
-        <For
-            each=move || indexed_steps(steps.get())
-            key=|entry| format!("{}-{}", entry.0, entry.1.id)
-            children=move |(idx, step)| {
+        <div class="space-y-4">
+            <For
+                each=move || {
+                    let query = filter.get().trim().to_ascii_lowercase();
+                    indexed_steps(steps.get())
+                        .into_iter()
+                        .filter(|(_, step)| {
+                            query.is_empty()
+                                || summarize_step(step).to_ascii_lowercase().contains(&query)
+                                || format!("{:?}", step.step_type).to_ascii_lowercase().contains(&query)
+                        })
+                        .collect::<Vec<_>>()
+                }
+                key=|entry| format!("{}-{}", entry.0, entry.1.id)
+                children=move |(idx, step)| {
                 let step_id = step.id;
 
                 let is_expanded = Signal::derive(move || {
@@ -528,8 +540,16 @@ pub fn StepListEditor(
                         on_drop=on_drop
                     />
                 }
-            }
-        />
+                }
+            />
+
+            <Show when=move || steps.get().is_empty()>
+                <div class="rounded-[28px] border border-dashed border-outline bg-surface-container-low p-8 text-center">
+                    <p class="font-headline text-lg font-semibold text-on-surface">"Start with a command block"</p>
+                    <p class="mt-2 text-sm text-on-surface-variant">"Add a command and output pair, or import a cast recording to generate steps automatically."</p>
+                </div>
+            </Show>
+        </div>
     }
 }
 
@@ -554,28 +574,29 @@ fn StepCard(
 
     view! {
         <div
-            class="step-block mb-4 overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/70 shadow-[0_22px_70px_-38px_rgba(0,0,0,0.95)] backdrop-blur-sm transition-all duration-200 ease-in-out hover:border-zinc-700"
+            class="group overflow-hidden rounded-[28px] border border-outline-variant bg-surface-container-low/95 shadow-[0_22px_70px_-42px_rgba(0,0,0,0.95)] backdrop-blur-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-outline hover:bg-surface-container"
             draggable="true"
             on:dragstart=move |ev| on_drag_start.run(ev)
             on:dragover=move |ev| on_drag_over.run(ev)
             on:drop=move |ev| on_drop.run(ev)
         >
-            <button type="button" class="step-block-header flex w-full items-center gap-3 border-b border-zinc-800/70 px-4 py-4 text-left transition-all duration-200 ease-in-out hover:bg-zinc-900/80" on:click=move |ev| on_toggle.run(ev)>
-                <div class="drag-handle text-zinc-600">"⋮⋮"</div>
-                <span class=format!("step-badge {step_type_class} rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] {}", step_type_class)>{step_type_label}</span>
-                <span class="step-seq text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">{format!("{}.", index + 1)}</span>
-                <span class="step-summary min-w-0 flex-1 truncate text-sm text-zinc-200">{step_summary}</span>
-                <span class="step-card-indicator text-xs uppercase tracking-[0.18em] text-zinc-500">
+            <button type="button" class="flex w-full items-center gap-4 px-4 py-4 text-left transition-all duration-200 ease-out" on:click=move |ev| on_toggle.run(ev)>
+                <div class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-outline-variant bg-background font-mono text-xs font-bold text-on-surface-variant transition-colors duration-200 group-hover:text-primary">
+                    {format!("{:02}", index + 1)}
+                </div>
+                <span class=format!("rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] {step_type_class}")>{step_type_label}</span>
+                <span class="min-w-0 flex-1 truncate text-sm font-medium text-on-surface">{step_summary}</span>
+                <span class="text-[10px] font-bold uppercase tracking-[0.18em] text-on-surface-variant">
                     {move || if expanded.get() { "Collapse" } else { "Edit" }}
                 </span>
             </button>
 
             <Show when=move || expanded.get()>
-                <div class="step-block-body space-y-4 px-4 py-4">
-                    <header class="inline-actions flex items-center gap-2">
-                        <button type="button" class="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-300 transition-all duration-200 ease-in-out hover:border-zinc-700 hover:bg-zinc-800" on:click=move |ev| on_move_up.run(ev)>"Up"</button>
-                        <button type="button" class="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-300 transition-all duration-200 ease-in-out hover:border-zinc-700 hover:bg-zinc-800" on:click=move |ev| on_move_down.run(ev)>"Down"</button>
-                        <button type="button" class="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs text-red-200 transition-all duration-200 ease-in-out hover:border-red-400/60 hover:bg-red-500/20" on:click=move |ev| on_remove.run(ev)>"Remove"</button>
+                <div class="space-y-4 border-t border-outline-variant px-4 py-4">
+                    <header class="flex flex-wrap items-center gap-2">
+                        <button type="button" class="rounded-xl border border-outline-variant bg-surface-container-high px-3 py-1.5 text-xs font-semibold text-on-surface-variant transition-all duration-200 ease-out hover:border-primary/50 hover:text-primary" on:click=move |ev| on_move_up.run(ev)>"Move up"</button>
+                        <button type="button" class="rounded-xl border border-outline-variant bg-surface-container-high px-3 py-1.5 text-xs font-semibold text-on-surface-variant transition-all duration-200 ease-out hover:border-primary/50 hover:text-primary" on:click=move |ev| on_move_down.run(ev)>"Move down"</button>
+                        <button type="button" class="ml-auto rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-200 transition-all duration-200 ease-out hover:border-red-400/60 hover:bg-red-500/20" on:click=move |ev| on_remove.run(ev)>"Remove"</button>
                     </header>
                     <StepEditorRouter step=step_for_editor.clone() on_update=on_update />
                 </div>
@@ -614,11 +635,12 @@ fn CommandBlockEditor(step: Step, on_update: Callback<Step>) -> impl IntoView {
 
     view! {
         <div class="command-block-editor flex flex-col gap-4">
-            <section class="command-block-section flex flex-col gap-4 rounded-2xl border border-zinc-800/90 bg-zinc-950/70 p-4 shadow-[0_18px_50px_-24px_rgba(0,0,0,0.75)] backdrop-blur-sm transition-all duration-200 ease-in-out">
-                <h4>"Command"</h4>
-                <label>
+            <section class="flex flex-col gap-4 rounded-3xl border border-outline-variant bg-background/70 p-4 shadow-[0_18px_50px_-34px_rgba(0,0,0,0.75)] backdrop-blur-sm transition-all duration-200 ease-out">
+                <h4 class="font-headline text-base font-semibold text-on-surface">"Command block"</h4>
+                <label class="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
                     "Command to execute"
                     <input
+                        class="rounded-2xl border border-outline-variant bg-surface-container-high px-4 py-3 font-mono text-sm normal-case tracking-normal text-on-surface outline-none transition-all duration-200 placeholder:text-on-surface-variant/50 focus:border-primary focus:ring-2 focus:ring-primary/20"
                         placeholder="e.g., npm install"
                         prop:value=command_value
                         on:input=move |ev| {
@@ -644,9 +666,10 @@ fn CommandBlockEditor(step: Step, on_update: Callback<Step>) -> impl IntoView {
                         }
                     />
                 </label>
-                <label>
+                <label class="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
                     "Guide description"
                     <input
+                        class="rounded-2xl border border-outline-variant bg-surface-container-high px-4 py-3 text-sm normal-case tracking-normal text-on-surface outline-none transition-all duration-200 placeholder:text-on-surface-variant/50 focus:border-primary focus:ring-2 focus:ring-primary/20"
                         placeholder="Short explanation shown in the guide and help output"
                         prop:value=short_description_value
                         on:input=move |ev| {
@@ -661,9 +684,10 @@ fn CommandBlockEditor(step: Step, on_update: Callback<Step>) -> impl IntoView {
                         }
                     />
                 </label>
-                <label>
+                <label class="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
                     "Match pattern (how user input will match this command)"
                     <input
+                        class="rounded-2xl border border-outline-variant bg-surface-container-high px-4 py-3 font-mono text-sm normal-case tracking-normal text-on-surface outline-none transition-all duration-200 placeholder:text-on-surface-variant/50 focus:border-primary focus:ring-2 focus:ring-primary/20"
                         placeholder="Leave blank to match the command exactly"
                         prop:value=match_pattern_value
                         on:input=move |ev| {

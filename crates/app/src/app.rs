@@ -14,14 +14,14 @@ use crate::pages::{
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum ThemeMode {
+pub enum ThemeMode {
     Terminal,
     Dark,
     Light,
 }
 
 impl ThemeMode {
-    fn as_str(self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             Self::Terminal => "terminal",
             Self::Dark => "dark",
@@ -29,13 +29,19 @@ impl ThemeMode {
         }
     }
 
-    fn from_str(value: &str) -> Self {
+    pub fn from_str(value: &str) -> Self {
         match value {
             "dark" => Self::Dark,
             "light" => Self::Light,
             _ => Self::Terminal,
         }
     }
+}
+
+#[derive(Clone, Copy)]
+pub struct ThemeController {
+    pub mode: ReadSignal<ThemeMode>,
+    pub set_mode: WriteSignal<ThemeMode>,
 }
 
 const THEME_STORAGE_KEY: &str = "cli-demo-studio.theme";
@@ -61,6 +67,10 @@ pub fn App() -> impl IntoView {
     provide_meta_context();
     provide_auth_context();
     let (theme_mode, set_theme_mode) = signal(load_theme_mode());
+    provide_context(ThemeController {
+        mode: theme_mode,
+        set_mode: set_theme_mode,
+    });
 
     Effect::new(move |_| {
         let active_theme = theme_mode.get();
@@ -77,23 +87,6 @@ pub fn App() -> impl IntoView {
     view! {
         <Title text="CLI Demo Studio" />
         <Router>
-            <div class="theme-switcher" role="group" aria-label="Theme selector">
-                <label for="theme-select" class="theme-switcher-label">"Theme"</label>
-                <select
-                    id="theme-select"
-                    class="theme-switcher-select"
-                    prop:value=move || theme_mode.get().as_str()
-                    on:change=move |ev| {
-                        let value = event_target_value(&ev);
-                        set_theme_mode.set(ThemeMode::from_str(&value));
-                    }
-                >
-                    <option value="terminal">"Terminal"</option>
-                    <option value="dark">"Dark"</option>
-                    <option value="light">"Light"</option>
-                </select>
-            </div>
-
             <Routes fallback=|| view! { <p>"Not Found"</p> }>
                 <Route path=path!("/") view=LandingPage />
                 <Route path=path!("/d/:slug") view=ShareDemoPage />

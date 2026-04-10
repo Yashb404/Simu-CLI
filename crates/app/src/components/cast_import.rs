@@ -38,27 +38,33 @@ pub fn CastImportButton(
     on_success: Callback<ImportCastResponse>,
 ) -> impl IntoView {
     let state = RwSignal::new(UploadState::Idle);
+    let is_dragging = RwSignal::new(false);
     let input_id = "cast-file-input";
 
-    // Handle native file input change
-    let on_file_input = {
+    let start_upload = Callback::new({
         let demo_id = demo_id.clone();
+        move |file: web_sys::File| {
+            if let Err(msg) = validate_cast_file(&file) {
+                state.set(UploadState::Error(msg));
+                return;
+            }
+
+            let demo_id = demo_id.clone();
+            let state_clone = state;
+            let on_success_clone = on_success;
+
+            spawn_local(async move {
+                upload_file(&file, &demo_id, state_clone, on_success_clone).await;
+            });
+        }
+    });
+
+    let on_file_input = {
         move |ev: leptos::ev::Event| {
             let target = event_target::<web_sys::HtmlInputElement>(&ev);
             if let Some(files) = target.files() {
                 if let Some(file) = files.get(0) {
-                    if let Err(msg) = validate_cast_file(&file) {
-                        state.set(UploadState::Error(msg));
-                        return;
-                    }
-
-                    let demo_id = demo_id.clone();
-                    let state_clone = state;
-                    let on_success_clone = on_success;
-
-                    spawn_local(async move {
-                        upload_file(&file, &demo_id, state_clone, on_success_clone).await;
-                    });
+                    start_upload.run(file);
                 }
             }
         }
@@ -71,34 +77,66 @@ pub fn CastImportButton(
     };
 
     view! {
-        <div class="cast-import-zone">
+        <div
+            class=move || {
+                if is_dragging.get() {
+                    "rounded-[28px] border border-dashed border-primary bg-primary/10 p-5 shadow-[0_24px_90px_-48px_rgba(74,225,118,0.5)] transition-all duration-200 ease-out"
+                } else {
+                    "rounded-[28px] border border-dashed border-outline bg-surface-container-low/90 p-5 shadow-[0_24px_90px_-52px_rgba(0,0,0,0.95)] transition-all duration-200 ease-out hover:border-primary/70 hover:bg-surface-container"
+                }
+            }
+            on:dragover=move |ev: web_sys::DragEvent| {
+                ev.prevent_default();
+                is_dragging.set(true);
+            }
+            on:dragleave=move |ev: web_sys::DragEvent| {
+                ev.prevent_default();
+                is_dragging.set(false);
+            }
+            on:drop=move |ev: web_sys::DragEvent| {
+                ev.prevent_default();
+                is_dragging.set(false);
+                if let Some(file) = ev
+                    .data_transfer()
+                    .and_then(|transfer| transfer.files())
+                    .and_then(|files| files.get(0))
+                {
+                    start_upload.run(file);
+                }
+            }
+        >
             <input
                 id=input_id
                 type="file"
                 accept=".cast"
-                class="cast-import-hidden-input"
+                class="hidden"
                 on:change=on_file_input
             />
-            <label for=input_id class="cast-import-label">
-                <span class="cast-import-icon">"[REC]"</span>
-                <div>
-                    <div class="cast-import-primary">
+            <label for=input_id class="flex cursor-pointer items-center gap-4">
+                <span class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-outline-variant bg-surface-container-high font-mono text-sm font-bold text-primary transition-transform duration-200 group-hover:scale-105">
+                    "CAST"
+                </span>
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2 font-headline text-base font-semibold text-on-surface">
                         {move || {
                             match state.get() {
                                 UploadState::Uploading => {
-                                    view! { <span class="cast-import-spinner">"↻"</span> }
+                                    view! { <span class="animate-pulse">"Uploading cast file..."</span> }
                                         .into_any()
                                 }
                                 UploadState::Success(_) => {
-                                    view! { <span>"✓"</span> }.into_any()
+                                    view! { <span>"Import complete"</span> }.into_any()
                                 }
                                 _ => {
-                                    view! { <span>"Import Cast"</span> }.into_any()
+                                    view! { <span>"Drop a .cast file or browse"</span> }.into_any()
                                 }
                             }
                         }}
                     </div>
-                    <div class="cast-import-hint">{move || state.get().display_text()}</div>
+                    <p class="mt-1 text-sm text-on-surface-variant">
+                        {move || state.get().display_text()}
+                        <span class="ml-2 text-xs text-on-surface-variant/70">"Max 5 MB"</span>
+                    </p>
                 </div>
             </label>
 
@@ -111,14 +149,14 @@ pub fn CastImportButton(
                                 class={
                                     match st {
                                         UploadState::Success(_) => {
-                                            "cast-import-status cast-import-status--success"
+                                            "mt-4 flex items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-primary"
                                         }
-                                        _ => "cast-import-status cast-import-status--error",
+                                        _ => "mt-4 flex items-center justify-between gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200",
                                     }
                                 }
                             >
                                 <span>{msg.clone()}</span>
-                                <button class="cast-import-reset" on:click=reset_status>
+                                <button class="rounded-full border border-current/30 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors duration-200 hover:bg-white/10" on:click=reset_status>
                                     "X"
                                 </button>
                             </div>

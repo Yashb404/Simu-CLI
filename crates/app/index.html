@@ -4,6 +4,42 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>CLI Demo Studio Dashboard</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              primary: "var(--brand)",
+              background: "var(--bg)",
+              surface: "var(--panel-bg)",
+              "surface-container-lowest": "var(--surface-container-lowest)",
+              "surface-container-low": "var(--surface-container-low)",
+              "surface-container": "var(--surface-container)",
+              "surface-container-high": "var(--surface-container-high)",
+              "surface-container-highest": "var(--surface-container-highest)",
+              outline: "var(--border)",
+              "outline-variant": "var(--outline-variant)",
+              "on-surface": "var(--ink)",
+              "on-surface-variant": "var(--muted)",
+              "on-primary": "var(--on-primary)",
+              error: "var(--red)",
+            },
+            fontFamily: {
+              sans: ["Inter", "system-ui", "sans-serif"],
+              body: ["Inter", "system-ui", "sans-serif"],
+              headline: ["Space Grotesk", "Inter", "system-ui", "sans-serif"],
+              mono: ["JetBrains Mono", "Fira Code", "monospace"],
+            },
+          },
+        },
+      };
+    </script>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+    />
     <link data-trunk rel="css" href="../../style/global.css" />
     <link data-trunk rel="rust" data-target-name="app" data-wasm-opt="0" />
   </head>

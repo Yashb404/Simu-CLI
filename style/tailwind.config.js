@@ -6,11 +6,26 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        background: "#09090b",
-        surface: "#18181b",
-        border: "#27272a",
-        muted: "#a1a1aa",
-        foreground: "#f4f4f5",
+        primary: {
+          DEFAULT: "var(--brand)",
+          dim: "var(--brand-hover)"
+        },
+        background: "var(--bg)",
+        surface: "var(--panel-bg)",
+        "surface-container-lowest": "var(--surface-container-lowest)",
+        "surface-container-low": "var(--surface-container-low)",
+        "surface-container": "var(--surface-container)",
+        "surface-container-high": "var(--surface-container-high)",
+        "surface-container-highest": "var(--surface-container-highest)",
+        outline: "var(--border)",
+        "outline-variant": "var(--outline-variant)",
+        "on-surface": "var(--ink)",
+        "on-surface-variant": "var(--muted)",
+        "on-primary": "var(--on-primary)",
+        "secondary-container": "var(--secondary-container)",
+        border: "var(--border)",
+        muted: "var(--muted)",
+        foreground: "var(--ink)",
         brand: {
           DEFAULT: "#f4f4f5",
           hover: "#d4d4d8"
@@ -32,7 +47,10 @@ module.exports = {
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
-        mono: ["Fira Code", "JetBrains Mono", "monospace"]
+        body: ["Inter", "system-ui", "sans-serif"],
+        headline: ["Space Grotesk", "Inter", "system-ui", "sans-serif"],
+        label: ["Inter", "system-ui", "sans-serif"],
+        mono: ["JetBrains Mono", "Fira Code", "monospace"]
       }
     }
   },
