@@ -52,11 +52,12 @@ async fn send_analytics_via_fetch(endpoint: &str, payload: &str) -> Result<(), S
     use wasm_bindgen_futures::JsFuture;
 
     let window = web_sys::window().ok_or_else(|| "window is not available".to_string())?;
-    let mut init = web_sys::RequestInit::new();
+    let init = web_sys::RequestInit::new();
     init.set_method("POST");
     init.set_mode(web_sys::RequestMode::Cors);
-    init.set_keepalive(true);
     init.set_body(&JsValue::from_str(payload));
+    js_sys::Reflect::set(&init, &JsValue::from_str("keepalive"), &JsValue::TRUE)
+        .map_err(|e| format!("set analytics keepalive: {e:?}"))?;
 
     let request = web_sys::Request::new_with_str_and_init(endpoint, &init)
         .map_err(|e| format!("create analytics request: {e:?}"))?;

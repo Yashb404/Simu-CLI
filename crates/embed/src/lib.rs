@@ -31,9 +31,6 @@ fn query_param_value(key: &str) -> Option<String> {
     None
 }
 
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EmbedConfig {
     pub demo_id: String,
