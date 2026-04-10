@@ -174,10 +174,11 @@ fn validate_prompt_config(config: &PromptConfig) -> Vec<String> {
         if choices.is_empty() {
             messages.push("Select prompts should define at least one choice.".to_string());
         }
-        if let Some(default) = &config.default_value {
-            if !is_blank(default) && !choices.iter().any(|choice| choice == default) {
-                messages.push("Default value should match one of the Select choices.".to_string());
-            }
+        if let Some(default) = &config.default_value
+            && !is_blank(default)
+            && !choices.iter().any(|choice| choice == default)
+        {
+            messages.push("Default value should match one of the Select choices.".to_string());
         }
     }
 
@@ -242,12 +243,11 @@ fn validate_cta_config(config: &CtaConfig) -> Vec<String> {
             "Provide both secondary label and secondary URL, or leave both empty.".to_string(),
         );
     }
-    if has_secondary_url {
-        if let Some(url) = &config.secondary_url {
-            if !is_valid_url_like(url) {
-                messages.push("Secondary URL should start with http:// or https://.".to_string());
-            }
-        }
+    if has_secondary_url
+        && let Some(url) = &config.secondary_url
+        && !is_valid_url_like(url)
+    {
+        messages.push("Secondary URL should start with http:// or https://.".to_string());
     }
 
     messages
@@ -368,7 +368,7 @@ fn summarize_step(step: &Step) -> String {
         StepType::Prompt => step
             .prompt_config
             .as_ref()
-            .map(|cfg| format!("{}", cfg.question))
+            .map(|cfg| cfg.question.to_string())
             .unwrap_or_else(|| "(configure prompt)".to_string()),
         StepType::Spinner => step
             .spinner_config
@@ -509,16 +509,16 @@ pub fn StepListEditor(
                     Callback::new(move |ev: web_sys::DragEvent| {
                         ev.prevent_default();
 
-                        if let Some(from_idx) = dragged_idx.get_untracked() {
-                            if from_idx != idx {
-                                set_steps.update(|items| {
-                                    if from_idx < items.len() && idx < items.len() {
-                                        let moved = items.remove(from_idx);
-                                        items.insert(idx, moved);
-                                        normalize_step_orders(items);
-                                    }
-                                });
-                            }
+                        if let Some(from_idx) = dragged_idx.get_untracked()
+                            && from_idx != idx
+                        {
+                            set_steps.update(|items| {
+                                if from_idx < items.len() && idx < items.len() {
+                                    let moved = items.remove(from_idx);
+                                    items.insert(idx, moved);
+                                    normalize_step_orders(items);
+                                }
+                            });
                         }
 
                         set_dragged_idx.set(None);

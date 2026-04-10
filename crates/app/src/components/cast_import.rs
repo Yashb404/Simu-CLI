@@ -62,10 +62,10 @@ pub fn CastImportButton(
     let on_file_input = {
         move |ev: leptos::ev::Event| {
             let target = event_target::<web_sys::HtmlInputElement>(&ev);
-            if let Some(files) = target.files() {
-                if let Some(file) = files.get(0) {
-                    start_upload.run(file);
-                }
+            if let Some(files) = target.files()
+                && let Some(file) = files.get(0)
+            {
+                start_upload.run(file);
             }
         }
     };
@@ -163,7 +163,7 @@ pub fn CastImportButton(
                         }
                         .into_any()
                     }
-                    _ => view! { <></> }.into_any(),
+                    _ => ().into_any(),
                 }
             }}
         </div>

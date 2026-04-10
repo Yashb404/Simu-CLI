@@ -29,7 +29,7 @@ impl ThemeMode {
         }
     }
 
-    pub fn from_str(value: &str) -> Self {
+    pub fn parse(value: &str) -> Self {
         match value {
             "dark" => Self::Dark,
             "light" => Self::Light,
@@ -50,7 +50,7 @@ fn load_theme_mode() -> ThemeMode {
     web_sys::window()
         .and_then(|window| window.local_storage().ok().flatten())
         .and_then(|storage| storage.get_item(THEME_STORAGE_KEY).ok().flatten())
-        .map(|value| ThemeMode::from_str(&value))
+        .map(|value| ThemeMode::parse(&value))
         .unwrap_or(ThemeMode::Terminal)
 }
 
@@ -75,12 +75,11 @@ pub fn App() -> impl IntoView {
     Effect::new(move |_| {
         let active_theme = theme_mode.get();
         persist_theme_mode(active_theme);
-        if let Some(window) = web_sys::window() {
-            if let Some(document) = window.document() {
-                if let Some(root) = document.document_element() {
-                    let _ = root.set_attribute("data-theme", active_theme.as_str());
-                }
-            }
+        if let Some(window) = web_sys::window()
+            && let Some(document) = window.document()
+            && let Some(root) = document.document_element()
+        {
+            let _ = root.set_attribute("data-theme", active_theme.as_str());
         }
     });
 

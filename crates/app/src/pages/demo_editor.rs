@@ -49,10 +49,11 @@ fn normalize_command_match_patterns(steps: &mut [Step]) {
             continue;
         }
 
-        if let Some(pattern) = step.match_pattern.clone() {
-            if pattern.trim() == "echo hello" && input.trim() != "echo hello" {
-                step.match_pattern = Some(input);
-            }
+        if let Some(pattern) = step.match_pattern.clone()
+            && pattern.trim() == "echo hello"
+            && input.trim() != "echo hello"
+        {
+            step.match_pattern = Some(input);
         }
     }
 }
@@ -173,7 +174,7 @@ fn TopNav(
                             prop:value=move || theme_mode.get().as_str()
                             on:change=move |ev| {
                                 let value = event_target_value(&ev);
-                                set_theme_mode.set(ThemeMode::from_str(&value));
+                            set_theme_mode.set(ThemeMode::parse(&value));
                             }
                         >
                             <option value="terminal">"Terminal"</option>
@@ -498,7 +499,6 @@ fn ImportPublishState(
     });
 
     let open_demo = {
-        let published_slug = published_slug;
         Callback::new(move |_| {
             let slug = published_slug.get();
             if slug.trim().is_empty() {
