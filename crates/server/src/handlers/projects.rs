@@ -1,7 +1,7 @@
 use axum::{
+    Json,
     extract::{Path, Query, State},
     http::StatusCode,
-    Json,
 };
 use serde::Deserialize;
 use uuid::Uuid;
@@ -81,27 +81,14 @@ pub async fn update_project(
 ) -> HandlerResult<Json<Project>> {
     payload.validate()?;
 
-    let existing = sqlx::query_as::<_, Project>(
-        r#"
-        SELECT id, owner_id, name, description, created_at, updated_at
-        FROM projects
-        WHERE id = $1 AND owner_id = $2
-        "#,
-    )
-    .bind(id)
-    .bind(user.id)
-    .fetch_optional(&state.db)
-    .await?
-    .ok_or(ApiError(AppError::NotFound))?;
-
-    let name = payload.name.unwrap_or(existing.name);
-    let description = payload.description.or(existing.description);
+    let name = payload.name;
+    let description = payload.description;
 
     let updated = sqlx::query_as::<_, Project>(
         r#"
         UPDATE projects
-        SET name = $1,
-            description = $2,
+        SET name = COALESCE($1, name),
+            description = COALESCE($2, description),
             updated_at = NOW()
         WHERE id = $3 AND owner_id = $4
         RETURNING id, owner_id, name, description, created_at, updated_at
@@ -111,8 +98,10 @@ pub async fn update_project(
     .bind(description)
     .bind(id)
     .bind(user.id)
-    .fetch_one(&state.db)
+    .fetch_optional(&state.db)
     .await?;
+
+    let updated = updated.ok_or(ApiError(AppError::NotFound))?;
 
     Ok(Json(updated))
 }

@@ -1,8 +1,8 @@
 use anyhow::Context;
-use server::{config, middleware, router, state};
-use axum::http::{header, HeaderValue, Method};
+use axum::http::{HeaderValue, Method, header};
 use axum::routing::get_service;
 use governor::{Quota, RateLimiter};
+use server::{config, middleware, router, state};
 use sqlx::postgres::PgPoolOptions;
 use std::{net::SocketAddr, num::NonZeroU32, sync::Arc};
 use tower_http::{
@@ -10,9 +10,9 @@ use tower_http::{
     cors::{AllowOrigin, CorsLayer},
     services::{ServeDir, ServeFile},
 };
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use tower_sessions::{cookie::SameSite, Expiry, SessionManagerLayer};
+use tower_sessions::{Expiry, SessionManagerLayer, cookie::SameSite};
 use tower_sessions_sqlx_store::PostgresStore;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -32,24 +32,30 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     tracing::info!("Starting CLI Demo Studio server...");
-    tracing::debug!("Config: API URL = {}, Port = {}", config.api_url, config.port);
-    tracing::debug!("Session secret loaded ({} hex chars)", config.session_secret.len());
+    tracing::debug!(
+        "Config: API URL = {}, Port = {}",
+        config.api_url,
+        config.port
+    );
+    tracing::debug!("Session secret loaded");
 
     // Create database connection pool
     let db = PgPoolOptions::new()
-        .max_connections(5)
+        .max_connections(config.db_max_connections)
         .connect(&config.database_url)
         .await?;
 
     tracing::info!("Connected to database!");
 
-    let migrations_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../migrations");
+    let migrations_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../migrations");
     sqlx::migrate::Migrator::new(migrations_path.clone())
         .await?
         .run(&db)
         .await?;
-    tracing::info!("Database migrations applied from {}", migrations_path.display());
+    tracing::info!(
+        "Database migrations applied from {}",
+        migrations_path.display()
+    );
 
     // Set up the session store backed by our Postgres database
     let session_store = PostgresStore::new(db.clone());
@@ -111,9 +117,8 @@ async fn main() -> anyhow::Result<()> {
         // Use fallback (not not_found_service) so SPA routes return index.html with 200.
         ServeDir::new(&app_dist_dir).fallback(ServeFile::new(&app_index)),
     );
-    let embed_static = get_service(
-        ServeDir::new(&embed_dist_dir).fallback(ServeFile::new(&embed_index)),
-    );
+    let embed_static =
+        get_service(ServeDir::new(&embed_dist_dir).fallback(ServeFile::new(&embed_index)));
     let static_assets = get_service(ServeDir::new(&static_dir));
 
     let app = router::create_router(state.clone())
@@ -140,7 +145,7 @@ async fn main() -> anyhow::Result<()> {
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    
+
     tracing::info!("✓ Server listening on {}", addr);
     axum::serve(listener, app).await?;
 

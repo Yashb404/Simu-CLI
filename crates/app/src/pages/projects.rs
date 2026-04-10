@@ -27,7 +27,9 @@ pub fn ProjectsPage() -> impl IntoView {
                         set_projects.set(list);
                         set_requires_login.set(false);
                         if count == 0 {
-                            set_status.set("No projects yet. Create your first project below.".to_string());
+                            set_status.set(
+                                "No projects yet. Create your first project below.".to_string(),
+                            );
                         } else {
                             set_status.set(format!("Loaded {} project(s).", count));
                         }
@@ -36,7 +38,10 @@ pub fn ProjectsPage() -> impl IntoView {
                         let unauthorized = err.contains("Not logged in");
                         set_requires_login.set(unauthorized);
                         if unauthorized {
-                            set_status.set("You are not logged in. Sign in with GitHub to view projects.".to_string());
+                            set_status.set(
+                                "You are not logged in. Sign in with GitHub to view projects."
+                                    .to_string(),
+                            );
                         } else {
                             set_status.set(format!("Failed to load projects: {err}"));
                         }
@@ -92,7 +97,8 @@ pub fn ProjectsPage() -> impl IntoView {
             async move {
                 match api::delete_project(&project_id).await {
                     Ok(()) => {
-                        set_projects.update(|items| items.retain(|project| project.id != project_id));
+                        set_projects
+                            .update(|items| items.retain(|project| project.id != project_id));
                         set_status.set("Project deleted.".to_string());
                     }
                     Err(err) => set_status.set(format!("Delete failed: {err}")),

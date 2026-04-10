@@ -1,13 +1,16 @@
 use leptos::prelude::*;
-use std::collections::HashSet;
 use shared::models::demo::{
-    CtaConfig, MatchMode, OutputLine, OutputStyle, PromptConfig, PromptType,
-    SpinnerConfig, SpinnerStyle, Step, StepType,
+    CtaConfig, MatchMode, OutputLine, OutputStyle, PromptConfig, PromptType, SpinnerConfig,
+    SpinnerStyle, Step, StepType,
 };
+use std::collections::HashSet;
 use uuid::Uuid;
 
 pub fn indexed_steps(steps: Vec<Step>) -> Vec<(usize, Step)> {
-    steps.into_iter().enumerate().collect::<Vec<(usize, Step)>>()
+    steps
+        .into_iter()
+        .enumerate()
+        .collect::<Vec<(usize, Step)>>()
 }
 
 pub fn normalize_step_orders(steps: &mut [Step]) {
@@ -171,19 +174,22 @@ fn validate_prompt_config(config: &PromptConfig) -> Vec<String> {
         if choices.is_empty() {
             messages.push("Select prompts should define at least one choice.".to_string());
         }
-        if let Some(default) = &config.default_value {
-            if !is_blank(default) && !choices.iter().any(|choice| choice == default) {
-                messages.push("Default value should match one of the Select choices.".to_string());
-            }
+        if let Some(default) = &config.default_value
+            && !is_blank(default)
+            && !choices.iter().any(|choice| choice == default)
+        {
+            messages.push("Default value should match one of the Select choices.".to_string());
         }
     }
 
     if matches!(config.prompt_type, PromptType::Confirm) {
         if config.yes_output.clone().unwrap_or_default().is_empty() {
-            messages.push("Confirm prompts should include at least one yes-output line.".to_string());
+            messages
+                .push("Confirm prompts should include at least one yes-output line.".to_string());
         }
         if config.no_output.clone().unwrap_or_default().is_empty() {
-            messages.push("Confirm prompts should include at least one no-output line.".to_string());
+            messages
+                .push("Confirm prompts should include at least one no-output line.".to_string());
         }
     }
 
@@ -233,14 +239,15 @@ fn validate_cta_config(config: &CtaConfig) -> Vec<String> {
         .unwrap_or(false);
 
     if has_secondary_label ^ has_secondary_url {
-        messages.push("Provide both secondary label and secondary URL, or leave both empty.".to_string());
+        messages.push(
+            "Provide both secondary label and secondary URL, or leave both empty.".to_string(),
+        );
     }
-    if has_secondary_url {
-        if let Some(url) = &config.secondary_url {
-            if !is_valid_url_like(url) {
-                messages.push("Secondary URL should start with http:// or https://.".to_string());
-            }
-        }
+    if has_secondary_url
+        && let Some(url) = &config.secondary_url
+        && !is_valid_url_like(url)
+    {
+        messages.push("Secondary URL should start with http:// or https://.".to_string());
     }
 
     messages
@@ -262,6 +269,7 @@ pub fn create_default_step(step_type: StepType, order: i32) -> Step {
         input: None,
         match_mode: None,
         match_pattern: None,
+        short_description: None,
         description: None,
         output: None,
         prompt_config: None,
@@ -314,13 +322,31 @@ pub fn add_default_step(steps: &mut Vec<Step>, step_type: StepType) {
     steps.push(create_default_step(step_type, order));
 }
 
+pub fn add_command_block(steps: &mut Vec<Step>) {
+    let order = steps.len() as i32;
+    // Add command step
+    steps.push(create_default_step(StepType::Command, order));
+    // Add paired output step right after
+    steps.push(create_default_step(StepType::Output, order + 1));
+}
+
 fn summarize_step(step: &Step) -> String {
     match step.step_type {
-        StepType::Command => step
-            .input
-            .clone()
-            .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| "(empty command)".to_string()),
+        StepType::Command => {
+            let command = step
+                .input
+                .clone()
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or_else(|| "(empty command)".to_string());
+            let guide = step
+                .short_description
+                .clone()
+                .filter(|value| !value.trim().is_empty());
+
+            guide
+                .map(|text| format!("{command} - {text}"))
+                .unwrap_or(command)
+        }
         StepType::Output => {
             let lines = step.output.clone().unwrap_or_default();
             if lines.is_empty() {
@@ -342,7 +368,7 @@ fn summarize_step(step: &Step) -> String {
         StepType::Prompt => step
             .prompt_config
             .as_ref()
-            .map(|cfg| format!("{}", cfg.question))
+            .map(|cfg| cfg.question.to_string())
             .unwrap_or_else(|| "(configure prompt)".to_string()),
         StepType::Spinner => step
             .spinner_config
@@ -363,18 +389,40 @@ fn summarize_step(step: &Step) -> String {
     }
 }
 
+fn step_badge_class(step_type: &StepType) -> &'static str {
+    match step_type {
+        StepType::Command => "border-primary/30 bg-primary/10 text-primary",
+        StepType::Output => "border-sky-400/30 bg-sky-400/10 text-sky-200",
+        StepType::Pause => "border-amber-400/30 bg-amber-400/10 text-amber-200",
+        _ => "border-outline bg-surface-container-high text-on-surface-variant",
+    }
+}
+
 #[component]
 pub fn StepListEditor(
     steps: ReadSignal<Vec<Step>>,
     set_steps: WriteSignal<Vec<Step>>,
+    filter: ReadSignal<String>,
 ) -> impl IntoView {
     let (expanded_steps, set_expanded_steps) = signal(HashSet::<Uuid>::new());
+    let (dragged_idx, set_dragged_idx) = signal(None::<usize>);
 
     view! {
-        <For
-            each=move || indexed_steps(steps.get())
-            key=|entry| format!("{}-{}", entry.0, entry.1.id)
-            children=move |(idx, step)| {
+        <div class="space-y-4">
+            <For
+                each=move || {
+                    let query = filter.get().trim().to_ascii_lowercase();
+                    indexed_steps(steps.get())
+                        .into_iter()
+                        .filter(|(_, step)| {
+                            query.is_empty()
+                                || summarize_step(step).to_ascii_lowercase().contains(&query)
+                                || format!("{:?}", step.step_type).to_ascii_lowercase().contains(&query)
+                        })
+                        .collect::<Vec<_>>()
+                }
+                key=|entry| format!("{}-{}", entry.0, entry.1.id)
+                children=move |(idx, step)| {
                 let step_id = step.id;
 
                 let is_expanded = Signal::derive(move || {
@@ -443,6 +491,40 @@ pub fn StepListEditor(
                     }
                 });
 
+                let on_drag_start = {
+                    let set_dragged_idx = set_dragged_idx;
+                    Callback::new(move |_| {
+                        set_dragged_idx.set(Some(idx));
+                    })
+                };
+
+                let on_drag_over = Callback::new(move |ev: web_sys::DragEvent| {
+                    ev.prevent_default();
+                });
+
+                let on_drop = {
+                    let set_steps = set_steps;
+                    let dragged_idx = dragged_idx;
+                    let set_dragged_idx = set_dragged_idx;
+                    Callback::new(move |ev: web_sys::DragEvent| {
+                        ev.prevent_default();
+
+                        if let Some(from_idx) = dragged_idx.get_untracked()
+                            && from_idx != idx
+                        {
+                            set_steps.update(|items| {
+                                if from_idx < items.len() && idx < items.len() {
+                                    let moved = items.remove(from_idx);
+                                    items.insert(idx, moved);
+                                    normalize_step_orders(items);
+                                }
+                            });
+                        }
+
+                        set_dragged_idx.set(None);
+                    })
+                };
+
                 view! {
                     <StepCard
                         index=idx
@@ -453,10 +535,21 @@ pub fn StepListEditor(
                         on_move_down=on_move_down
                         on_remove=on_remove
                         on_update=on_update
+                        on_drag_start=on_drag_start
+                        on_drag_over=on_drag_over
+                        on_drop=on_drop
                     />
                 }
-            }
-        />
+                }
+            />
+
+            <Show when=move || steps.get().is_empty()>
+                <div class="rounded-[28px] border border-dashed border-outline bg-surface-container-low p-8 text-center">
+                    <p class="font-headline text-lg font-semibold text-on-surface">"Start with a command block"</p>
+                    <p class="mt-2 text-sm text-on-surface-variant">"Add a command and output pair, or import a cast recording to generate steps automatically."</p>
+                </div>
+            </Show>
+        </div>
     }
 }
 
@@ -470,39 +563,54 @@ fn StepCard(
     on_move_down: Callback<web_sys::MouseEvent>,
     on_remove: Callback<web_sys::MouseEvent>,
     on_update: Callback<Step>,
+    on_drag_start: Callback<web_sys::DragEvent>,
+    on_drag_over: Callback<web_sys::DragEvent>,
+    on_drop: Callback<web_sys::DragEvent>,
 ) -> impl IntoView {
     let step_type_label = format!("{:?}", step.step_type);
+    let step_type_class = step_badge_class(&step.step_type);
     let step_summary = summarize_step(&step);
     let step_for_editor = step.clone();
 
     view! {
-        <article class="step-card">
-            <button type="button" class="step-card-toggle" on:click=move |ev| on_toggle.run(ev)>
-                <span class="step-card-title">{format!("#{} {}", index + 1, step_type_label)}</span>
-                <span class="step-card-summary">{step_summary}</span>
-                <span class="step-card-indicator">
+        <div
+            class="group overflow-hidden rounded-[28px] border border-outline-variant bg-surface-container-low/95 shadow-[0_22px_70px_-42px_rgba(0,0,0,0.95)] backdrop-blur-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-outline hover:bg-surface-container"
+            draggable="true"
+            on:dragstart=move |ev| on_drag_start.run(ev)
+            on:dragover=move |ev| on_drag_over.run(ev)
+            on:drop=move |ev| on_drop.run(ev)
+        >
+            <button type="button" class="flex w-full items-center gap-4 px-4 py-4 text-left transition-all duration-200 ease-out" on:click=move |ev| on_toggle.run(ev)>
+                <div class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-outline-variant bg-background font-mono text-xs font-bold text-on-surface-variant transition-colors duration-200 group-hover:text-primary">
+                    {format!("{:02}", index + 1)}
+                </div>
+                <span class=format!("rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] {step_type_class}")>{step_type_label}</span>
+                <span class="min-w-0 flex-1 truncate text-sm font-medium text-on-surface">{step_summary}</span>
+                <span class="text-[10px] font-bold uppercase tracking-[0.18em] text-on-surface-variant">
                     {move || if expanded.get() { "Collapse" } else { "Edit" }}
                 </span>
             </button>
 
             <Show when=move || expanded.get()>
-                <div class="step-card-body">
-                    <header class="inline-actions">
-                        <button type="button" on:click=move |ev| on_move_up.run(ev)>"Up"</button>
-                        <button type="button" on:click=move |ev| on_move_down.run(ev)>"Down"</button>
-                        <button type="button" on:click=move |ev| on_remove.run(ev)>"Remove"</button>
+                <div class="space-y-4 border-t border-outline-variant px-4 py-4">
+                    <header class="flex flex-wrap items-center gap-2">
+                        <button type="button" class="rounded-xl border border-outline-variant bg-surface-container-high px-3 py-1.5 text-xs font-semibold text-on-surface-variant transition-all duration-200 ease-out hover:border-primary/50 hover:text-primary" on:click=move |ev| on_move_up.run(ev)>"Move up"</button>
+                        <button type="button" class="rounded-xl border border-outline-variant bg-surface-container-high px-3 py-1.5 text-xs font-semibold text-on-surface-variant transition-all duration-200 ease-out hover:border-primary/50 hover:text-primary" on:click=move |ev| on_move_down.run(ev)>"Move down"</button>
+                        <button type="button" class="ml-auto rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-200 transition-all duration-200 ease-out hover:border-red-400/60 hover:bg-red-500/20" on:click=move |ev| on_remove.run(ev)>"Remove"</button>
                     </header>
                     <StepEditorRouter step=step_for_editor.clone() on_update=on_update />
                 </div>
             </Show>
-        </article>
+        </div>
     }
 }
 
 #[component]
 fn StepEditorRouter(step: Step, on_update: Callback<Step>) -> impl IntoView {
     match step.step_type {
-        StepType::Command => view! { <CommandEditor step=step on_update=on_update /> }.into_any(),
+        StepType::Command => {
+            view! { <CommandBlockEditor step=step on_update=on_update /> }.into_any()
+        }
         StepType::Output => view! { <OutputEditor step=step on_update=on_update /> }.into_any(),
         StepType::Comment => view! { <CommentEditor step=step on_update=on_update /> }.into_any(),
         StepType::Prompt => view! { <PromptEditor step=step on_update=on_update /> }.into_any(),
@@ -514,43 +622,88 @@ fn StepEditorRouter(step: Step, on_update: Callback<Step>) -> impl IntoView {
 }
 
 #[component]
-fn CommandEditor(step: Step, on_update: Callback<Step>) -> impl IntoView {
+fn CommandBlockEditor(step: Step, on_update: Callback<Step>) -> impl IntoView {
     let command_value = step.input.clone().unwrap_or_default();
+    let short_description_value = step.short_description.clone().unwrap_or_default();
     let match_pattern_value = step
         .match_pattern
         .clone()
         .unwrap_or_else(|| command_value.clone());
     let step_for_command = step.clone();
+    let step_for_short_description = step.clone();
     let step_for_pattern = step;
 
     view! {
-        <label>
-            "Command"
-            <input
-                prop:value=command_value
-                on:input=move |ev| {
-                    let next = event_target_value(&ev);
-                    let mut updated = step_for_command.clone();
-                    updated.input = Some(next.clone());
-                    if updated.match_pattern.is_none() {
-                        updated.match_pattern = Some(next);
-                    }
-                    on_update.run(updated);
-                }
-            />
-        </label>
-        <label>
-            "Match pattern"
-            <input
-                prop:value=match_pattern_value
-                on:input=move |ev| {
-                    let next = event_target_value(&ev);
-                    let mut updated = step_for_pattern.clone();
-                    updated.match_pattern = Some(next);
-                    on_update.run(updated);
-                }
-            />
-        </label>
+        <div class="command-block-editor flex flex-col gap-4">
+            <section class="flex flex-col gap-4 rounded-3xl border border-outline-variant bg-background/70 p-4 shadow-[0_18px_50px_-34px_rgba(0,0,0,0.75)] backdrop-blur-sm transition-all duration-200 ease-out">
+                <h4 class="font-headline text-base font-semibold text-on-surface">"Command block"</h4>
+                <label class="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
+                    "Command to execute"
+                    <input
+                        class="rounded-2xl border border-outline-variant bg-surface-container-high px-4 py-3 font-mono text-sm normal-case tracking-normal text-on-surface outline-none transition-all duration-200 placeholder:text-on-surface-variant/50 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        placeholder="e.g., npm install"
+                        prop:value=command_value
+                        on:input=move |ev| {
+                            let next = event_target_value(&ev);
+                            let mut updated = step_for_command.clone();
+                            let previous_input = updated.input.clone().unwrap_or_default();
+
+                            // Keep match pattern in sync with command by default.
+                            // If user has set a custom pattern, preserve it.
+                            let should_sync_pattern = updated
+                                .match_pattern
+                                .as_ref()
+                                .map(|pattern| {
+                                    pattern.trim().is_empty() || *pattern == previous_input
+                                })
+                                .unwrap_or(true);
+
+                            updated.input = Some(next.clone());
+                            if should_sync_pattern {
+                                updated.match_pattern = Some(next);
+                            }
+                            on_update.run(updated);
+                        }
+                    />
+                </label>
+                <label class="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
+                    "Guide description"
+                    <input
+                        class="rounded-2xl border border-outline-variant bg-surface-container-high px-4 py-3 text-sm normal-case tracking-normal text-on-surface outline-none transition-all duration-200 placeholder:text-on-surface-variant/50 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        placeholder="Short explanation shown in the guide and help output"
+                        prop:value=short_description_value
+                        on:input=move |ev| {
+                            let next = event_target_value(&ev);
+                            let mut updated = step_for_short_description.clone();
+                            updated.short_description = if next.trim().is_empty() {
+                                None
+                            } else {
+                                Some(next)
+                            };
+                            on_update.run(updated);
+                        }
+                    />
+                </label>
+                <label class="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
+                    "Match pattern (how user input will match this command)"
+                    <input
+                        class="rounded-2xl border border-outline-variant bg-surface-container-high px-4 py-3 font-mono text-sm normal-case tracking-normal text-on-surface outline-none transition-all duration-200 placeholder:text-on-surface-variant/50 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        placeholder="Leave blank to match the command exactly"
+                        prop:value=match_pattern_value
+                        on:input=move |ev| {
+                            let next = event_target_value(&ev);
+                            let mut updated = step_for_pattern.clone();
+                            updated.match_pattern = if next.trim().is_empty() {
+                                None
+                            } else {
+                                Some(next)
+                            };
+                            on_update.run(updated);
+                        }
+                    />
+                </label>
+            </section>
+        </div>
     }
 }
 
@@ -599,15 +752,14 @@ fn CommentEditor(step: Step, on_update: Callback<Step>) -> impl IntoView {
 
 #[component]
 fn PromptEditor(step: Step, on_update: Callback<Step>) -> impl IntoView {
-    let config = step.prompt_config.clone().unwrap_or_else(default_prompt_config);
+    let config = step
+        .prompt_config
+        .clone()
+        .unwrap_or_else(default_prompt_config);
     let prompt_type_value = prompt_type_to_str(&config.prompt_type).to_string();
     let question_value = config.question.clone();
     let default_value = config.default_value.clone().unwrap_or_default();
-    let choices_text = config
-        .choices
-        .clone()
-        .unwrap_or_default()
-        .join("\n");
+    let choices_text = config.choices.clone().unwrap_or_default().join("\n");
     let yes_output_text = config
         .yes_output
         .clone()
@@ -776,7 +928,10 @@ fn PromptEditor(step: Step, on_update: Callback<Step>) -> impl IntoView {
 
 #[component]
 fn SpinnerEditor(step: Step, on_update: Callback<Step>) -> impl IntoView {
-    let config = step.spinner_config.clone().unwrap_or_else(default_spinner_config);
+    let config = step
+        .spinner_config
+        .clone()
+        .unwrap_or_else(default_spinner_config);
     let style_value = spinner_style_to_str(&config.style).to_string();
     let label_value = config.label.clone();
     let duration_value = config.duration_ms.to_string();

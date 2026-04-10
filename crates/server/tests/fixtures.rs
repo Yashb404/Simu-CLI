@@ -3,16 +3,11 @@ use std::{num::NonZeroU32, sync::Arc};
 
 use axum::Router;
 use governor::{Quota, RateLimiter};
-use server::{
-    config::Config,
-    middleware,
-    router::create_router,
-    state::AppState,
-};
+use server::{config::Config, middleware, router::create_router, state::AppState};
 use shared::models::user::User;
 use sqlx::PgPool;
-use uuid::Uuid;
 use tower_sessions::{Expiry, MemoryStore, SessionManagerLayer};
+use uuid::Uuid;
 
 static DB_READY: tokio::sync::OnceCell<()> = tokio::sync::OnceCell::const_new();
 
@@ -25,15 +20,17 @@ pub struct DbFixture {
 /// Build a [`Config`] suitable for tests.
 pub fn test_config() -> Config {
     Config {
-        database_url: std::env::var("DATABASE_URL")
-            .unwrap_or_else(|_| "postgres://postgres:password@localhost:5432/cli_demo_studio".to_string()),
+        database_url: std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+            "postgres://postgres:password@localhost:5432/cli_demo_studio".to_string()
+        }),
         github_client_id: "test-client-id".to_string(),
-        github_client_secret: "test-client-secret".to_string(),
-        session_secret: "a".repeat(64),
+        github_client_secret: server::config::Secret("test-client-secret".to_string()),
+        session_secret: server::config::Secret("a".repeat(64)),
         api_url: "http://localhost:3001".to_string(),
         frontend_url: "http://localhost:8080".to_string(),
         port: 3001,
         rate_limit_requests_per_minute: 100,
+        db_max_connections: 5,
         session_timeout: time::Duration::days(7),
         session_cookie_secure: false,
         log_level: "error".to_string(),
@@ -83,8 +80,9 @@ pub fn test_state(pool: PgPool, requests_per_minute: u32) -> AppState {
 }
 
 pub async fn try_db_fixture() -> Option<DbFixture> {
-    let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://postgres:password@localhost:5432/cli_demo_studio".to_string());
+    let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+        "postgres://postgres:password@localhost:5432/cli_demo_studio".to_string()
+    });
 
     let pool = match sqlx::PgPool::connect(&database_url).await {
         Ok(pool) => pool,

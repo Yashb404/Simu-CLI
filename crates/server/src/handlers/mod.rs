@@ -1,10 +1,10 @@
-pub mod auth;
-pub mod demos;
-pub mod projects;
 pub mod analytics;
+pub mod auth;
 pub mod billing;
 pub mod common_errors;
+pub mod demos;
 pub mod owned_demo;
+pub mod projects;
 
 /// Default and maximum page sizes used across list endpoints.
 pub const DEFAULT_PAGE_LIMIT: i64 = 50;
@@ -16,9 +16,7 @@ pub const MAX_PAGE_LIMIT: i64 = 100;
 /// and are clamped so callers cannot request unbounded result sets or use
 /// negative offsets.
 pub fn sanitize_pagination(limit: Option<i64>, offset: Option<i64>) -> (i64, i64) {
-    let clamped_limit = limit
-        .unwrap_or(DEFAULT_PAGE_LIMIT)
-        .clamp(1, MAX_PAGE_LIMIT);
+    let clamped_limit = limit.unwrap_or(DEFAULT_PAGE_LIMIT).clamp(1, MAX_PAGE_LIMIT);
     let clamped_offset = offset.unwrap_or(0).max(0);
     (clamped_limit, clamped_offset)
 }

@@ -1,10 +1,14 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use validator::Validate;
 
 use crate::models::demo::{DemoSettings, Step, Theme};
-use crate::validation::{is_valid_hex_color, is_valid_slug, MAX_OUTPUT_LINES_PER_STEP, MAX_STEPS};
+#[cfg(feature = "backend")]
+use crate::validation::{MAX_OUTPUT_LINES_PER_STEP, MAX_STEPS, is_valid_hex_color, is_valid_slug};
 
+#[cfg(feature = "backend")]
+use validator::Validate;
+
+#[cfg(feature = "backend")]
 fn validate_slug(value: &str) -> Result<(), validator::ValidationError> {
     if is_valid_slug(value) {
         Ok(())
@@ -15,6 +19,7 @@ fn validate_slug(value: &str) -> Result<(), validator::ValidationError> {
     }
 }
 
+#[cfg(feature = "backend")]
 fn validate_steps(value: &Vec<Step>) -> Result<(), validator::ValidationError> {
     if value.len() > MAX_STEPS {
         let mut err = validator::ValidationError::new("too_many_steps");
@@ -23,12 +28,12 @@ fn validate_steps(value: &Vec<Step>) -> Result<(), validator::ValidationError> {
     }
 
     for step in value {
-        if let Some(input) = &step.input {
-            if input.trim().is_empty() || input.len() > 200 {
-                let mut err = validator::ValidationError::new("invalid_step_input");
-                err.message = Some("step input must be non-empty and <= 200 chars".into());
-                return Err(err);
-            }
+        if let Some(input) = &step.input
+            && (input.trim().is_empty() || input.len() > 200)
+        {
+            let mut err = validator::ValidationError::new("invalid_step_input");
+            err.message = Some("step input must be non-empty and <= 200 chars".into());
+            return Err(err);
         }
 
         if let Some(output_lines) = &step.output {
@@ -51,12 +56,12 @@ fn validate_steps(value: &Vec<Step>) -> Result<(), validator::ValidationError> {
                     return Err(err);
                 }
 
-                if let Some(color) = &output_line.color {
-                    if !is_valid_hex_color(color) {
-                        let mut err = validator::ValidationError::new("invalid_output_color");
-                        err.message = Some("output line color must be a valid hex color".into());
-                        return Err(err);
-                    }
+                if let Some(color) = &output_line.color
+                    && !is_valid_hex_color(color)
+                {
+                    let mut err = validator::ValidationError::new("invalid_output_color");
+                    err.message = Some("output line color must be a valid hex color".into());
+                    return Err(err);
                 }
             }
         }
@@ -65,6 +70,7 @@ fn validate_steps(value: &Vec<Step>) -> Result<(), validator::ValidationError> {
     Ok(())
 }
 
+#[cfg(feature = "backend")]
 fn validate_theme(value: &Theme) -> Result<(), validator::ValidationError> {
     if !is_valid_hex_color(&value.bg_color)
         || !is_valid_hex_color(&value.fg_color)
@@ -84,6 +90,7 @@ fn validate_theme(value: &Theme) -> Result<(), validator::ValidationError> {
     Ok(())
 }
 
+#[cfg(feature = "backend")]
 fn validate_settings(value: &DemoSettings) -> Result<(), validator::ValidationError> {
     if value.loop_delay_ms > 60_000 {
         let mut err = validator::ValidationError::new("invalid_loop_delay");
@@ -97,28 +104,49 @@ fn validate_settings(value: &DemoSettings) -> Result<(), validator::ValidationEr
         return Err(err);
     }
 
+    if let Some(url) = &value.documentation_url {
+        let trimmed = url.trim();
+        if trimmed.len() > 500 {
+            let mut err = validator::ValidationError::new("invalid_documentation_url");
+            err.message = Some("documentation_url must be <= 500 chars".into());
+            return Err(err);
+        }
+
+        if !(trimmed.is_empty()
+            || trimmed.starts_with("https://")
+            || trimmed.starts_with("http://"))
+        {
+            let mut err = validator::ValidationError::new("invalid_documentation_url");
+            err.message =
+                Some("documentation_url must start with http:// or https:// when provided".into());
+            return Err(err);
+        }
+    }
+
     Ok(())
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[cfg_attr(feature = "backend", derive(Validate))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateDemoRequest {
-    #[validate(length(min = 1, max = 120))]
+    #[cfg_attr(feature = "backend", validate(length(min = 1, max = 120)))]
     pub title: String,
     pub project_id: Option<Uuid>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[cfg_attr(feature = "backend", derive(Validate))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateDemoRequest {
-    #[validate(length(min = 1, max = 120))]
+    #[cfg_attr(feature = "backend", validate(length(min = 1, max = 120)))]
     pub title: Option<String>,
     pub project_id: Option<Option<Uuid>>,
-    #[validate(custom(function = "validate_slug"))]
+    #[cfg_attr(feature = "backend", validate(custom(function = "validate_slug")))]
     pub slug: Option<String>,
-    #[validate(custom(function = "validate_theme"))]
+    #[cfg_attr(feature = "backend", validate(custom(function = "validate_theme")))]
     pub theme: Option<Theme>,
-    #[validate(custom(function = "validate_settings"))]
+    #[cfg_attr(feature = "backend", validate(custom(function = "validate_settings")))]
     pub settings: Option<DemoSettings>,
-    #[validate(custom(function = "validate_steps"))]
+    #[cfg_attr(feature = "backend", validate(custom(function = "validate_steps")))]
     pub steps: Option<Vec<Step>>,
 }
 
@@ -132,7 +160,7 @@ pub struct PublicDemoResponse {
     pub steps: Vec<Step>,
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "backend"))]
 mod tests {
     use super::*;
     use crate::{
@@ -176,6 +204,7 @@ mod tests {
                 input: None,
                 match_mode: None,
                 match_pattern: None,
+                short_description: None,
                 description: Some("note".to_string()),
                 output: None,
                 prompt_config: None,
@@ -223,7 +252,10 @@ mod tests {
         };
 
         let result = request.validate();
-        assert!(result.is_err(), "invalid theme colors should fail validation");
+        assert!(
+            result.is_err(),
+            "invalid theme colors should fail validation"
+        );
     }
 
     #[test]
@@ -245,6 +277,7 @@ mod tests {
             input: None,
             match_mode: None,
             match_pattern: None,
+            short_description: None,
             description: Some("output".to_string()),
             output: Some(output),
             prompt_config: None,
@@ -268,12 +301,16 @@ mod tests {
                 show_restart_button: true,
                 show_hints: false,
                 not_found_message: "command not found".to_string(),
+                documentation_url: None,
             }),
             steps: Some(steps),
         };
 
         let result = request.validate();
-        assert!(result.is_err(), "too many output lines should fail validation");
+        assert!(
+            result.is_err(),
+            "too many output lines should fail validation"
+        );
     }
 }
 

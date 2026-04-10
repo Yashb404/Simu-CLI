@@ -1,23 +1,27 @@
 use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "backend")]
 use validator::Validate;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[cfg_attr(feature = "backend", derive(Validate))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateProjectRequest {
-    #[validate(length(min = 1, max = 80))]
+    #[cfg_attr(feature = "backend", validate(length(min = 1, max = 80)))]
     pub name: String,
-    #[validate(length(max = 500))]
+    #[cfg_attr(feature = "backend", validate(length(max = 500)))]
     pub description: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[cfg_attr(feature = "backend", derive(Validate))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateProjectRequest {
-    #[validate(length(min = 1, max = 80))]
+    #[cfg_attr(feature = "backend", validate(length(min = 1, max = 80)))]
     pub name: Option<String>,
-    #[validate(length(max = 500))]
+    #[cfg_attr(feature = "backend", validate(length(max = 500)))]
     pub description: Option<String>,
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "backend"))]
 mod tests {
     use super::*;
 
@@ -40,6 +44,9 @@ mod tests {
         };
 
         let result = request.validate();
-        assert!(result.is_err(), "description >500 chars should fail validation");
+        assert!(
+            result.is_err(),
+            "description >500 chars should fail validation"
+        );
     }
 }

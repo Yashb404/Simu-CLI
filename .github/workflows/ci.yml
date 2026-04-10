@@ -1,7 +1,35 @@
 name: CI
-on: [push, pull_request]
+
+on:
+  push:
+    branches:
+      - main
+      - demo-overhaul
+      - frontend
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  check:
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Format check
+        run: cargo fmt --all --check
+
+  native:
+    name: Native Rust
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -17,28 +45,83 @@ jobs:
           --health-retries 5
     env:
       DATABASE_URL: postgres://postgres:password@localhost:5432/cli_demo_studio
+      API_URL: http://127.0.0.1:3001
+      FRONTEND_URL: http://127.0.0.1:3001
+      CORS_ALLOWED_ORIGINS: http://127.0.0.1:3001
+      SESSION_COOKIE_SECURE: "false"
+      SQLX_OFFLINE: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: native
+      - name: Prepare test environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "GITHUB_CLIENT_ID=ci-$(openssl rand -hex 8)" >> "$GITHUB_ENV"
+          echo "GITHUB_CLIENT_SECRET=ci-$(openssl rand -hex 16)" >> "$GITHUB_ENV"
+          echo "SESSION_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+      - name: Wait for Postgres
+        shell: bash
+        run: |
+          set -euo pipefail
+          for _ in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U postgres; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Postgres did not become ready in time" >&2
+          exit 1
+      - name: Lint
+        run: cargo clippy --locked -p server -p shared --all-targets --all-features -- -D warnings
+      - name: Check
+        run: cargo check --locked -p server -p shared --all-targets --all-features
+      - name: Test shared crate
+        run: cargo test --locked -p shared --all-targets --all-features -- --test-threads=1
+      - name: Test server crate
+        run: cargo test --locked -p server --all-targets --all-features -- --include-ignored --test-threads=1
+      - name: Release build
+        run: cargo build --locked -p server --release
+
+  wasm:
+    name: WASM Builds
+    runs-on: ubuntu-latest
+    env:
+      API_URL: http://127.0.0.1:3001
+      FRONTEND_URL: http://127.0.0.1:3001
+      CORS_ALLOWED_ORIGINS: http://127.0.0.1:3001
+      SESSION_COOKIE_SECURE: "false"
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
-      - name: Wait for Postgres
-        run: |
-          for i in {1..30}; do
-            pg_isready -h localhost -p 5432 -U postgres && exit 0
-            sleep 1
-          done
-          echo "Postgres did not become ready in time" >&2
-          exit 1
-      # Check server-side and shared crates for the host target
-      - name: Check (native)
-        run: cargo check -p server -p shared
-      # Check frontend and embed crates for the WASM target
-      - name: Check app (WASM)
-        run: cargo check --target wasm32-unknown-unknown -p app
-      - name: Check embed (WASM)
-        run: cargo check --target wasm32-unknown-unknown -p embed
-      # Run unit tests; WASM crates can't run natively
-      - name: Test
-        run: cargo test -p server -p shared -- --test-threads=1
+        with:
+          shared-key: wasm
+      - name: Cache Trunk binary
+        id: cache-trunk
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/trunk
+          key: trunk-${{ runner.os }}-0.21.14
+      - name: Install Trunk
+        if: steps.cache-trunk.outputs.cache-hit != 'true'
+        run: cargo install trunk --locked --version 0.21.14
+      - name: Verify Trunk
+        run: trunk --version
+      - name: Check app
+        run: cargo check --locked --target wasm32-unknown-unknown -p app
+      - name: Check embed
+        run: cargo check --locked --target wasm32-unknown-unknown -p embed
+      - name: Build dashboard assets
+        working-directory: crates/app
+        run: trunk build index.html --release
+      - name: Build embed runtime assets
+        working-directory: crates/embed
+        run: trunk build index.html --release -d ../../dist-embed

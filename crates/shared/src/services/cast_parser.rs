@@ -26,7 +26,7 @@ pub struct CommandInteraction {
 }
 
 /// Knobs passed to the parser by the caller.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ParseOptions {
     /// When `Some(patterns)`, any output whose final line matches one of the
     /// supplied prompt patterns will have that line stripped.  Pass `None` to
@@ -35,14 +35,6 @@ pub struct ParseOptions {
     /// Patterns are matched with [`prompt_matches`]; see that function for the
     /// exact matching semantics.
     pub strip_trailing_prompt: Option<Vec<String>>,
-}
-
-impl Default for ParseOptions {
-    fn default() -> Self {
-        Self {
-            strip_trailing_prompt: None,
-        }
-    }
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -188,22 +180,25 @@ fn flush_interaction(
 ///   real terminal would.
 /// * **`\r` / `\n`** — stripped (they are the Enter key that ends the command).
 fn clean_input(raw: &str) -> String {
-    let mut result = String::new();
-    for ch in raw.chars() {
-        match ch {
-            '\x08' | '\x7f' => {
-                // Backspace or DEL — erase the preceding character
-                result.pop();
-            }
-            '\r' | '\n' => {
-                // Enter — skip (already handled by state machine)
-            }
-            _ => {
-                result.push(ch);
-            }
+    let stripped = strip_backspaces(raw);
+    stripped
+        .chars()
+        .filter(|ch| *ch != '\r' && *ch != '\n')
+        .collect::<String>()
+        .trim()
+        .to_string()
+}
+
+fn strip_backspaces(s: &str) -> String {
+    let mut out = String::new();
+    for ch in s.chars() {
+        if ch == '\x08' || ch == '\x7f' {
+            out.pop();
+        } else {
+            out.push(ch);
         }
     }
-    result.trim().to_string()
+    out
 }
 
 /// Strip the leading newline that most shells echo back immediately after the
@@ -275,10 +270,10 @@ fn prompt_matches(line: &str, patterns: &[String]) -> bool {
         if pattern.is_empty() {
             // Heuristic: check if line ends with a common shell prompt suffix.
             let trimmed = line.trim_end();
-            if let Some(last_ch) = trimmed.chars().last() {
-                if matches!(last_ch, '$' | '#' | '%' | '>') {
-                    return true;
-                }
+            if let Some(last_ch) = trimmed.chars().last()
+                && matches!(last_ch, '$' | '#' | '%' | '>')
+            {
+                return true;
             }
         } else if line.contains(pattern) {
             return true;
@@ -401,7 +396,7 @@ mod tests {
     fn test_complex_v2_cast() {
         let cast = complex_cast_v2();
         let result = extract_commands_from_cast(cast, &ParseOptions::default()).unwrap();
-        
+
         // Should extract 5 command/output pairs:
         // 1. "mkdir -p ~/test"
         // 2. "cd ~/test"
@@ -644,13 +639,16 @@ invalid json here
         assert_eq!(result[0].command, "for i in 1 2 3; do");
         assert_eq!(result[1].command, "echo $i");
     }
-}
 
-#[cfg(test)]
-mod test_helpers {
-    // Helper to test build_parse_options without circular dependency
-    pub struct TestImportCastQuery {
-        pub strip_trailing_prompt: bool,
-        pub prompt_patterns: Vec<String>,
+    #[test]
+    fn test_backspace_stripped_from_command() {
+        let cast = "{\"version\": 2}\n\
+            [0.1, \"i\", \"ech\"]\n\
+            [0.2, \"i\", \"\\u0008\\u0008\\u0008ls\"]\n\
+            [0.3, \"i\", \"\\n\"]\n\
+            [0.4, \"o\", \"\\nfile1\\n\"]\n";
+        let result = extract_commands_from_cast(cast, &ParseOptions::default()).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].command, "ls");
     }
 }

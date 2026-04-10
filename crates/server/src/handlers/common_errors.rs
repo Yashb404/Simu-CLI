@@ -1,18 +1,8 @@
-use axum::{
-    extract::State,
-    http::StatusCode,
-    Json,
-};
+use axum::{Json, extract::State, http::StatusCode};
 use validator::Validate;
 
-use crate::{
-    error::HandlerResult,
-    handlers::owned_demo::OwnedDemo,
-    state::AppState,
-};
-use shared::{
-    dto::{CommonErrorRow, RecordCommonErrorRequest},
-};
+use crate::{error::HandlerResult, handlers::owned_demo::OwnedDemo, state::AppState};
+use shared::dto::{CommonErrorRow, RecordCommonErrorRequest};
 
 pub async fn record_common_error(
     State(state): State<AppState>,

@@ -1,5 +1,20 @@
 use serde::de::DeserializeOwned;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ClientError {
+    Unauthorized,
+    Other(String),
+}
+
+impl std::fmt::Display for ClientError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unauthorized => write!(f, "Not logged in. Click Login with GitHub and retry."),
+            Self::Other(msg) => write!(f, "{msg}"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum HttpMethod {
     Get,
@@ -26,36 +41,67 @@ async fn execute(
     url: &str,
     body: Option<&str>,
     include_credentials: bool,
-) -> Result<gloo_net::http::Response, String> {
+) -> Result<gloo_net::http::Response, ClientError> {
     let mut builder = method_builder(method, url);
     if include_credentials {
         builder = builder.credentials(web_sys::RequestCredentials::Include);
     }
 
     let response = match body {
-        Some(payload) => builder
-            .header("content-type", "application/json")
-            .body(payload)
-            .map_err(|e| format!("build request: {e}"))?
-            .send()
-            .await,
+        Some(payload) => {
+            builder
+                .header("content-type", "application/json")
+                .body(payload)
+                .map_err(|e| ClientError::Other(format!("build request: {e}")))?
+                .send()
+                .await
+        }
         None => builder.send().await,
     }
-    .map_err(|e| format!("request failed: {e}"))?;
+    .map_err(|e| ClientError::Other(format!("request failed: {e}")))?;
 
     if !response.ok() {
         let status = response.status();
         let body_text = response.text().await.unwrap_or_default();
         if status == 401 {
-            return Err("Not logged in. Click Login with GitHub and retry.".to_string());
+            return Err(ClientError::Unauthorized);
         }
         if body_text.is_empty() {
-            return Err(format!("request failed with status {status}"));
+            return Err(ClientError::Other(format!(
+                "request failed with status {status}"
+            )));
         }
-        return Err(format!("request failed with status {status}: {body_text}"));
+        return Err(ClientError::Other(format!(
+            "request failed with status {status}: {body_text}"
+        )));
     }
 
     Ok(response)
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn fetch_typed<T: DeserializeOwned>(
+    method: HttpMethod,
+    url: &str,
+    body: Option<&str>,
+    include_credentials: bool,
+) -> Result<T, ClientError> {
+    let response = execute(method, url, body, include_credentials).await?;
+    response
+        .json::<T>()
+        .await
+        .map_err(|e| ClientError::Other(format!("invalid response payload: {e}")))
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn send_typed(
+    method: HttpMethod,
+    url: &str,
+    body: Option<&str>,
+    include_credentials: bool,
+) -> Result<(), ClientError> {
+    execute(method, url, body, include_credentials).await?;
+    Ok(())
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -65,11 +111,9 @@ pub async fn fetch<T: DeserializeOwned>(
     body: Option<&str>,
     include_credentials: bool,
 ) -> Result<T, String> {
-    let response = execute(method, url, body, include_credentials).await?;
-    response
-        .json::<T>()
+    fetch_typed(method, url, body, include_credentials)
         .await
-        .map_err(|e| format!("invalid response payload: {e}"))
+        .map_err(|e| e.to_string())
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -79,8 +123,33 @@ pub async fn send(
     body: Option<&str>,
     include_credentials: bool,
 ) -> Result<(), String> {
-    execute(method, url, body, include_credentials).await?;
-    Ok(())
+    send_typed(method, url, body, include_credentials)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn fetch_typed<T: DeserializeOwned>(
+    _method: HttpMethod,
+    _url: &str,
+    _body: Option<&str>,
+    _include_credentials: bool,
+) -> Result<T, ClientError> {
+    Err(ClientError::Other(
+        "shared::client::fetch_typed is only available on wasm32 targets".to_string(),
+    ))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn send_typed(
+    _method: HttpMethod,
+    _url: &str,
+    _body: Option<&str>,
+    _include_credentials: bool,
+) -> Result<(), ClientError> {
+    Err(ClientError::Other(
+        "shared::client::send_typed is only available on wasm32 targets".to_string(),
+    ))
 }
 
 #[cfg(not(target_arch = "wasm32"))]

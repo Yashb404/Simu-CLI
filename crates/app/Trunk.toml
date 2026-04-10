@@ -1,0 +1,13 @@
+[serve]
+port = 8080
+open = false
+# Uncomment to suppress hot-reload noise when needed:
+# no_autoreload = true
+
+[[proxy]]
+rewrite = "/api/"
+backend = "http://127.0.0.1:3001/api/"
+
+[[proxy]]
+rewrite = "/auth/"
+backend = "http://127.0.0.1:3001/auth/"

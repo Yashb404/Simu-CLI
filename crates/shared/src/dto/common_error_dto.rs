@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+#[cfg(feature = "backend")]
 use validator::Validate;
 
+#[cfg(feature = "backend")]
 fn validate_command_text(value: &str) -> Result<(), validator::ValidationError> {
     if !value.trim().is_empty() {
         Ok(())
@@ -12,22 +15,26 @@ fn validate_command_text(value: &str) -> Result<(), validator::ValidationError> 
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+#[cfg_attr(feature = "backend", derive(Validate))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RecordCommonErrorRequest {
     pub demo_id: Uuid,
-    #[validate(length(max = 500))]
-    #[validate(custom(function = "validate_command_text"))]
+    #[cfg_attr(feature = "backend", validate(length(max = 500)))]
+    #[cfg_attr(
+        feature = "backend",
+        validate(custom(function = "validate_command_text"))
+    )]
     pub command_text: String,
 }
 
-#[cfg_attr(not(target_arch = "wasm32"), derive(sqlx::FromRow))]
+#[cfg_attr(feature = "backend", derive(sqlx::FromRow))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommonErrorRow {
     pub command_text: String,
     pub count: i64,
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "backend"))]
 mod tests {
     use super::*;
 

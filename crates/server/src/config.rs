@@ -2,6 +2,16 @@ use anyhow::{Context, Result};
 use std::env;
 use time::Duration;
 
+/// Wrapper for secrets that should not appear in debug logs
+#[derive(Clone)]
+pub struct Secret(pub String);
+
+impl std::fmt::Debug for Secret {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[REDACTED]")
+    }
+}
+
 /// Application configuration loaded from environment variables at startup
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -12,10 +22,10 @@ pub struct Config {
     pub github_client_id: String,
 
     /// GitHub OAuth client secret
-    pub github_client_secret: String,
+    pub github_client_secret: Secret,
 
     /// Session encryption secret (64-byte hex string)
-    pub session_secret: String,
+    pub session_secret: Secret,
 
     /// API server URL (used in OAuth redirect URI)
     pub api_url: String,
@@ -28,6 +38,9 @@ pub struct Config {
 
     /// Rate limiting: requests per minute per IP
     pub rate_limit_requests_per_minute: u32,
+
+    /// Maximum number of DB pool connections
+    pub db_max_connections: u32,
 
     /// Session timeout duration
     pub session_timeout: Duration,
@@ -43,8 +56,8 @@ pub struct Config {
 }
 
 fn normalize_origin(url: &str) -> Result<String> {
-    let parsed = reqwest::Url::parse(url)
-        .with_context(|| format!("invalid URL for origin: {url}"))?;
+    let parsed =
+        reqwest::Url::parse(url).with_context(|| format!("invalid URL for origin: {url}"))?;
 
     let scheme = parsed.scheme();
     let host = parsed
@@ -64,8 +77,8 @@ fn normalize_origin(url: &str) -> Result<String> {
 }
 
 fn loopback_aliases(origin: &str) -> Result<Vec<String>> {
-    let parsed = reqwest::Url::parse(origin)
-        .with_context(|| format!("invalid origin URL: {origin}"))?;
+    let parsed =
+        reqwest::Url::parse(origin).with_context(|| format!("invalid origin URL: {origin}"))?;
 
     let scheme = parsed.scheme();
     let host = parsed
@@ -113,23 +126,39 @@ fn parse_cors_allowed_origins(raw: &str) -> Result<Vec<String>> {
     Ok(origins)
 }
 
+fn require_secure_cookie_compatible_api_url(api_url: &str, secure: bool) -> Result<()> {
+    if !secure {
+        return Ok(());
+    }
+
+    let parsed = reqwest::Url::parse(api_url)
+        .with_context(|| format!("API_URL must be a valid URL: {api_url}"))?;
+    if parsed.scheme() != "https" {
+        anyhow::bail!(
+            "SESSION_COOKIE_SECURE=true requires an https API_URL. Set SESSION_COOKIE_SECURE=false for local http development."
+        );
+    }
+
+    Ok(())
+}
+
 impl Config {
     /// Load configuration from environment variables
     ///
     /// Returns an error when required environment variables are missing or invalid.
     /// The caller should fail startup on error so configuration problems are caught early.
     pub fn from_env() -> Result<Self> {
-        let database_url = env::var("DATABASE_URL")
-            .context("DATABASE_URL must be set")?;
+        let database_url = env::var("DATABASE_URL").context("DATABASE_URL must be set")?;
 
-        let github_client_id = env::var("GITHUB_CLIENT_ID")
-            .context("GITHUB_CLIENT_ID must be set")?;
+        let github_client_id =
+            env::var("GITHUB_CLIENT_ID").context("GITHUB_CLIENT_ID must be set")?;
 
-        let github_client_secret = env::var("GITHUB_CLIENT_SECRET")
-            .context("GITHUB_CLIENT_SECRET must be set")?;
+        let github_client_secret =
+            env::var("GITHUB_CLIENT_SECRET").context("GITHUB_CLIENT_SECRET must be set")?;
 
-        let session_secret = env::var("SESSION_SECRET")
-            .context("SESSION_SECRET must be set (generate with: head -c 32 /dev/urandom | xxd -p)")?;
+        let session_secret = env::var("SESSION_SECRET").context(
+            "SESSION_SECRET must be set (generate with: head -c 32 /dev/urandom | xxd -p)",
+        )?;
 
         // Validate session secret is valid hex and correct length
         if session_secret.len() != 64 {
@@ -142,11 +171,18 @@ impl Config {
             anyhow::bail!("SESSION_SECRET must be valid hex characters");
         }
 
-        let api_url = env::var("API_URL")
-            .context("API_URL must be set")?;
+        let api_url = match env::var("API_URL") {
+            Ok(value) => value,
+            Err(_) => env::var("RENDER_EXTERNAL_URL")
+                .context("API_URL must be set (or RENDER_EXTERNAL_URL when running on Render)")?,
+        };
 
-        let frontend_url = env::var("FRONTEND_URL")
-            .context("FRONTEND_URL must be set")?;
+        let frontend_url = match env::var("FRONTEND_URL") {
+            Ok(value) => value,
+            Err(_) => env::var("RENDER_EXTERNAL_URL").context(
+                "FRONTEND_URL must be set (or RENDER_EXTERNAL_URL when running on Render)",
+            )?,
+        };
 
         let cors_allowed_origins = match env::var("CORS_ALLOWED_ORIGINS") {
             Ok(value) => parse_cors_allowed_origins(&value)
@@ -168,6 +204,11 @@ impl Config {
             .parse::<u32>()
             .context("RATE_LIMIT_REQUESTS_PER_MINUTE must be a valid u32")?;
 
+        let db_max_connections = env::var("DB_MAX_CONNECTIONS")
+            .unwrap_or_else(|_| "5".to_string())
+            .parse::<u32>()
+            .context("DB_MAX_CONNECTIONS must be a valid u32")?;
+
         let session_timeout_days = env::var("SESSION_TIMEOUT_DAYS")
             .unwrap_or_else(|_| "7".to_string())
             .parse::<i64>()
@@ -177,6 +218,7 @@ impl Config {
             .unwrap_or_else(|_| "false".to_string())
             .parse::<bool>()
             .context("SESSION_COOKIE_SECURE must be true or false")?;
+        require_secure_cookie_compatible_api_url(&api_url, session_cookie_secure)?;
 
         let log_level = env::var("RUST_LOG")
             .unwrap_or_else(|_| "server=debug,tower_sessions=debug".to_string());
@@ -184,12 +226,13 @@ impl Config {
         Ok(Config {
             database_url,
             github_client_id,
-            github_client_secret,
-            session_secret,
+            github_client_secret: Secret(github_client_secret),
+            session_secret: Secret(session_secret),
             api_url,
             frontend_url,
             port,
             rate_limit_requests_per_minute,
+            db_max_connections,
             session_timeout: Duration::days(session_timeout_days),
             session_cookie_secure,
             log_level,
@@ -231,12 +274,24 @@ mod tests {
     #[test]
     fn loopback_aliases_includes_all_localhost_variants_without_port() {
         let aliases = loopback_aliases("http://localhost").unwrap();
-        assert!(aliases.contains(&"http://localhost".to_string()), "must include localhost");
-        assert!(aliases.contains(&"http://127.0.0.1".to_string()), "must include 127.0.0.1");
-        assert!(aliases.contains(&"http://[::1]".to_string()), "must include [::1]");
+        assert!(
+            aliases.contains(&"http://localhost".to_string()),
+            "must include localhost"
+        );
+        assert!(
+            aliases.contains(&"http://127.0.0.1".to_string()),
+            "must include 127.0.0.1"
+        );
+        assert!(
+            aliases.contains(&"http://[::1]".to_string()),
+            "must include [::1]"
+        );
         // No spurious dots or colons
         for alias in &aliases {
-            assert!(!alias.contains("localhost."), "alias must not contain 'localhost.'");
+            assert!(
+                !alias.contains("localhost."),
+                "alias must not contain 'localhost.'"
+            );
         }
     }
 
@@ -248,7 +303,10 @@ mod tests {
         assert!(aliases.contains(&"http://[::1]:3000".to_string()));
         // No spurious dots before port
         for alias in &aliases {
-            assert!(!alias.contains("localhost.:"), "alias must not contain 'localhost.:'");
+            assert!(
+                !alias.contains("localhost.:"),
+                "alias must not contain 'localhost.:'"
+            );
         }
     }
 
@@ -256,5 +314,12 @@ mod tests {
     fn loopback_aliases_for_non_localhost_only_returns_self() {
         let aliases = loopback_aliases("https://example.com").unwrap();
         assert_eq!(aliases, vec!["https://example.com".to_string()]);
+    }
+
+    #[test]
+    fn secure_session_cookie_requires_https_api_url() {
+        assert!(require_secure_cookie_compatible_api_url("https://example.com", true).is_ok());
+        assert!(require_secure_cookie_compatible_api_url("http://localhost:3001", false).is_ok());
+        assert!(require_secure_cookie_compatible_api_url("http://localhost:3001", true).is_err());
     }
 }

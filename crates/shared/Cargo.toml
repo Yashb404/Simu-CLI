@@ -3,19 +3,19 @@ name = "shared"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = []
+backend = ["dep:sqlx", "dep:validator"]
+
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
 time = { workspace = true }
 thiserror = { workspace = true }
-
-# Validation
-validator = { version = "0.20.0", features = ["derive"] }
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-sqlx = { workspace = true }
+sqlx = { workspace = true, optional = true }
+validator = { version = "0.20.0", features = ["derive"], optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-gloo-net = { version = "0.6", features = ["http"] }
+gloo-net = { version = "0.6", default-features = false, features = ["http"] }
 web-sys = { version = "0.3", features = ["RequestCredentials"] }

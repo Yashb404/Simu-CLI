@@ -8,11 +8,13 @@ leptos = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
-shared = { path = "../shared" }
-gloo-net = { version = "0.6", features = ["http"] }
+shared = { path = "../shared", default-features = false }
+gloo-net = { version = "0.6", default-features = false, features = ["http"] }
 wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
-web-sys = { version = "0.3", features = ["Window", "MessageEvent", "Document", "Element"] }
+url = { workspace = true }
+web-sys = { version = "0.3", features = ["Blob", "Document", "Element", "Location", "MessageEvent", "Navigator", "Request", "RequestInit", "RequestMode", "Storage", "Window"] }
 getrandom = { version = "0.2", features = ["js"] }
 console_error_panic_hook = "0.1"
 

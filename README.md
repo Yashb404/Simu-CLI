@@ -11,13 +11,14 @@ It provides:
 
 ## Status
 
-Project maturity: active development
+Project maturity: active development.
 
 Current focus:
 
 - Editor UX and frontend polish
 - Embed runtime behavior quality
 - Reliability and test coverage
+- Production deployment readiness
 
 ## Core Features
 
@@ -120,6 +121,24 @@ FRONTEND_URL=http://localhost:8080
 SESSION_COOKIE_SECURE=false
 ~~~
 
+## Development And CI
+
+Local development uses two processes:
+
+1. Backend: `cargo run -p server`
+2. Frontend: `cd crates/app && APP_API_BASE_URL=http://localhost:3001 trunk serve --port 8080`
+
+Recommended validation commands:
+
+~~~bash
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo check --workspace
+cargo test --workspace -- --test-threads=1
+~~~
+
+The GitHub Actions workflow mirrors this split with native Rust checks, wasm builds for `app` and `embed`, and integration tests against Postgres.
+
 ## Development Workflow
 
 Run backend and frontend in separate terminals.
@@ -127,14 +146,14 @@ Run backend and frontend in separate terminals.
 Terminal 1 (backend):
 
 ~~~bash
-cd /home/yash/Desktop/Coding/cli-demo-studio
+cd /cli-demo-studio
 . ./.env && FRONTEND_URL=http://localhost:8080 CORS_ALLOWED_ORIGINS=http://localhost:8080,http://localhost:3001 cargo run -p server
 ~~~
 
 Terminal 2 (dashboard frontend):
 
 ~~~bash
-cd /home/yash/Desktop/Coding/cli-demo-studio/crates/app
+cd /crates/app
 APP_API_BASE_URL=http://localhost:3001 trunk serve --port 8080
 ~~~
 
@@ -165,6 +184,26 @@ trunk build index.html --release -d ../../dist-embed
 cd ../..
 cargo run -p server
 ~~~
+
+## Deployment
+
+Render is the supported deployment target.
+
+1. Push the branch to GitHub.
+2. In Render, create a Blueprint from `render.yaml`.
+3. Set the runtime variables in Render:
+   - `DATABASE_URL`
+   - `GITHUB_CLIENT_ID`
+   - `GITHUB_CLIENT_SECRET`
+   - `SESSION_SECRET`
+   - `API_URL`
+   - `FRONTEND_URL`
+4. Recommended optional values:
+   - `CORS_ALLOWED_ORIGINS`
+   - `SESSION_COOKIE_SECURE=true`
+   - `RUST_LOG=server=info,tower_sessions=info`
+
+The repository also includes GitHub Actions for CI, hosted smoke checks, and a Render deploy hook workflow. Configure hosted checks with the `HOSTED_BASE_URL` repository variable and Render deploys with `RENDER_DEPLOY_HOOK_URL` as a secret or variable.
 
 ## API Overview
 

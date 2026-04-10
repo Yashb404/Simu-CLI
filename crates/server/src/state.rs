@@ -1,8 +1,8 @@
 use std::{net::IpAddr, sync::Arc};
 
+use crate::config::Config;
 use governor::DefaultKeyedRateLimiter;
 use sqlx::PgPool;
-use crate::config::Config;
 
 pub type IpRateLimiter = DefaultKeyedRateLimiter<IpAddr>;
 

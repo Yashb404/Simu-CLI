@@ -1,16 +1,24 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap");
 
 /* ─── Terminal color palette ─────────────────────────────────── */
 :root {
   --bg: #0b0b10;
   --panel-bg: #12121a;
   --overlay-bg: #171722;
+  --surface-container-lowest: #09090b;
+  --surface-container-low: #141416;
+  --surface-container: #1a1a1d;
+  --surface-container-high: #222225;
+  --surface-container-highest: #2c2c30;
   --ink: #f4f4f5;
   --ink-dim: #d4d4d8;
+  --outline-variant: #242428;
   --muted: #a1a1aa;
   --amber: #f59e0b;
   --red: #ef4444;
   --brand: #f4f4f5;
+  --on-primary: #050505;
+  --secondary-container: #1f2937;
   --brand-hover: #d4d4d8;
   --border: #27272a;
   --border-dim: rgba(63, 63, 70, 0.8);
@@ -19,19 +27,28 @@
   --glow-amber: none;
   --scanline-color: transparent;
   --font-ui: "Inter", system-ui, sans-serif;
-  --font-display: "Inter", system-ui, sans-serif;
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", monospace;
 }
 
 :root[data-theme="terminal"] {
   --bg: #0b0b10;
   --panel-bg: #12121a;
   --overlay-bg: #171722;
+  --surface-container-lowest: #09090b;
+  --surface-container-low: #141416;
+  --surface-container: #1a1a1d;
+  --surface-container-high: #222225;
+  --surface-container-highest: #2c2c30;
   --ink: #f4f4f5;
   --ink-dim: #d4d4d8;
+  --outline-variant: #242428;
   --muted: #a1a1aa;
   --amber: #f59e0b;
   --red: #ef4444;
   --brand: #00ff41;
+  --on-primary: #06130a;
+  --secondary-container: #1f2937;
   --brand-hover: #00c832;
   --border: #27272a;
   --border-dim: rgba(63, 63, 70, 0.8);
@@ -45,12 +62,20 @@
   --bg: #09090b;
   --panel-bg: #111114;
   --overlay-bg: #18181b;
+  --surface-container-lowest: #09090b;
+  --surface-container-low: #141416;
+  --surface-container: #1a1a1d;
+  --surface-container-high: #222225;
+  --surface-container-highest: #2c2c30;
   --ink: #f5f5f7;
   --ink-dim: #d4d4d8;
+  --outline-variant: #242428;
   --muted: #a1a1aa;
   --amber: #f59e0b;
   --red: #ef4444;
   --brand: #f4f4f5;
+  --on-primary: #050505;
+  --secondary-container: #1f2937;
   --brand-hover: #d4d4d8;
   --border: #27272a;
   --border-dim: rgba(63, 63, 70, 0.85);
@@ -64,12 +89,20 @@
   --bg: #f5f5f7;
   --panel-bg: #ffffff;
   --overlay-bg: #f0f2f5;
+  --surface-container-lowest: #f8f9fb;
+  --surface-container-low: #f1f3f6;
+  --surface-container: #ebedf1;
+  --surface-container-high: #e5e8ed;
+  --surface-container-highest: #dce1e8;
   --ink: #111827;
   --ink-dim: #1f2937;
+  --outline-variant: #cfd4dc;
   --muted: #6b7280;
   --amber: #d97706;
   --red: #dc2626;
   --brand: #111827;
+  --on-primary: #f9fafb;
+  --secondary-container: #dce7f7;
   --brand-hover: #1f2937;
   --border: #d4d4d8;
   --border-dim: rgba(161, 161, 170, 0.6);
@@ -367,6 +400,12 @@ p {
   background: var(--bg);
 }
 
+.app-content--full {
+  overflow: hidden;
+  padding: 0;
+  min-height: 100vh;
+}
+
 .page {
   max-width: 1040px;
   margin: 0 auto;
@@ -427,6 +466,18 @@ button:hover,
 .btn-primary:hover {
   background: var(--brand-hover);
   border-color: var(--brand-hover);
+}
+
+.btn-primary-light {
+  border-color: color-mix(in srgb, var(--brand) 40%, var(--border) 60%);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 10%, transparent 90%);
+}
+
+.btn-primary-light:hover {
+  background: color-mix(in srgb, var(--brand) 18%, transparent 82%);
+  color: var(--brand-hover);
+  border-color: color-mix(in srgb, var(--brand-hover) 50%, var(--border) 50%);
 }
 
 .btn-danger {
@@ -567,66 +618,202 @@ label {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.editor-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
-  align-items: start;
+/* ─── Premium Editor Layout ──────────────────────────────────── */
+.editor-workspace {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #000000;
+  color: #ededed;
+  overflow: hidden;
+}
+
+.editor-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  background: #0a0a0a;
+  border-bottom: 1px solid #1a1a1a;
+  z-index: 10;
+}
+
+.editor-title-input {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 600;
+  outline: none;
+  width: 300px;
+}
+
+.editor-title-input:hover,
+.editor-title-input:focus {
+  background: #111;
+  border-radius: 4px;
+}
+
+.editor-main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ─── Left Pane: The Script (Blocks) ─────────────────────────── */
+.script-pane {
+  flex: 0 0 50%;
+  max-width: 600px;
+  min-width: 360px;
+  background: #000000;
+  border-right: 1px solid #1a1a1a;
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-splitter {
+  flex: 0 0 10px;
+  cursor: col-resize;
+  position: relative;
+  background: transparent;
+}
+
+.editor-splitter::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background: #1f1f1f;
+}
+
+.editor-splitter:hover::before,
+.editor-splitter.is-active::before {
+  background: #3a3a3a;
+}
+
+.script-toolbar {
+  padding: 12px 24px;
+  border-bottom: 1px solid #1a1a1a;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+}
+
+.script-toolbar button {
+  background: #111;
+  color: #a0a0a0;
+  border: 1px solid #222;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  transition: all 0.15s ease;
+}
+
+.script-toolbar button:hover {
+  background: #222;
+  color: #fff;
+  border-color: #444;
+}
+
+.script-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
 }
 
-.step-column {
+/* Notion-style seamless blocks instead of cards */
+.step-block {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  transition: background 0.15s ease;
 }
 
-.preview-column {
-  position: sticky;
-  top: 20px;
-  align-self: start;
+.step-block:hover {
+  background: #0a0a0a;
 }
 
-/* ─── Step cards ─────────────────────────────────────────────── */
-.step-card {
-  padding: 0;
-  overflow: hidden;
+.step-block[draggable="true"]:hover .drag-handle {
+  opacity: 1;
 }
 
-.step-card-toggle {
+.step-block-header {
+  display: flex;
+  align-items: center;
+  padding: 10px 8px;
+  cursor: pointer;
   width: 100%;
   border: 0;
-  border-bottom: 1px solid var(--border-dim);
   background: transparent;
-  color: var(--ink-dim);
-  padding: 10px 12px;
   text-align: left;
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  font-size: 0.82rem;
+}
+
+.drag-handle {
+  color: #444;
+  opacity: 0;
+  cursor: grab;
+  padding: 0 8px;
+  transition: opacity 0.15s;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.step-badge {
+  font-size: 0.65rem;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  margin-right: 12px;
 }
 
-.step-card-toggle:hover {
-  background: rgba(0, 255, 65, 0.04);
-  color: var(--ink);
-  text-shadow: none;
-  border-color: var(--border-dim);
+.step-badge.command {
+  background: rgba(74, 222, 128, 0.1);
+  color: #4ade80;
 }
 
-.step-card-title {
-  font-family: var(--font-display);
-  font-weight: 700;
-  color: var(--ink);
+.step-badge.output {
+  background: rgba(161, 161, 170, 0.1);
+  color: #a1a1aa;
 }
 
-.step-card-summary {
-  color: var(--muted);
+.step-badge.pause {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.step-badge.other {
+  background: rgba(56, 189, 248, 0.1);
+  color: #38bdf8;
+}
+
+.step-summary {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: #ededed;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
+}
+
+.step-seq {
+  color: #5a5a5a;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  margin-right: 10px;
 }
 
 .step-card-indicator {
@@ -636,14 +823,52 @@ label {
   letter-spacing: 0.06em;
 }
 
-.step-card-body {
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  background: var(--overlay-bg);
+.step-block-body {
+  padding: 16px 16px 16px 44px;
+  border-top: 1px dashed #222;
+  background: #050505;
+  border-radius: 0 0 8px 8px;
 }
 
+/* ─── Right Pane: The Stage ──────────────────────────────────── */
+.stage-pane {
+  flex: 1;
+  background: radial-gradient(circle at center, #111 0%, #000 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  position: relative;
+}
+
+.stage-pane::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(#222 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.terminal-container {
+  width: 100%;
+  max-width: 650px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px #222;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+  z-index: 2;
+}
+
+.editor-topbar .status {
+  margin: 0;
+  background: #101010;
+  border-color: #232323;
+  color: #c6c6c6;
+}
+
+/* ─── Step editor controls ───────────────────────────────────── */
 .step-editor-grid {
   display: grid;
   gap: 10px;
@@ -694,6 +919,56 @@ label {
 
 .step-editor-validation li::before {
   content: "! ";
+}
+
+.command-block-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.command-block-section {
+  border: 1px solid color-mix(in srgb, var(--brand) 40%, var(--border-dim) 60%);
+  background: color-mix(in srgb, var(--brand) 6%, transparent 94%);
+  padding: 12px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.command-block-section h4 {
+  margin: 0;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.command-block-section label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.command-block-section input {
+  font-size: 0.82rem;
+  padding: 8px;
+  background: var(--overlay-bg);
+  border: 1px solid var(--border-dim);
+  color: var(--ink);
+  border-radius: 6px;
+}
+
+.command-block-section input::placeholder {
+  color: var(--muted);
+}
+
+.command-block-section input:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 10%, transparent 90%);
 }
 
 /* ─── Terminal / preview ─────────────────────────────────────── */
@@ -873,6 +1148,121 @@ label {
   flex: 1;
   text-align: center;
   color: var(--muted);
+}
+
+.terminal-guide-toggle {
+  border: 1px solid var(--border-dim);
+  background: transparent;
+  color: var(--ink-dim);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+}
+
+.terminal-guide-toggle:hover {
+  color: var(--ink);
+  border-color: var(--border);
+}
+
+.terminal-guide {
+  border-bottom: 1px solid var(--border-dim);
+  background: #070707;
+  padding: 10px 14px;
+}
+
+.terminal-guide-heading {
+  color: var(--muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+}
+
+.terminal-guide-list {
+  margin: 0;
+  padding: 0 0 0 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.terminal-guide-item {
+  color: var(--ink-dim);
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.terminal-guide-item code {
+  font-family: "Fira Code", "JetBrains Mono", monospace;
+  font-size: 0.78rem;
+}
+
+.terminal-guide-marker {
+  color: var(--muted);
+  font-family: "Fira Code", "JetBrains Mono", monospace;
+  font-size: 0.72rem;
+  min-width: 26px;
+}
+
+.terminal-guide-item.is-next {
+  color: #79f79a;
+}
+
+.terminal-guide-item.is-next .terminal-guide-marker {
+  color: #79f79a;
+}
+
+.terminal-guide-item.is-done {
+  color: #8ab89b;
+}
+
+.terminal-guide-item.is-done .terminal-guide-marker {
+  color: #8ab89b;
+}
+
+.terminal-chrome.is-compact .terminal-titlebar {
+  padding: 6px 10px;
+}
+
+.terminal-chrome.is-compact .terminal-guide {
+  padding: 8px 10px;
+}
+
+.terminal-chrome.is-compact .terminal-guide-heading {
+  margin-bottom: 6px;
+}
+
+.terminal-chrome.is-compact .terminal-guide-list {
+  gap: 2px;
+}
+
+.terminal-chrome.is-compact .terminal-body {
+  min-height: 160px;
+  max-height: 280px;
+  padding: 10px 10px;
+}
+
+.terminal-chrome.is-compact .terminal-line {
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.terminal-chrome.is-compact .terminal-input-row {
+  padding: 6px 8px;
+}
+
+.terminal-chrome.is-compact .terminal-input,
+.terminal-chrome.is-compact .terminal-prompt-label {
+  font-size: 0.78rem;
+}
+
+.terminal-chrome.is-compact .terminal-run-btn,
+.terminal-chrome.is-compact .terminal-guide-toggle {
+  font-size: 0.64rem;
+  padding: 2px 7px;
 }
 
 .terminal-body {
@@ -1255,10 +1645,57 @@ label {
     padding: 16px;
   }
 
+  .app-content--full {
+    overflow: hidden;
+    padding: 0;
+  }
+
   .form-grid,
   .analytics-grid,
   .editor-grid {
     grid-template-columns: 1fr;
+  }
+
+  .editor-workspace {
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .editor-topbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  .editor-main {
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .script-pane {
+    flex: 1 1 auto;
+    max-width: none;
+    min-width: 0;
+    border-right: 0;
+    border-bottom: 1px solid #1a1a1a;
+  }
+
+  .editor-splitter {
+    display: none;
+  }
+
+  .script-content {
+    padding: 14px;
+  }
+
+  .stage-pane {
+    padding: 16px;
+    min-height: 380px;
+  }
+
+  .terminal-container {
+    max-width: 100%;
   }
 
   .preview-column {

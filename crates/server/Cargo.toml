@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 # Our own shared crate
-shared = { path = "../shared" }
+shared = { path = "../shared", features = ["backend"] }
 
 # Workspace dependencies we need for the server
 tokio = { workspace = true }

@@ -2,46 +2,70 @@ use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-#[cfg_attr(not(target_arch = "wasm32"), derive(sqlx::Type))]
+#[cfg_attr(feature = "backend", derive(sqlx::Type))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(not(target_arch = "wasm32"), sqlx(rename_all = "snake_case"))]
-pub enum EngineMode { Sequential, FreePlay }
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum StepType {
-    Command, Output, Prompt, Spinner,
-    Comment, Clear, Pause, Cta,
+#[cfg_attr(feature = "backend", sqlx(rename_all = "snake_case"))]
+pub enum EngineMode {
+    Sequential,
+    FreePlay,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
-pub enum MatchMode { Exact, Fuzzy, Wildcard, Any }
+pub enum StepType {
+    Command,
+    Output,
+    Prompt,
+    Spinner,
+    Comment,
+    Clear,
+    Pause,
+    Cta,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum MatchMode {
+    Exact,
+    Fuzzy,
+    Wildcard,
+    Any,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum OutputStyle {
-    Normal, Success, Error, Warning,
-    Muted, Bold, Code,
+    Normal,
+    Success,
+    Error,
+    Warning,
+    Muted,
+    Bold,
+    Code,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OutputLine {
     pub text: String,
     pub style: OutputStyle,
-    pub color: Option<String>,   // hex override e.g. "#FF6B6B"
-    pub prefix: Option<String>,  // "✓", "✗", "→" etc
+    pub color: Option<String>,  // hex override e.g. "#FF6B6B"
+    pub prefix: Option<String>, // "✓", "✗", "→" etc
     pub indent: u8,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum SpinnerStyle { Dots, Bar, Braille, Line }
+pub enum SpinnerStyle {
+    Dots,
+    Bar,
+    Braille,
+    Line,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SpinnerConfig {
-    pub style: SpinnerStyle, 
+    pub style: SpinnerStyle,
     pub label: String,
     pub duration_ms: u32,
     pub finish_text: String,
@@ -50,7 +74,12 @@ pub struct SpinnerConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum PromptType { Confirm, Input, Password, Select }
+pub enum PromptType {
+    Confirm,
+    Input,
+    Password,
+    Select,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PromptConfig {
@@ -80,8 +109,10 @@ pub struct Step {
     // Command steps
     pub input: Option<String>,
     pub match_mode: Option<MatchMode>,
-    pub match_pattern: Option<String>,  // compiled wildcard → stored as regex
-    pub description: Option<String>,    // shown in auto-generated help
+    pub match_pattern: Option<String>, // compiled wildcard → stored as regex
+    #[serde(default)]
+    pub short_description: Option<String>,
+    pub description: Option<String>, // shown in auto-generated help
     // Output steps
     pub output: Option<Vec<OutputLine>>,
     // Specialized step configs
@@ -96,13 +127,18 @@ pub struct Step {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum WindowStyle { MacOs, Linux, Windows, None }
+pub enum WindowStyle {
+    MacOs,
+    Linux,
+    Windows,
+    None,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Theme {
-    pub window_style: WindowStyle, 
+    pub window_style: WindowStyle,
     pub window_title: String,
-    pub preset: Option<String>,     // "dracula", "monokai", etc.
+    pub preset: Option<String>, // "dracula", "monokai", etc.
     pub bg_color: String,
     pub fg_color: String,
     pub cursor_color: String,
@@ -121,9 +157,11 @@ pub struct DemoSettings {
     pub show_restart_button: bool,
     pub show_hints: bool,
     pub not_found_message: String,
+    #[serde(default)]
+    pub documentation_url: Option<String>,
 }
 
-#[cfg_attr(not(target_arch = "wasm32"), derive(sqlx::FromRow))]
+#[cfg_attr(feature = "backend", derive(sqlx::FromRow))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Demo {
     pub id: Uuid,
@@ -133,11 +171,11 @@ pub struct Demo {
     pub slug: Option<String>,
     pub published: bool,
     pub version: i32,
-    #[cfg_attr(not(target_arch = "wasm32"), sqlx(json))]
+    #[cfg_attr(feature = "backend", sqlx(json))]
     pub theme: Theme,
-    #[cfg_attr(not(target_arch = "wasm32"), sqlx(json))]
+    #[cfg_attr(feature = "backend", sqlx(json))]
     pub settings: DemoSettings,
-    #[cfg_attr(not(target_arch = "wasm32"), sqlx(json))]
+    #[cfg_attr(feature = "backend", sqlx(json))]
     pub steps: Vec<Step>,
     pub created_at: OffsetDateTime,
     pub updated_at: OffsetDateTime,

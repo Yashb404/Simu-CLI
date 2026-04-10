@@ -1,34 +1,31 @@
 use std::net::IpAddr;
 
 use axum::{
+    Json,
     body::Body,
     extract::State,
     http::{Request, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
-    Json,
 };
 use serde_json::json;
 
 use crate::state::AppState;
 
 fn resolve_client_ip(req: &Request<Body>) -> Option<IpAddr> {
-    if let Some(forwarded) = req.headers().get("x-forwarded-for") {
-        if let Ok(value) = forwarded.to_str() {
-            if let Some(first) = value.split(',').next() {
-                if let Ok(ip) = first.trim().parse::<IpAddr>() {
-                    return Some(ip);
-                }
-            }
-        }
+    if let Some(real_ip) = req.headers().get("x-real-ip")
+        && let Ok(value) = real_ip.to_str()
+        && let Ok(ip) = value.parse::<IpAddr>()
+    {
+        return Some(ip);
     }
 
-    if let Some(real_ip) = req.headers().get("x-real-ip") {
-        if let Ok(value) = real_ip.to_str() {
-            if let Ok(ip) = value.parse::<IpAddr>() {
-                return Some(ip);
-            }
-        }
+    if let Some(forwarded) = req.headers().get("x-forwarded-for")
+        && let Ok(value) = forwarded.to_str()
+        && let Some(first) = value.split(',').next()
+        && let Ok(ip) = first.trim().parse::<IpAddr>()
+    {
+        return Some(ip);
     }
 
     None
@@ -59,12 +56,7 @@ pub async fn rate_limit_middleware(
 mod tests {
     use super::*;
 
-    use axum::{
-        http::Request as HttpRequest,
-        middleware,
-        routing::get,
-        Router,
-    };
+    use axum::{Router, http::Request as HttpRequest, middleware, routing::get};
     use governor::{Quota, RateLimiter};
     use std::{num::NonZeroU32, sync::Arc};
     use tower::ServiceExt;
@@ -75,12 +67,13 @@ mod tests {
         Config {
             database_url: "postgres://dummy:dummy@localhost/dummy".to_string(),
             github_client_id: "test-client".to_string(),
-            github_client_secret: "test-secret".to_string(),
-            session_secret: "a".repeat(64),
+            github_client_secret: crate::config::Secret("test-secret".to_string()),
+            session_secret: crate::config::Secret("a".repeat(64)),
             api_url: "https://api.example.test".to_string(),
             frontend_url: "https://app.example.test".to_string(),
             port: 3001,
             rate_limit_requests_per_minute: 1,
+            db_max_connections: 5,
             session_timeout: time::Duration::days(7),
             session_cookie_secure: false,
             log_level: "server=debug".to_string(),
@@ -131,10 +124,7 @@ mod tests {
         let app = Router::new()
             .route("/api/ping", get(|| async { "pong" }))
             .with_state(state.clone())
-            .layer(middleware::from_fn_with_state(
-                state,
-                rate_limit_middleware,
-            ));
+            .layer(middleware::from_fn_with_state(state, rate_limit_middleware));
 
         let request_one_result = HttpRequest::builder()
             .uri("/api/ping")

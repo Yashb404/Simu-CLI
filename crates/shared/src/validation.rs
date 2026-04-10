@@ -3,11 +3,12 @@ pub const MAX_OUTPUT_LINES_PER_STEP: usize = 100;
 
 pub fn is_valid_slug(slug: &str) -> bool {
     let len = slug.len();
-    if len < 3 || len > 60 {
+    if !(3..=60).contains(&len) {
         return false;
     }
     // Only lowercase alphanumeric and hyphens
-    slug.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+    slug.chars()
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
 }
 
 pub fn is_valid_hex_color(color: &str) -> bool {
@@ -20,7 +21,6 @@ pub fn is_valid_hex_color(color: &str) -> bool {
     }
     color[1..].chars().all(|c| c.is_ascii_hexdigit())
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -35,10 +35,10 @@ mod tests {
 
     #[test]
     fn test_invalid_slugs() {
-        assert!(!is_valid_slug("My-Cli"));       // Uppercase not allowed
-        assert!(!is_valid_slug("my cli"));       // Spaces not allowed
-        assert!(!is_valid_slug("ab"));           // Too short (min 3)
-        assert!(!is_valid_slug("my_cli_tool"));  // Underscores not allowed
+        assert!(!is_valid_slug("My-Cli")); // Uppercase not allowed
+        assert!(!is_valid_slug("my cli")); // Spaces not allowed
+        assert!(!is_valid_slug("ab")); // Too short (min 3)
+        assert!(!is_valid_slug("my_cli_tool")); // Underscores not allowed
     }
 
     #[test]
@@ -50,8 +50,8 @@ mod tests {
 
     #[test]
     fn test_invalid_hex_colors() {
-        assert!(!is_valid_hex_color("FF0055"));   // Missing #
+        assert!(!is_valid_hex_color("FF0055")); // Missing #
         assert!(!is_valid_hex_color("#ff0055g")); // Invalid hex character
-        assert!(!is_valid_hex_color("#12345"));   // Wrong length
+        assert!(!is_valid_hex_color("#12345")); // Wrong length
     }
 }

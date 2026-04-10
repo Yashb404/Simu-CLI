@@ -1,17 +1,20 @@
+use crate::{
+    auth::{USER_SESSION_KEY, github_oauth_client},
+    error::ApiError,
+    state::AppState,
+};
 use axum::{
+    Router,
     extract::{Query, State},
-    http::header,
-    http::HeaderMap,
     http::StatusCode,
+    http::header,
     response::{Html, IntoResponse, Redirect, Response},
     routing::{get, post},
-    Router,
 };
 use oauth2::{AuthorizationCode, CsrfToken, RedirectUrl, Scope, TokenResponse};
 use serde::Deserialize;
+use shared::{error::AppError, models::user::User};
 use tower_sessions::Session;
-use crate::{auth::{github_oauth_client, USER_SESSION_KEY}, state::AppState, error::ApiError};
-use shared::{models::user::User, error::AppError};
 
 pub fn auth_routes() -> Router<AppState> {
     Router::new()
@@ -20,30 +23,11 @@ pub fn auth_routes() -> Router<AppState> {
         .route("/logout", post(logout))
 }
 
-fn request_origin(host: Option<&str>, headers: &HeaderMap, fallback_origin: &str) -> String {
-    let scheme = headers
-        .get("x-forwarded-proto")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("http");
-    let host = host.unwrap_or_else(|| {
-        fallback_origin
-            .trim_start_matches("https://")
-            .trim_start_matches("http://")
-            .trim_end_matches('/')
-    });
-    format!("{scheme}://{host}")
-}
-
 async fn github_login(
     State(state): State<AppState>,
-    headers: HeaderMap,
     session: Session,
 ) -> Result<Response, Response> {
-    let host = headers.get("host").and_then(|value| value.to_str().ok());
-    let redirect_uri = format!(
-        "{}/api/auth/github/callback",
-        request_origin(host, &headers, &state.config.api_url)
-    );
+    let redirect_uri = state.config.github_redirect_uri();
 
     let client = github_oauth_client(&state.config)
         .map_err(|e| {
@@ -62,22 +46,26 @@ async fn github_login(
         .url();
 
     // Store CSRF token
-    session.insert("csrf_token", csrf_token.secret().clone()).await
+    session
+        .insert("csrf_token", csrf_token.secret().clone())
+        .await
         .map_err(|e| {
             tracing::error!("Failed to store CSRF token in session: {:?}", e);
             (StatusCode::INTERNAL_SERVER_ERROR, "Session error").into_response()
         })?;
 
-    session.insert("oauth_redirect_uri", redirect_uri).await
+    session
+        .insert("oauth_redirect_uri", redirect_uri)
+        .await
         .map_err(|e| {
             tracing::error!("Failed to store OAuth redirect URI in session: {:?}", e);
             (StatusCode::INTERNAL_SERVER_ERROR, "Session error").into_response()
         })?;
 
-        let destination = auth_url.to_string();
+    let destination = auth_url.to_string();
 
-        let body = format!(
-                r#"<!doctype html>
+    let body = format!(
+        r#"<!doctype html>
 <html lang="en">
     <head>
         <meta charset="utf-8" />
@@ -114,13 +102,14 @@ async fn github_login(
         </script>
     </body>
 </html>"#
-        );
+    );
 
-        let mut response = Html(body).into_response();
-        response
-                .headers_mut()
-                .insert(header::CACHE_CONTROL, header::HeaderValue::from_static("no-store"));
-        Ok(response)
+    let mut response = Html(body).into_response();
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        header::HeaderValue::from_static("no-store"),
+    );
+    Ok(response)
 }
 
 #[derive(Deserialize)]
@@ -139,18 +128,18 @@ struct GithubUser {
 
 async fn github_callback(
     State(state): State<AppState>,
-    headers: HeaderMap,
     session: Session,
     Query(query): Query<AuthRequest>,
 ) -> Result<Redirect, Response> {
-    let stored_csrf: Option<String> = session.get("csrf_token").await
-        .map_err(|e| {
-            tracing::error!("Failed to retrieve CSRF token from session: {:?}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Session error").into_response()
-        })?;
-    
+    let stored_csrf: Option<String> = session.get("csrf_token").await.map_err(|e| {
+        tracing::error!("Failed to retrieve CSRF token from session: {:?}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, "Session error").into_response()
+    })?;
+
     if stored_csrf != Some(query.state.clone()) {
-        tracing::warn!("CSRF token mismatch during GitHub callback. Session likely changed host/origin between login and callback.");
+        tracing::warn!(
+            "CSRF token mismatch during GitHub callback. Session likely changed host/origin between login and callback."
+        );
         return Err((StatusCode::UNAUTHORIZED, "CSRF token mismatch").into_response());
     }
 
@@ -158,17 +147,25 @@ async fn github_callback(
         tracing::warn!("Failed to clear CSRF token from session: {err:?}");
     }
 
-    let redirect_uri: Option<String> = session.get("oauth_redirect_uri").await
-        .map_err(|e| {
-            tracing::error!("Failed to retrieve OAuth redirect URI from session: {:?}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Session error").into_response()
-        })?;
+    let redirect_uri: Option<String> = session.get("oauth_redirect_uri").await.map_err(|e| {
+        tracing::error!(
+            "Failed to retrieve OAuth redirect URI from session: {:?}",
+            e
+        );
+        (StatusCode::INTERNAL_SERVER_ERROR, "Session error").into_response()
+    })?;
 
     if let Err(err) = session.remove::<String>("oauth_redirect_uri").await {
         tracing::warn!("Failed to clear OAuth redirect URI from session: {err:?}");
     }
 
     let redirect_uri = redirect_uri.unwrap_or_else(|| state.config.github_redirect_uri());
+
+    // Validate the redirect URI against the configured allow-list
+    if redirect_uri != state.config.github_redirect_uri() {
+        tracing::warn!("Unexpected OAuth redirect URI in session: {redirect_uri}");
+        return Err((StatusCode::BAD_REQUEST, "Invalid redirect URI").into_response());
+    }
 
     let client = github_oauth_client(&state.config)
         .map_err(|e| {
@@ -181,7 +178,7 @@ async fn github_callback(
         })?);
 
     let reqwest_client = reqwest::Client::new();
-    
+
     // Exchange authorization code for access token
     let token = client
         .exchange_code(AuthorizationCode::new(query.code))
@@ -189,7 +186,10 @@ async fn github_callback(
         .await
         .map_err(|e| {
             tracing::error!("Failed to exchange OAuth code: {:?}", e);
-            ApiError(AppError::BadGateway("Failed to authenticate with GitHub".to_string())).into_response()
+            ApiError(AppError::BadGateway(
+                "Failed to authenticate with GitHub".to_string(),
+            ))
+            .into_response()
         })?;
 
     // Fetch user profile from GitHub
@@ -201,13 +201,19 @@ async fn github_callback(
         .await
         .map_err(|e| {
             tracing::error!("Failed to fetch GitHub user profile: {:?}", e);
-            ApiError(AppError::BadGateway("Failed to fetch user profile".to_string())).into_response()
+            ApiError(AppError::BadGateway(
+                "Failed to fetch user profile".to_string(),
+            ))
+            .into_response()
         })?
         .json()
         .await
         .map_err(|e| {
             tracing::error!("Failed to deserialize GitHub user profile: {:?}", e);
-            ApiError(AppError::BadGateway("Invalid user profile response".to_string())).into_response()
+            ApiError(AppError::BadGateway(
+                "Invalid user profile response".to_string(),
+            ))
+            .into_response()
         })?;
 
     // Upsert user in database
@@ -235,7 +241,9 @@ async fn github_callback(
     })?;
 
     // Store user ID in session
-    session.insert(USER_SESSION_KEY, user.id).await
+    session
+        .insert(USER_SESSION_KEY, user.id)
+        .await
         .map_err(|e| {
             tracing::error!("Failed to store user ID in session: {:?}", e);
             (StatusCode::INTERNAL_SERVER_ERROR, "Session error").into_response()
@@ -243,17 +251,17 @@ async fn github_callback(
 
     tracing::info!("User {} authenticated successfully", user.username);
 
-    let frontend_host = headers.get("host").and_then(|value| value.to_str().ok());
-    let frontend_origin = request_origin(frontend_host, &headers, &state.config.frontend_url);
-    Ok(Redirect::to(&format!("{}/dashboard", frontend_origin)))
+    Ok(Redirect::to(&format!(
+        "{}/dashboard",
+        state.config.frontend_url
+    )))
 }
 
-async fn logout(session: Session) -> Result<Redirect, StatusCode> {
-    session.delete().await
-        .map_err(|e| {
-            tracing::error!("Failed to delete session: {:?}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
-    
-    Ok(Redirect::to("/"))
+async fn logout(State(state): State<AppState>, session: Session) -> Result<Redirect, StatusCode> {
+    session.delete().await.map_err(|e| {
+        tracing::error!("Failed to delete session: {:?}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    Ok(Redirect::to(&state.config.frontend_url))
 }

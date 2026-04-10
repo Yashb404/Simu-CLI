@@ -1,11 +1,10 @@
+use crate::{auth::AuthUser, handlers, middleware, state::AppState};
 use axum::{
+    Json, Router,
     http::StatusCode,
     routing::{get, patch, post},
-    Json, Router,
 };
-use crate::{state::AppState, handlers, auth::AuthUser, middleware};
 use shared::models::user::User;
-
 
 pub fn create_router(state: AppState) -> Router {
     Router::new()
@@ -72,22 +71,27 @@ pub fn create_router(state: AppState) -> Router {
             "/api/billing/status",
             get(handlers::billing::get_billing_status),
         )
-        .route(
-            "/api/billing/subscribe",
-            post(handlers::billing::subscribe),
-        )
+        .route("/api/billing/subscribe", post(handlers::billing::subscribe))
         .route("/api/projects", post(handlers::projects::create_project))
-        .route("/api/me/projects", get(handlers::projects::list_my_projects))
+        .route(
+            "/api/me/projects",
+            get(handlers::projects::list_my_projects),
+        )
         .route(
             "/api/projects/{id}",
-            patch(handlers::projects::update_project)
-                .delete(handlers::projects::delete_project),
+            patch(handlers::projects::update_project).delete(handlers::projects::delete_project),
         )
         .nest("/api/auth", handlers::auth::auth_routes())
         // Alias for environments/proxies that strip the /api prefix.
         .nest("/auth", handlers::auth::auth_routes())
         // Never let unmatched API paths fall through to SPA fallback.
-        .route("/api/{*path}", get(api_not_found).post(api_not_found).patch(api_not_found).delete(api_not_found))
+        .route(
+            "/api/{*path}",
+            get(api_not_found)
+                .post(api_not_found)
+                .patch(api_not_found)
+                .delete(api_not_found),
+        )
         .with_state(state)
 }
 
@@ -142,12 +146,13 @@ mod tests {
             config: Config {
                 database_url: "postgres://dummy:dummy@localhost/dummy".to_string(),
                 github_client_id: "test-client".to_string(),
-                github_client_secret: "test-secret".to_string(),
-                session_secret: "a".repeat(64),
+                github_client_secret: crate::config::Secret("test-secret".to_string()),
+                session_secret: crate::config::Secret("a".repeat(64)),
                 api_url: "https://api.example.test".to_string(),
                 frontend_url: "https://app.example.test".to_string(),
                 port: 3001,
                 rate_limit_requests_per_minute: 100,
+                db_max_connections: 5,
                 session_timeout: time::Duration::days(7),
                 session_cookie_secure: false,
                 log_level: "server=debug".to_string(),
@@ -165,7 +170,10 @@ mod tests {
         };
 
         let response_result = app.oneshot(request).await;
-        assert!(response_result.is_ok(), "health check request should succeed");
+        assert!(
+            response_result.is_ok(),
+            "health check request should succeed"
+        );
         let response = match response_result {
             Ok(response) => response,
             Err(_) => return,

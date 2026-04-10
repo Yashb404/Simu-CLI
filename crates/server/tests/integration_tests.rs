@@ -11,10 +11,10 @@ mod fixtures;
 use fixtures::{dummy_pool, json_body, test_router, test_router_with_rate_limit, try_db_fixture};
 
 use axum::{
+    Json,
     body::Body,
     extract::{Path, Query, State},
     http::{Request, StatusCode},
-    Json,
 };
 use server::{
     auth::AuthUser,
@@ -32,7 +32,12 @@ use tower::ServiceExt; // `oneshot`
 async fn health_check_returns_200() {
     let app = test_router(dummy_pool());
     let response = app
-        .oneshot(Request::builder().uri("/api/health").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/api/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
@@ -44,7 +49,12 @@ async fn health_check_returns_200() {
 async fn get_me_without_session_returns_401() {
     let app = test_router(dummy_pool());
     let response = app
-        .oneshot(Request::builder().uri("/api/me").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/api/me")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
@@ -196,7 +206,12 @@ async fn post_analytics_event_with_invalid_type_returns_400() {
 async fn error_responses_include_error_field() {
     let app = test_router(dummy_pool());
     let response = app
-        .oneshot(Request::builder().uri("/api/me").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/api/me")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
@@ -247,7 +262,10 @@ async fn requests_echo_x_request_id_header() {
         .await
         .unwrap();
     assert_eq!(
-        response.headers().get("x-request-id").and_then(|v| v.to_str().ok()),
+        response
+            .headers()
+            .get("x-request-id")
+            .and_then(|v| v.to_str().ok()),
         Some("test-correlation-123"),
         "server must echo x-request-id from the request"
     );
@@ -257,7 +275,12 @@ async fn requests_echo_x_request_id_header() {
 async fn requests_without_request_id_get_one_generated() {
     let app = test_router(dummy_pool());
     let response = app
-        .oneshot(Request::builder().uri("/api/health").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/api/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
     let id_header = response.headers().get("x-request-id");
@@ -373,22 +396,23 @@ async fn demo_crud_happy_path() {
         "created demo should appear in owner listing"
     );
 
-    let delete_status = demos::delete_demo(
-        State(state.clone()),
-        OwnedDemo(updated_demo.clone()),
-    )
-    .await
-    .expect("delete_demo should succeed");
+    let delete_status = demos::delete_demo(State(state.clone()), OwnedDemo(updated_demo.clone()))
+        .await
+        .expect("delete_demo should succeed");
 
     assert_eq!(delete_status, StatusCode::NO_CONTENT);
 
-    let deleted_exists: Option<uuid::Uuid> = sqlx::query_scalar("SELECT id FROM demos WHERE id = $1")
-        .bind(created_demo.0.id)
-        .fetch_optional(&state.db)
-        .await
-        .expect("delete verification query should succeed");
+    let deleted_exists: Option<uuid::Uuid> =
+        sqlx::query_scalar("SELECT id FROM demos WHERE id = $1")
+            .bind(created_demo.0.id)
+            .fetch_optional(&state.db)
+            .await
+            .expect("delete verification query should succeed");
 
-    assert!(deleted_exists.is_none(), "deleted demo should be removed from DB");
+    assert!(
+        deleted_exists.is_none(),
+        "deleted demo should be removed from DB"
+    );
 }
 
 #[tokio::test]
@@ -411,13 +435,10 @@ async fn publish_makes_demo_publicly_accessible() {
     .await
     .expect("create_demo should succeed");
 
-    let publish = demos::publish_demo(
-        State(state.clone()),
-        OwnedDemo(created_demo.0.clone()),
-    )
-    .await
-    .expect("publish_demo should succeed")
-    .0;
+    let publish = demos::publish_demo(State(state.clone()), OwnedDemo(created_demo.0.clone()))
+        .await
+        .expect("publish_demo should succeed")
+        .0;
 
     assert_eq!(publish.id, created_demo.0.id);
     assert!(publish.slug.starts_with("publishable-demo"));

@@ -31,26 +31,40 @@ fn query_param_value(key: &str) -> Option<String> {
     None
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EmbedConfig {
+    pub demo_id: String,
+    pub api_base: String,
+}
+
 #[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
+fn resolved_api_base() -> String {
+    query_param_value("api_base")
+        .or_else(|| web_sys::window().and_then(|window| window.location().origin().ok()))
+        .unwrap_or_default()
+}
 
 #[component]
 pub fn EmbedApp() -> impl IntoView {
     let (demo, _set_demo) = signal(Option::<PublicDemoResponse>::None);
     let (status, _set_status) = signal(String::new());
+    let (config, _set_config) = signal(Option::<EmbedConfig>::None);
 
     #[cfg(target_arch = "wasm32")]
     Effect::new(move |_| {
         let set_demo = _set_demo;
         let set_status = _set_status;
+        let set_config = _set_config;
         let Some(demo_id) = query_param_value("demo_id") else {
             set_status.set("Missing demo_id query parameter".to_string());
             return;
         };
 
-        let api_base = query_param_value("api_base")
-            .or_else(|| web_sys::window().and_then(|window| window.location().origin().ok()))
-            .unwrap_or_default();
+        let api_base = resolved_api_base();
+        set_config.set(Some(EmbedConfig {
+            demo_id: demo_id.clone(),
+            api_base: api_base.clone(),
+        }));
         let endpoint = format!("{api_base}/api/public/demos/{demo_id}");
 
         leptos::task::spawn_local({
@@ -99,7 +113,11 @@ pub fn EmbedApp() -> impl IntoView {
             >
                 {move || {
                     let demo_data = demo.get().unwrap();
-                    view! { <components::terminal::TerminalUI demo=demo_data /> }
+                    let embed_config = config.get().unwrap_or_else(|| EmbedConfig {
+                        demo_id: demo_data.id.to_string(),
+                        api_base: String::new(),
+                    });
+                    view! { <components::terminal::TerminalUI demo=demo_data config=embed_config /> }
                 }}
             </Show>
         </main>
@@ -116,28 +134,4 @@ pub fn mount() {
 pub fn start() {
     console_error_panic_hook::set_once();
     mount();
-}
-
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-pub struct CliSimulator {
-    container_selector: String,
-    demo_id: String,
-}
-
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-impl CliSimulator {
-    #[wasm_bindgen(constructor)]
-    pub fn new(container_selector: String, demo_id: String) -> Self {
-        Self {
-            container_selector,
-            demo_id,
-        }
-    }
-
-    pub fn start(&self) {
-        let _ = (&self.container_selector, &self.demo_id);
-        mount();
-    }
 }

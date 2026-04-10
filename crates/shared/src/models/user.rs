@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use time::OffsetDateTime;
+use uuid::Uuid;
 
-#[cfg_attr(not(target_arch = "wasm32"), derive(sqlx::FromRow))]
+#[cfg_attr(feature = "backend", derive(sqlx::FromRow))]
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct User{
+pub struct User {
     pub id: Uuid,
     pub github_id: i64,
     pub username: String,

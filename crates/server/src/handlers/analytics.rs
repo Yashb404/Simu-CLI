@@ -1,8 +1,8 @@
 use axum::{
-    extract::{Query, State},
-    http::{header, HeaderMap, HeaderValue, StatusCode},
-    response::{IntoResponse, Response},
     Json,
+    extract::{Query, State},
+    http::{HeaderMap, HeaderValue, StatusCode, header},
+    response::{IntoResponse, Response},
 };
 use serde::Deserialize;
 use uuid::Uuid;
@@ -15,8 +15,8 @@ use crate::{
 };
 use shared::{
     dto::{
-        AnalyticsEventRequest, AnalyticsExportQuery, AnalyticsSeriesPoint,
-        AnalyticsWindowQuery, FunnelPoint, ReferrerCount,
+        AnalyticsEventRequest, AnalyticsExportQuery, AnalyticsSeriesPoint, AnalyticsWindowQuery,
+        FunnelPoint, ReferrerCount,
     },
     error::AppError,
     models::analytics::AnalyticsEventType,
@@ -44,7 +44,9 @@ pub struct AnalyticsFunnelQuery {
 }
 
 fn sanitize_export_bounds(days: Option<i64>, limit: Option<i64>) -> (i64, i64) {
-    let days = days.unwrap_or(DEFAULT_EXPORT_DAYS).clamp(1, MAX_EXPORT_DAYS);
+    let days = days
+        .unwrap_or(DEFAULT_EXPORT_DAYS)
+        .clamp(1, MAX_EXPORT_DAYS);
     let limit = limit
         .unwrap_or(DEFAULT_EXPORT_LIMIT)
         .clamp(1, MAX_EXPORT_LIMIT);
@@ -110,7 +112,10 @@ pub async fn get_demo_analytics(
     OwnedDemo(demo): OwnedDemo,
     Query(query): Query<AnalyticsWindowQuery>,
 ) -> HandlerResult<Json<Vec<AnalyticsSeriesPoint>>> {
-    let days = query.days.unwrap_or(DEFAULT_ANALYTICS_WINDOW_DAYS).clamp(1, MAX_ANALYTICS_WINDOW_DAYS);
+    let days = query
+        .days
+        .unwrap_or(DEFAULT_ANALYTICS_WINDOW_DAYS)
+        .clamp(1, MAX_ANALYTICS_WINDOW_DAYS);
 
     let rows = sqlx::query_as::<_, AnalyticsSeriesPoint>(
         r#"

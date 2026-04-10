@@ -1,13 +1,25 @@
-                            use leptos::prelude::*;
+use leptos::prelude::*;
 use leptos::task::spawn_local;
 use leptos_router::components::{A, Outlet, Redirect};
+use leptos_router::hooks::use_location;
 
 use crate::api;
-use crate::auth::{refresh_session_state, use_auth_context, SessionState};
+use crate::auth::{SessionState, refresh_session_state, use_auth_context};
 
 #[component]
 pub fn AppShell() -> impl IntoView {
     let auth = use_auth_context();
+    let location = use_location();
+    let editor_route = Signal::derive(move || {
+        let path = location.pathname.get();
+        let mut segments = path.split('/').filter(|segment| !segment.is_empty());
+        let first = segments.next();
+        let second = segments.next();
+        let third = segments.next();
+        let fourth = segments.next();
+
+        first == Some("dashboard") && second == Some("demos") && third.is_some() && fourth.is_none()
+    });
 
     view! {
         {move || {
@@ -41,6 +53,17 @@ pub fn AppShell() -> impl IntoView {
                 }
                 .into_any(),
                 SessionState::LoggedIn(user) => {
+                    if editor_route.get() {
+                        return view! {
+                            <main class="modern-shell">
+                                <section class="app-content app-content--full">
+                                    <Outlet />
+                                </section>
+                            </main>
+                        }
+                        .into_any();
+                    }
+
                     let username = user.username;
                     let email = user.email.unwrap_or_else(|| "GitHub account".to_string());
                     let avatar_url = user.avatar_url;
