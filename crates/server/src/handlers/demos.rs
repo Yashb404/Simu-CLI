@@ -530,39 +530,35 @@ async fn read_cast_field(multipart: &mut axum::extract::Multipart) -> HandlerRes
         tracing::error!("Multipart read error in import_cast: {:?}", e);
         ApiError(AppError::Validation("Multipart error".into()))
     })? {
-        if let Some(name) = field.name() {
-            if name == "file" {
-                let file_name = field.file_name().unwrap_or("").to_ascii_lowercase();
-                if !file_name.ends_with(".cast") {
-                    return Err(ApiError(AppError::Validation(
-                        "Only .cast files are accepted".into(),
-                    ))
-                    .into());
-                }
-
-                let data = field.bytes().await.map_err(|e| {
-                    tracing::error!("File bytes read error in import_cast: {:?}", e);
-                    ApiError(AppError::Validation("Failed to read file data".into()))
-                })?;
-
-                if data.len() > MAX_CAST_UPLOAD_BYTES {
-                    return Err(ApiError(AppError::Validation(format!(
-                        "File too large. Max allowed is {} MB",
-                        MAX_CAST_UPLOAD_BYTES / (1024 * 1024)
-                    )))
-                    .into());
-                }
-                return String::from_utf8(data.to_vec()).map_err(|e| {
-                    ApiError(AppError::Validation(format!("Invalid UTF-8: {}", e))).into()
-                });
+        if let Some(name) = field.name()
+            && name == "file"
+        {
+            let file_name = field.file_name().unwrap_or("").to_ascii_lowercase();
+            if !file_name.ends_with(".cast") {
+                return Err(ApiError(AppError::Validation(
+                    "Only .cast files are accepted".into(),
+                )));
             }
+
+            let data = field.bytes().await.map_err(|e| {
+                tracing::error!("File bytes read error in import_cast: {:?}", e);
+                ApiError(AppError::Validation("Failed to read file data".into()))
+            })?;
+
+            if data.len() > MAX_CAST_UPLOAD_BYTES {
+                return Err(ApiError(AppError::Validation(format!(
+                    "File too large. Max allowed is {} MB",
+                    MAX_CAST_UPLOAD_BYTES / (1024 * 1024)
+                ))));
+            }
+            return String::from_utf8(data.to_vec())
+                .map_err(|e| ApiError(AppError::Validation(format!("Invalid UTF-8: {}", e))));
         }
     }
 
     Err(ApiError(AppError::Validation(
         "No 'file' field in multipart form".into(),
-    ))
-    .into())
+    )))
 }
 
 /// Build `ParseOptions` from the caller-supplied query parameters.

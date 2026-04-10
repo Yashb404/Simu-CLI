@@ -3,7 +3,7 @@ pub const MAX_OUTPUT_LINES_PER_STEP: usize = 100;
 
 pub fn is_valid_slug(slug: &str) -> bool {
     let len = slug.len();
-    if len < 3 || len > 60 {
+    if !(3..=60).contains(&len) {
         return false;
     }
     // Only lowercase alphanumeric and hyphens

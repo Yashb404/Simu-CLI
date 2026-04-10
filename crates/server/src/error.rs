@@ -95,15 +95,14 @@ impl From<reqwest::Error> for ApiError {
     fn from(err: reqwest::Error) -> Self {
         tracing::error!("HTTP request failed: {:?}", err);
 
-        if err.is_status() {
-            if let Some(status) = err.status() {
-                if status.is_client_error() {
-                    return ApiError(AppError::BadGateway(format!(
-                        "External service error: {}",
-                        status
-                    )));
-                }
-            }
+        if err.is_status()
+            && let Some(status) = err.status()
+            && status.is_client_error()
+        {
+            return ApiError(AppError::BadGateway(format!(
+                "External service error: {}",
+                status
+            )));
         }
 
         ApiError(AppError::BadGateway(

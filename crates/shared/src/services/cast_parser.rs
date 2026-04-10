@@ -26,7 +26,7 @@ pub struct CommandInteraction {
 }
 
 /// Knobs passed to the parser by the caller.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ParseOptions {
     /// When `Some(patterns)`, any output whose final line matches one of the
     /// supplied prompt patterns will have that line stripped.  Pass `None` to
@@ -35,14 +35,6 @@ pub struct ParseOptions {
     /// Patterns are matched with [`prompt_matches`]; see that function for the
     /// exact matching semantics.
     pub strip_trailing_prompt: Option<Vec<String>>,
-}
-
-impl Default for ParseOptions {
-    fn default() -> Self {
-        Self {
-            strip_trailing_prompt: None,
-        }
-    }
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -278,10 +270,10 @@ fn prompt_matches(line: &str, patterns: &[String]) -> bool {
         if pattern.is_empty() {
             // Heuristic: check if line ends with a common shell prompt suffix.
             let trimmed = line.trim_end();
-            if let Some(last_ch) = trimmed.chars().last() {
-                if matches!(last_ch, '$' | '#' | '%' | '>') {
-                    return true;
-                }
+            if let Some(last_ch) = trimmed.chars().last()
+                && matches!(last_ch, '$' | '#' | '%' | '>')
+            {
+                return true;
             }
         } else if line.contains(pattern) {
             return true;

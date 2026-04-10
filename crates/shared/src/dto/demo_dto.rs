@@ -28,12 +28,12 @@ fn validate_steps(value: &Vec<Step>) -> Result<(), validator::ValidationError> {
     }
 
     for step in value {
-        if let Some(input) = &step.input {
-            if input.trim().is_empty() || input.len() > 200 {
-                let mut err = validator::ValidationError::new("invalid_step_input");
-                err.message = Some("step input must be non-empty and <= 200 chars".into());
-                return Err(err);
-            }
+        if let Some(input) = &step.input
+            && (input.trim().is_empty() || input.len() > 200)
+        {
+            let mut err = validator::ValidationError::new("invalid_step_input");
+            err.message = Some("step input must be non-empty and <= 200 chars".into());
+            return Err(err);
         }
 
         if let Some(output_lines) = &step.output {
@@ -56,12 +56,12 @@ fn validate_steps(value: &Vec<Step>) -> Result<(), validator::ValidationError> {
                     return Err(err);
                 }
 
-                if let Some(color) = &output_line.color {
-                    if !is_valid_hex_color(color) {
-                        let mut err = validator::ValidationError::new("invalid_output_color");
-                        err.message = Some("output line color must be a valid hex color".into());
-                        return Err(err);
-                    }
+                if let Some(color) = &output_line.color
+                    && !is_valid_hex_color(color)
+                {
+                    let mut err = validator::ValidationError::new("invalid_output_color");
+                    err.message = Some("output line color must be a valid hex color".into());
+                    return Err(err);
                 }
             }
         }
@@ -112,8 +112,9 @@ fn validate_settings(value: &DemoSettings) -> Result<(), validator::ValidationEr
             return Err(err);
         }
 
-        if !trimmed.is_empty()
-            && !(trimmed.starts_with("https://") || trimmed.starts_with("http://"))
+        if !(trimmed.is_empty()
+            || trimmed.starts_with("https://")
+            || trimmed.starts_with("http://"))
         {
             let mut err = validator::ValidationError::new("invalid_documentation_url");
             err.message =

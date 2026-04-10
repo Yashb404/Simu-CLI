@@ -13,22 +13,19 @@ use serde_json::json;
 use crate::state::AppState;
 
 fn resolve_client_ip(req: &Request<Body>) -> Option<IpAddr> {
-    if let Some(real_ip) = req.headers().get("x-real-ip") {
-        if let Ok(value) = real_ip.to_str() {
-            if let Ok(ip) = value.parse::<IpAddr>() {
-                return Some(ip);
-            }
-        }
+    if let Some(real_ip) = req.headers().get("x-real-ip")
+        && let Ok(value) = real_ip.to_str()
+        && let Ok(ip) = value.parse::<IpAddr>()
+    {
+        return Some(ip);
     }
 
-    if let Some(forwarded) = req.headers().get("x-forwarded-for") {
-        if let Ok(value) = forwarded.to_str() {
-            if let Some(first) = value.split(',').next() {
-                if let Ok(ip) = first.trim().parse::<IpAddr>() {
-                    return Some(ip);
-                }
-            }
-        }
+    if let Some(forwarded) = req.headers().get("x-forwarded-for")
+        && let Ok(value) = forwarded.to_str()
+        && let Some(first) = value.split(',').next()
+        && let Ok(ip) = first.trim().parse::<IpAddr>()
+    {
+        return Some(ip);
     }
 
     None
