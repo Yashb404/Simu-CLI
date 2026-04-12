@@ -1,5 +1,6 @@
 use anyhow::Context;
 use axum::http::{HeaderValue, Method, header};
+use axum::response::Html;
 use axum::routing::get_service;
 use governor::{Quota, RateLimiter};
 use server::{config, middleware, router, state};
@@ -112,6 +113,7 @@ async fn main() -> anyhow::Result<()> {
 
     let app_index = app_dist_dir.join("index.html");
     let embed_index = embed_dist_dir.join("index.html");
+    let has_app_index = app_index.is_file();
 
     let app_static = get_service(
         // Use fallback (not not_found_service) so SPA routes return index.html with 200.
@@ -121,8 +123,19 @@ async fn main() -> anyhow::Result<()> {
         get_service(ServeDir::new(&embed_dist_dir).fallback(ServeFile::new(&embed_index)));
     let static_assets = get_service(ServeDir::new(&static_dir));
 
-    let app = router::create_router(state.clone())
-        .route_service("/", ServeFile::new(&app_index))
+    if !has_app_index {
+        tracing::warn!(
+            "Dashboard index not found at {}. Serving API landing page at /.\nIf this is unexpected, verify frontend build artifacts are copied into the runtime image.",
+            app_index.display()
+        );
+    }
+
+    let app = if has_app_index {
+        router::create_router(state.clone())
+            .route_service("/", ServeFile::new(app_index.clone()))
+    } else {
+        router::create_router(state.clone()).route("/", axum::routing::get(api_landing_page))
+    }
         .route_service("/embed-runtime", ServeFile::new(&embed_index))
         .nest_service("/embed-runtime/", embed_static)
         .nest_service("/static", static_assets)
@@ -180,5 +193,11 @@ fn resolve_migrations_path() -> anyhow::Result<std::path::PathBuf> {
     anyhow::bail!(
         "No migrations directory found. Checked: {}. Set MIGRATIONS_DIR to a valid path.",
         checked
+    )
+}
+
+async fn api_landing_page() -> Html<&'static str> {
+    Html(
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>CLI Demo Studio API</title><style>body{font-family:system-ui,-apple-system,sans-serif;max-width:760px;margin:48px auto;padding:0 16px;line-height:1.5;color:#111}a{color:#0f4c81}code{background:#f4f4f5;padding:2px 6px;border-radius:6px}</style></head><body><h1>CLI Demo Studio API</h1><p>The backend is running.</p><p>Health check: <a href=\"/api/health\">/api/health</a></p><p>If you expected the dashboard at <code>/</code>, ensure frontend build files are available at runtime.</p></body></html>",
     )
 }
