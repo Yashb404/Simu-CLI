@@ -47,7 +47,7 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("Connected to database!");
 
-    let migrations_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../migrations");
+    let migrations_path = resolve_migrations_path()?;
     sqlx::migrate::Migrator::new(migrations_path.clone())
         .await?
         .run(&db)
@@ -150,4 +150,34 @@ async fn main() -> anyhow::Result<()> {
     axum::serve(listener, app).await?;
 
     Ok(())
+}
+
+fn resolve_migrations_path() -> anyhow::Result<std::path::PathBuf> {
+    let mut candidates = Vec::new();
+
+    if let Ok(from_env) = std::env::var("MIGRATIONS_DIR") {
+        let trimmed = from_env.trim();
+        if !trimmed.is_empty() {
+            candidates.push(std::path::PathBuf::from(trimmed));
+        }
+    }
+
+    candidates.push(std::path::PathBuf::from("/app/migrations"));
+    candidates.push(std::path::PathBuf::from("migrations"));
+    candidates.push(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../migrations"));
+
+    if let Some(path) = candidates.iter().find(|path| path.is_dir()) {
+        return Ok(path.clone());
+    }
+
+    let checked = candidates
+        .iter()
+        .map(|path| path.display().to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    anyhow::bail!(
+        "No migrations directory found. Checked: {}. Set MIGRATIONS_DIR to a valid path.",
+        checked
+    )
 }
