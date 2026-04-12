@@ -133,29 +133,50 @@ async fn main() -> anyhow::Result<()> {
     let app = if has_app_index {
         router::create_router(state.clone())
             .route_service("/", ServeFile::new(app_index.clone()))
+            .route_service("/embed-runtime", ServeFile::new(&embed_index))
+            .nest_service("/embed-runtime/", embed_static)
+            .nest_service("/static", static_assets)
+            .fallback_service(app_static)
+            .layer(axum::middleware::from_fn(
+                middleware::logging::logging_middleware,
+            ))
+            .layer(axum::middleware::from_fn(
+                middleware::metrics::metrics_middleware,
+            ))
+            .layer(axum::middleware::from_fn(
+                middleware::security_headers::security_headers_middleware,
+            ))
+            .layer(axum::middleware::from_fn_with_state(
+                state.clone(),
+                middleware::rate_limit::rate_limit_middleware,
+            ))
+            .layer(CompressionLayer::new())
+            .layer(cors)
+            .layer(session_layer)
     } else {
-        router::create_router(state.clone()).route("/", axum::routing::get(api_landing_page))
-    }
-        .route_service("/embed-runtime", ServeFile::new(&embed_index))
-        .nest_service("/embed-runtime/", embed_static)
-        .nest_service("/static", static_assets)
-        .fallback_service(app_static)
-        .layer(axum::middleware::from_fn(
-            middleware::logging::logging_middleware,
-        ))
-        .layer(axum::middleware::from_fn(
-            middleware::metrics::metrics_middleware,
-        ))
-        .layer(axum::middleware::from_fn(
-            middleware::security_headers::security_headers_middleware,
-        ))
-        .layer(axum::middleware::from_fn_with_state(
-            state.clone(),
-            middleware::rate_limit::rate_limit_middleware,
-        ))
-        .layer(CompressionLayer::new())
-        .layer(cors)
-        .layer(session_layer);
+        router::create_router(state.clone())
+            .route("/", axum::routing::get(api_landing_page))
+            .route_service("/embed-runtime", ServeFile::new(&embed_index))
+            .nest_service("/embed-runtime/", embed_static)
+            .nest_service("/static", static_assets)
+            .fallback_service(app_static)
+            .layer(axum::middleware::from_fn(
+                middleware::logging::logging_middleware,
+            ))
+            .layer(axum::middleware::from_fn(
+                middleware::metrics::metrics_middleware,
+            ))
+            .layer(axum::middleware::from_fn(
+                middleware::security_headers::security_headers_middleware,
+            ))
+            .layer(axum::middleware::from_fn_with_state(
+                state.clone(),
+                middleware::rate_limit::rate_limit_middleware,
+            ))
+            .layer(CompressionLayer::new())
+            .layer(cors)
+            .layer(session_layer)
+    };
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
     let listener = tokio::net::TcpListener::bind(addr).await?;
