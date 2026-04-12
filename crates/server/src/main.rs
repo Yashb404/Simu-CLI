@@ -122,6 +122,7 @@ async fn main() -> anyhow::Result<()> {
     let static_assets = get_service(ServeDir::new(&static_dir));
 
     let app = router::create_router(state.clone())
+        .route_service("/", ServeFile::new(&app_index))
         .route_service("/embed-runtime", ServeFile::new(&embed_index))
         .nest_service("/embed-runtime/", embed_static)
         .nest_service("/static", static_assets)
