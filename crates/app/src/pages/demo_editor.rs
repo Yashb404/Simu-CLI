@@ -123,7 +123,8 @@ fn TopNav(
                     "Back to Demos"
                 </button>
                 <div class="text-lg font-black text-primary tracking-tighter shrink-0">"SimuCLI Demo Creator"</div>
-                        on:click=move |_| on_open_workspace_guide.run(())
+                <input
+                    type="text"
                     class="bg-transparent border-none outline-none text-on-surface placeholder:text-zinc-500 text-sm md:text-base min-w-[220px]"
                     prop:value=move || title.get()
                     on:input=move |ev| set_title.set(event_target_value(&ev))
@@ -697,13 +698,15 @@ fn ScriptBuilderState(
             </section>
 
             <section class="w-full xl:w-1/2 min-w-0 min-h-[360px] xl:min-h-0 flex flex-col bg-surface-container-lowest p-6 relative overflow-hidden">
-                <button
-                    class="absolute top-10 right-10 z-30 flex items-center gap-2 bg-surface-container/80 px-4 py-2 rounded-full border border-outline-variant/30 text-[10px] font-bold uppercase tracking-widest text-primary shadow-2xl"
-                    on:click=move |_| set_guide_open.set(true)
-                >
-                    <span class="material-symbols-outlined text-sm">"help_center"</span>
-                    "Open Guide"
-                </button>
+                <Show when=move || !guide_open.get()>
+                    <button
+                        class="absolute top-10 right-10 z-30 flex items-center gap-2 bg-surface-container hover:bg-surface-container-high px-4 py-2 rounded-full border border-outline-variant/50 text-[10px] font-bold uppercase tracking-widest text-primary shadow-2xl transition-all"
+                        on:click=move |_| set_guide_open.set(true)
+                    >
+                        <span class="material-symbols-outlined text-sm">"help_center"</span>
+                        "Open Guide"
+                    </button>
+                </Show>
                 <div class="flex-1 min-h-0 rounded-xl overflow-hidden border border-outline-variant/20 shadow-2xl">
                         <LivePreviewPanel
                             steps=steps
