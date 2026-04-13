@@ -123,7 +123,7 @@ fn TopNav(
                     "Back to Demos"
                 </button>
                 <div class="text-lg font-black text-primary tracking-tighter shrink-0">"SimuCLI Demo Creator"</div>
-                <input
+                        on:click=move |_| on_open_workspace_guide.run(())
                     class="bg-transparent border-none outline-none text-on-surface placeholder:text-zinc-500 text-sm md:text-base min-w-[220px]"
                     prop:value=move || title.get()
                     on:input=move |ev| set_title.set(event_target_value(&ev))
@@ -341,92 +341,14 @@ fn SideNav(
 }
 
 #[component]
-fn GuidePanel(
-    steps: ReadSignal<Vec<Step>>,
-    docs_url: Signal<Option<String>>,
-    open: ReadSignal<bool>,
-    set_open: WriteSignal<bool>,
-) -> impl IntoView {
-    let entries = Signal::derive(move || command_guide_entries(&steps.get()));
-    let open_docs = Callback::new(move |_| {
-        let target_url = docs_url
-            .get()
-            .unwrap_or_else(|| "https://github.com/Yashb404/Simu-CLI#readme".to_string());
-        let normalized = if target_url.starts_with("http://") || target_url.starts_with("https://")
-        {
-            target_url
-        } else {
-            format!("https://{}", target_url)
-        };
-        if let Some(window) = web_sys::window() {
-            let _ = window.open_with_url_and_target(&normalized, "_blank");
-        }
-    });
-
-    view! {
-        <div
-            class=move || {
-                if open.get() {
-                    "w-80 bg-surface-container-low border-l border-outline-variant flex flex-col shadow-2xl relative z-30 transition-transform duration-300"
-                } else {
-                    "hidden lg:flex w-0"
-                }
-            }
-        >
-            <div class="p-6 border-b border-outline-variant flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">"auto_awesome"</span>
-                    <h2 class="text-sm font-black uppercase tracking-widest text-on-surface">"Guide"</h2>
-                </div>
-                <button class="text-zinc-500 hover:text-white transition-colors" on:click=move |_| set_open.set(false)>
-                    <span class="material-symbols-outlined">"close"</span>
-                </button>
-            </div>
-
-            <div class="flex-1 overflow-y-auto p-4 space-y-4">
-                <For
-                    each=move || entries.get()
-                    key=|entry| entry.0.clone()
-                    children=move |entry| {
-                        view! {
-                            <div class="bg-surface-container p-4 rounded border-l-4 border-primary">
-                                <div class="flex items-center gap-2 mb-2">
-                                    <span class="material-symbols-outlined text-primary text-sm">"terminal"</span>
-                                    <span class="font-mono text-xs font-bold text-on-surface">{entry.0.clone()}</span>
-                                </div>
-                                <p class="text-xs text-on-surface-variant leading-relaxed">{entry.1.clone()}</p>
-                            </div>
-                        }
-                    }
-                />
-
-                <Show when=move || entries.get().is_empty()>
-                    <div class="bg-surface-container p-4 rounded border border-outline-variant/20">
-                        <p class="text-xs text-on-surface-variant">"No command guide entries yet. Add command steps or import a cast file."</p>
-                    </div>
-                </Show>
-            </div>
-
-            <div class="p-4 bg-background border-t border-outline-variant">
-                <button
-                    class="w-full bg-surface-container-highest text-on-surface text-xs font-bold py-2.5 rounded hover:bg-surface-bright transition-all flex items-center justify-center gap-2"
-                    on:click=move |_| open_docs.run(())
-                >
-                    <span class="material-symbols-outlined text-sm">"open_in_new"</span>
-                    "Full Documentation"
-                </button>
-            </div>
-        </div>
-    }
-}
-
-#[component]
 fn UserPreviewState(
     title: ReadSignal<String>,
     steps: ReadSignal<Vec<Step>>,
     prompt_string: Signal<String>,
     not_found_message: Signal<String>,
     theme: ReadSignal<Option<Theme>>,
+    guide_open: ReadSignal<bool>,
+    set_guide_open: WriteSignal<bool>,
     on_open_workspace_guide: Callback<()>,
 ) -> impl IntoView {
     let user_mode = Signal::derive(|| false);
@@ -468,8 +390,10 @@ fn UserPreviewState(
                             not_found_message=not_found_message
                             theme=theme
                             developer_mode=user_mode
+                            guide_open=guide_open
+                            set_guide_open=set_guide_open
                             show_header=false
-                            show_internal_guide=false
+                            show_internal_guide=true
                             show_titlebar=false
                         />
                     </div>
@@ -691,12 +615,10 @@ fn ScriptBuilderState(
     set_step_filter: WriteSignal<String>,
     show_settings: ReadSignal<bool>,
     set_show_settings: WriteSignal<bool>,
-    docs_url: Signal<Option<String>>,
     prompt_string: Signal<String>,
     not_found_message: Signal<String>,
     guide_open: ReadSignal<bool>,
     set_guide_open: WriteSignal<bool>,
-    on_open_guide: Callback<()>,
 ) -> impl IntoView {
     let developer_mode = Signal::derive(|| true);
     let filtered_step_count = Signal::derive(move || {
@@ -777,28 +699,27 @@ fn ScriptBuilderState(
             <section class="w-full xl:w-1/2 min-w-0 min-h-[360px] xl:min-h-0 flex flex-col bg-surface-container-lowest p-6 relative overflow-hidden">
                 <button
                     class="absolute top-10 right-10 z-30 flex items-center gap-2 bg-surface-container/80 px-4 py-2 rounded-full border border-outline-variant/30 text-[10px] font-bold uppercase tracking-widest text-primary shadow-2xl"
-                    on:click=move |_| on_open_guide.run(())
+                    on:click=move |_| set_guide_open.set(true)
                 >
                     <span class="material-symbols-outlined text-sm">"help_center"</span>
                     "Open Guide"
                 </button>
                 <div class="flex-1 min-h-0 rounded-xl overflow-hidden border border-outline-variant/20 shadow-2xl">
-                    <LivePreviewPanel
-                        steps=steps
-                        prompt_string=prompt_string
-                        not_found_message=not_found_message
-                        theme=theme
-                        developer_mode=developer_mode
-                        show_header=false
-                        show_internal_guide=false
-                        show_titlebar=false
-                    />
+                        <LivePreviewPanel
+                            steps=steps
+                            prompt_string=prompt_string
+                            not_found_message=not_found_message
+                            theme=theme
+                            developer_mode=developer_mode
+                            guide_open=guide_open
+                            set_guide_open=set_guide_open
+                            show_header=false
+                            show_internal_guide=true
+                            show_titlebar=false
+                        />
                 </div>
             </section>
             </div>
-            <Show when=move || guide_open.get()>
-                <GuidePanel steps=steps docs_url=docs_url open=guide_open set_open=set_guide_open />
-            </Show>
         </div>
     }
 }
@@ -1057,20 +978,6 @@ pub fn DemoEditorPage() -> impl IntoView {
             .unwrap_or_else(|| "command not found".to_string())
     });
 
-    let documentation_url = Signal::derive(move || {
-        settings
-            .get()
-            .and_then(|cfg| cfg.documentation_url)
-            .and_then(|url| {
-                let trimmed = url.trim().to_string();
-                if trimmed.is_empty() {
-                    None
-                } else {
-                    Some(trimmed)
-                }
-            })
-    });
-
     view! {
         <div class="min-h-screen bg-background text-on-surface overflow-hidden">
             <TopNav
@@ -1135,10 +1042,10 @@ pub fn DemoEditorPage() -> impl IntoView {
                                     prompt_string=prompt_string
                                     not_found_message=not_found_message
                                     theme=theme
+                                    guide_open=guide_open
+                                    set_guide_open=set_guide_open
                                     on_open_workspace_guide=Callback::new(move |_| {
-                                        set_view_mode.set(CreatorViewMode::Developer);
-                                        set_canvas_state.set(CanvasState::ScriptBuilder);
-                                        set_guide_open.set(true);
+                                        set_guide_open.update(|value| *value = !*value);
                                     })
                                 />
                             }
@@ -1176,14 +1083,10 @@ pub fn DemoEditorPage() -> impl IntoView {
                                         set_step_filter=set_step_filter
                                         show_settings=show_settings
                                         set_show_settings=set_show_settings
-                                        docs_url=documentation_url
                                         prompt_string=prompt_string
                                         not_found_message=not_found_message
                                         guide_open=guide_open
                                         set_guide_open=set_guide_open
-                                        on_open_guide=Callback::new(move |_| {
-                                            set_guide_open.set(true);
-                                        })
                                     />
                                 }
                                 .into_any(),

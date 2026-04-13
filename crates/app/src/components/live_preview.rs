@@ -277,6 +277,8 @@ pub fn LivePreviewPanel(
     not_found_message: Signal<String>,
     theme: ReadSignal<Option<Theme>>,
     developer_mode: Signal<bool>,
+    guide_open: ReadSignal<bool>,
+    set_guide_open: WriteSignal<bool>,
     #[prop(optional, default = true)] show_header: bool,
     #[prop(optional, default = true)] show_internal_guide: bool,
     #[prop(optional, default = true)] show_titlebar: bool,
@@ -286,7 +288,6 @@ pub fn LivePreviewPanel(
         "# SimuCLI preview ready. Type `help` for the guide or `clear` to reset.",
     )]);
     let (input, set_input) = signal(String::new());
-    let guide_open = RwSignal::new(false);
 
     let title = Signal::derive(move || {
         theme
@@ -342,7 +343,7 @@ pub fn LivePreviewPanel(
                         <button
                             type="button"
                             class="rounded-full border border-outline bg-surface-container px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-on-surface-variant transition-all duration-200 ease-out hover:border-primary/60 hover:text-primary"
-                            on:click=move |_| guide_open.update(|value| *value = !*value)
+                            on:click=move |_| set_guide_open.update(|value| *value = !*value)
                         >
                             "Open Guide"
                         </button>
@@ -440,7 +441,7 @@ pub fn LivePreviewPanel(
                             <button
                                 type="button"
                                 class="rounded-full border border-outline bg-background px-3 py-1 text-xs font-bold text-on-surface-variant transition-colors duration-200 hover:text-on-surface"
-                                on:click=move |_| guide_open.set(false)
+                                on:click=move |_| set_guide_open.set(false)
                             >
                                 "Close"
                             </button>

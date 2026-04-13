@@ -158,6 +158,7 @@ pub fn AppShell() -> impl IntoView {
 
                     let username = user.username;
                     let username_for_projects = username.clone();
+                    let username_for_profile = username.clone();
                     let email = user.email.unwrap_or_else(|| "GitHub account".to_string());
                     let avatar_url = user.avatar_url;
                     let initial = username
@@ -253,7 +254,7 @@ pub fn AppShell() -> impl IntoView {
                                         <div class="sidebar-avatar-wrap">{avatar_node}</div>
                                         <div>
                                             <p class="sidebar-auth-status">"Signed in as"</p>
-                                            <p class="sidebar-username">{format!("@{username}")}</p>
+                                            <p class="sidebar-username">{format!("@{username_for_profile}")}</p>
                                             <p class="muted">{email}</p>
                                         </div>
                                     </div>

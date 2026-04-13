@@ -3,6 +3,7 @@ pub mod demo_editor;
 pub mod demo_share;
 pub mod demo_view;
 pub mod demos;
+pub mod docs;
 pub mod landing;
 pub mod projects;
 pub mod publish;

@@ -500,89 +500,74 @@ pub fn DemosPage() -> impl IntoView {
                     </article>
                 </section>
 
-                <section class="dashboard-bento">
-                    <div class="panel dashboard-card-form dashboard-card-form--primary">
-                        <h3>"Create Demo"</h3>
-                        <div class="dashboard-form-grid">
-                            <input
-                                placeholder="Name your next demo"
-                                prop:value=move || demo_title.get()
-                                on:input=move |ev| set_demo_title.set(event_target_value(&ev))
-                            />
-                            <Show when=move || !projects.get().is_empty() fallback=|| view! { <div></div> }>
-                                <select
-                                    prop:value=move || new_demo_project_id.get()
-                                    on:change=move |ev| set_new_demo_project_id.set(event_target_value(&ev))
-                                >
-                                    <option value="">"No project"</option>
-                                    <For
-                                        each=move || projects.get()
-                                        key=|project| project.id.clone()
-                                        children=move |project| {
-                                            view! {
-                                                <option value={project.id.clone()}>{project.name}</option>
-                                            }
-                                        }
-                                    />
-                                </select>
-                            </Show>
-                            <button type="button" class="button btn-primary" on:click=create_demo>
-                                "Create Demo"
-                            </button>
+                <section class="dashboard-workbench panel">
+                    <div class="dashboard-workbench-header">
+                        <div>
+                            <p class="dashboard-eyebrow">"Workspace Controls"</p>
+                            <h3>"Creation lives here. Demos stay below."</h3>
                         </div>
-                        <p class="dashboard-card-note">"New demos appear immediately in the grid below."</p>
+                        <p class="dashboard-workbench-note">
+                            "Projects are managed from the sidebar drawer, so this section stays focused."
+                        </p>
                     </div>
 
-                    <div class="panel dashboard-card-form dashboard-card-form--project">
-                        <h3>"New Project"</h3>
-                        <div class="dashboard-form-grid dashboard-form-grid--project">
-                            <input
-                                placeholder="Project name"
-                                prop:value=move || project_name.get()
-                                on:input=move |ev| set_project_name.set(event_target_value(&ev))
-                            />
-                            <textarea
-                                placeholder="Description (optional)"
-                                prop:value=move || project_description.get()
-                                on:input=move |ev| set_project_description.set(event_target_value(&ev))
-                            />
-                            <button
-                                type="button"
-                                class="button btn-outline"
-                                disabled=move || creating_project.get()
-                                on:click=create_project
-                            >
-                                {move || if creating_project.get() { "Creating..." } else { "Create Project" }}
-                            </button>
-                        </div>
-                        <p class="dashboard-card-note">"Projects are optional grouping labels for demos."</p>
-                    </div>
-
-                    <div class="panel dashboard-card-form dashboard-card-form--filters">
-                        <h3>"Project Shortcuts"</h3>
-                        <Show when=move || !projects.get().is_empty()>
-                            <div class="dashboard-project-chips dashboard-project-chips--dense">
-                                <a class="button btn-outline" href={api::dashboard_home_path()}>
-                                    "All demos"
-                                </a>
-                                <For
-                                    each=move || projects.get()
-                                    key=|project| project.id.clone()
-                                    children=move |project| {
-                                        let path = api::namespaced_project_path(
-                                            &username_slug.get(),
-                                            &project.name,
-                                        );
-                                        view! {
-                                            <a class="button btn-outline" href={path}>
-                                                {project.name}
-                                            </a>
-                                        }
-                                    }
+                    <div class="dashboard-workbench-grid">
+                        <div class="dashboard-workbench-panel dashboard-workbench-panel--primary">
+                            <h3>"Create Demo"</h3>
+                            <div class="dashboard-form-grid">
+                                <input
+                                    placeholder="Name your next demo"
+                                    prop:value=move || demo_title.get()
+                                    on:input=move |ev| set_demo_title.set(event_target_value(&ev))
                                 />
+                                <Show when=move || !projects.get().is_empty() fallback=|| view! { <div></div> }>
+                                    <select
+                                        prop:value=move || new_demo_project_id.get()
+                                        on:change=move |ev| set_new_demo_project_id.set(event_target_value(&ev))
+                                    >
+                                        <option value="">"No project"</option>
+                                        <For
+                                            each=move || projects.get()
+                                            key=|project| project.id.clone()
+                                            children=move |project| {
+                                                view! {
+                                                    <option value={project.id.clone()}>{project.name}</option>
+                                                }
+                                            }
+                                        />
+                                    </select>
+                                </Show>
+                                <button type="button" class="button btn-primary" on:click=create_demo>
+                                    "Create Demo"
+                                </button>
                             </div>
-                        </Show>
-                        <p class="dashboard-card-note">"Use the sidebar for the full project drawer."</p>
+                            <p class="dashboard-card-note">"New demos appear immediately in the grid below."</p>
+                        </div>
+
+                        <div class="dashboard-workbench-panel">
+                            <h3>"New Project"</h3>
+                            <div class="dashboard-form-grid dashboard-form-grid--project">
+                                <input
+                                    placeholder="Project name"
+                                    prop:value=move || project_name.get()
+                                    on:input=move |ev| set_project_name.set(event_target_value(&ev))
+                                />
+                                <textarea
+                                    placeholder="Description (optional)"
+                                    prop:value=move || project_description.get()
+                                    on:input=move |ev| set_project_description.set(event_target_value(&ev))
+                                />
+                                <button
+                                    type="button"
+                                    class="button btn-outline"
+                                    disabled=move || creating_project.get()
+                                    on:click=create_project
+                                >
+                                    {move || if creating_project.get() { "Creating..." } else { "Create Project" }}
+                                </button>
+                            </div>
+                            <p class="dashboard-card-note">"Projects are optional grouping labels for demos."</p>
+                        </div>
                     </div>
                 </section>
             </section>
