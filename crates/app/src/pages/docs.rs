@@ -168,7 +168,11 @@ fn DocsSectionRoute() -> impl IntoView {
     let params = use_params_map();
     let path = move || {
         let map = params.read();
-        match (map.get("category"), map.get("section"), map.get("subsection")) {
+        match (
+            map.get("category"),
+            map.get("section"),
+            map.get("subsection"),
+        ) {
             (Some(category), Some(section), Some(subsection)) => {
                 format!("{}/{}/{}", category, section, subsection)
             }
@@ -200,14 +204,18 @@ fn DocsSectionRoute() -> impl IntoView {
 }
 
 #[component]
-fn DocsHeader(search_query: ReadSignal<String>, set_search_query: WriteSignal<String>) -> impl IntoView {
+fn DocsHeader(
+    search_query: ReadSignal<String>,
+    set_search_query: WriteSignal<String>,
+) -> impl IntoView {
     let auth = use_auth_context();
 
     view! {
         <header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-14 bg-[#0e0e10] border-b border-[#19191d]">
             <div class="flex items-center gap-8">
-                <span class="text-xl font-black tracking-tighter text-white uppercase">"TERMINAL_DOCS"</span>
+                <A attr:class="text-xl font-black tracking-tighter text-white uppercase" href="/">"TERMINAL_DOCS"</A>
                 <nav class="hidden md:flex gap-6">
+                    <A attr:class="font-sans tracking-tight text-sm text-zinc-500 hover:text-zinc-200 transition-colors" href="/">"Home"</A>
                     <A attr:class="font-sans tracking-tight text-sm text-[#4ae176] font-bold border-b-2 border-[#4ae176] pb-1" href="/docs">"Guides"</A>
                     <A attr:class="font-sans tracking-tight text-sm text-zinc-500 hover:text-zinc-200 transition-colors" href="/docs/api">"API"</A>
                     <A attr:class="font-sans tracking-tight text-sm text-zinc-500 hover:text-zinc-200 transition-colors" href="/docs/changelog">"Changelog"</A>

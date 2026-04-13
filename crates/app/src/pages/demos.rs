@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use leptos::prelude::*;
-use leptos_meta::Title;
 use leptos::task::spawn_local_scoped;
+use leptos_meta::Title;
 use leptos_router::hooks::use_params_map;
 use shared::client::ClientError;
 use time::OffsetDateTime;
@@ -141,7 +141,10 @@ pub fn DemosPage() -> impl IntoView {
 
         if selected_project_id.trim().is_empty() {
             if let Some(project_name) = active_project_name.get() {
-                format!("/{username}/projects/{}", api::slugify_segment(&project_name))
+                format!(
+                    "/{username}/projects/{}",
+                    api::slugify_segment(&project_name)
+                )
             } else {
                 format!("/{username}/dashboard/projects/all")
             }
@@ -152,7 +155,10 @@ pub fn DemosPage() -> impl IntoView {
                 .find(|project| project.id == selected_project_id)
                 .map(|project| project.name)
                 .unwrap_or_else(|| "all".to_string());
-            format!("/{username}/projects/{}", api::slugify_segment(&project_name))
+            format!(
+                "/{username}/projects/{}",
+                api::slugify_segment(&project_name)
+            )
         }
     });
 

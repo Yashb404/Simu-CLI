@@ -43,41 +43,48 @@ pub fn AppShell() -> impl IntoView {
         let sixth = segments.next();
 
         // Editor routes (full-bleed layout)
-        let dashboard_editor = first == Some("dashboard") && second == Some("demos") && third.is_some();
+        let dashboard_editor =
+            first == Some("dashboard") && second == Some("demos") && third.is_some();
         let namespaced_demo_editor = first.is_some() && second == Some("demos") && third.is_some();
-        let namespaced_project_demo_editor =
-            first.is_some() && second == Some("projects") && third.is_some() && fourth == Some("demos") && fifth.is_some();
-        
+        let namespaced_project_demo_editor = first.is_some()
+            && second == Some("projects")
+            && third.is_some()
+            && fourth == Some("demos")
+            && fifth.is_some();
+
         // Dashboard listing routes (also need full-bleed for new SimuCLI design)
-        let dashboard_listing = first == Some("dashboard") && (second == Some("projects") || second.is_none());
+        let dashboard_listing =
+            first == Some("dashboard") && (second == Some("projects") || second.is_none());
         let namespaced_dashboard_listing = first.is_some() && second == Some("projects");
 
         let has_deep_suffix = sixth.is_some();
-        (dashboard_editor || namespaced_demo_editor || namespaced_project_demo_editor || dashboard_listing || namespaced_dashboard_listing)
+        (dashboard_editor
+            || namespaced_demo_editor
+            || namespaced_project_demo_editor
+            || dashboard_listing
+            || namespaced_dashboard_listing)
             && !has_deep_suffix
     });
 
-    Effect::new(move |_| {
-        match auth.session_state.get() {
-            SessionState::LoggedIn(_) => {
-                let set_sidebar_projects = set_sidebar_projects;
-                let set_sidebar_project_status = set_sidebar_project_status;
-                spawn_local(async move {
-                    match api::list_projects().await {
-                        Ok(projects) => {
-                            set_sidebar_projects.set(projects);
-                            set_sidebar_project_status.set(String::new());
-                        }
-                        Err(err) => {
-                            set_sidebar_project_status.set(format!("Projects unavailable: {err}"));
-                        }
+    Effect::new(move |_| match auth.session_state.get() {
+        SessionState::LoggedIn(_) => {
+            let set_sidebar_projects = set_sidebar_projects;
+            let set_sidebar_project_status = set_sidebar_project_status;
+            spawn_local(async move {
+                match api::list_projects().await {
+                    Ok(projects) => {
+                        set_sidebar_projects.set(projects);
+                        set_sidebar_project_status.set(String::new());
                     }
-                });
-            }
-            _ => {
-                set_sidebar_projects.set(Vec::new());
-                set_sidebar_project_status.set(String::new());
-            }
+                    Err(err) => {
+                        set_sidebar_project_status.set(format!("Projects unavailable: {err}"));
+                    }
+                }
+            });
+        }
+        _ => {
+            set_sidebar_projects.set(Vec::new());
+            set_sidebar_project_status.set(String::new());
         }
     });
 

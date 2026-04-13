@@ -464,9 +464,7 @@ fn ImportPublishState(
                 let path = params.with_untracked(|map| {
                     namespaced_demo_path_from_params(map, &analytics_demo_id, Some("analytics"))
                 });
-                let _ = window
-                    .location()
-                    .set_href(&path);
+                let _ = window.location().set_href(&path);
             }
         })
     };

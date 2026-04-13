@@ -67,11 +67,8 @@ pub fn PublishPage() -> impl IntoView {
         }
 
         if let Some(window) = web_sys::window() {
-            let _ = window.open_with_url_and_target_and_features(
-                &url,
-                "_blank",
-                "noopener,noreferrer",
-            );
+            let _ =
+                window.open_with_url_and_target_and_features(&url, "_blank", "noopener,noreferrer");
         }
     };
 
