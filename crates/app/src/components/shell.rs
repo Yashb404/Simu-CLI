@@ -17,8 +17,17 @@ pub fn AppShell() -> impl IntoView {
         let second = segments.next();
         let third = segments.next();
         let fourth = segments.next();
+        let fifth = segments.next();
+        let sixth = segments.next();
 
-        first == Some("dashboard") && second == Some("demos") && third.is_some() && fourth.is_none()
+        let dashboard_editor = first == Some("dashboard") && second == Some("demos") && third.is_some();
+        let namespaced_demo_editor = first.is_some() && second == Some("demos") && third.is_some();
+        let namespaced_project_demo_editor =
+            first.is_some() && second == Some("projects") && third.is_some() && fourth == Some("demos") && fifth.is_some();
+
+        let has_deep_suffix = sixth.is_some();
+        (dashboard_editor || namespaced_demo_editor || namespaced_project_demo_editor)
+            && !has_deep_suffix
     });
 
     view! {
@@ -91,13 +100,9 @@ pub fn AppShell() -> impl IntoView {
                                 </div>
 
                                 <nav class="app-nav">
-                                    <A href="/projects">
-                                        {project_icon()}
-                                        <span>"Projects"</span>
-                                    </A>
-                                    <A href="/demos">
+                                    <A href="/dashboard">
                                         {demo_icon()}
-                                        <span>"Demos"</span>
+                                        <span>"Dashboard"</span>
                                     </A>
                                 </nav>
 
@@ -150,14 +155,6 @@ pub fn AppShell() -> impl IntoView {
                 }
             }
         }}
-    }
-}
-
-fn project_icon() -> impl IntoView {
-    view! {
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path d="M3 7.5a2.5 2.5 0 0 1 2.5-2.5h4l1.8 2h7.2A2.5 2.5 0 0 1 21 9.5v8A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
     }
 }
 

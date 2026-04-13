@@ -9,8 +9,8 @@ use crate::auth::provide_auth_context;
 use crate::components::shell::AppShell;
 use crate::pages::{
     analytics::AnalyticsPage, demo_editor::DemoEditorPage, demo_share::ShareDemoPage,
-    demo_view::DemoViewPage, demos::DemosPage, landing::LandingPage, projects::ProjectsPage,
-    publish::PublishPage, settings::SettingsPage,
+    demo_view::DemoViewPage, demos::DemosPage, landing::LandingPage, publish::PublishPage,
+    settings::SettingsPage,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -92,15 +92,17 @@ pub fn App() -> impl IntoView {
                 <Route path=path!("/demo/view") view=DemoViewPage />
 
                 <ParentRoute path=path!("") view=AppShell>
-                    <Route path=path!("/projects") view=ProjectsPage />
-                    <Route path=path!("/demos") view=DemosPage />
-                    <Route path=path!("/dashboard") view=RedirectToProjects />
-                    <Route path=path!("/dashboard/projects") view=ProjectsPage />
-                    <Route path=path!("/dashboard/demos") view=DemosPage />
-                    <Route path=path!("/dashboard/demos/:id") view=DemoEditorPage />
-                    <Route path=path!("/dashboard/demos/:id/settings") view=SettingsPage />
-                    <Route path=path!("/dashboard/demos/:id/publish") view=PublishPage />
-                    <Route path=path!("/dashboard/demos/:id/analytics") view=AnalyticsPage />
+                    <Route path=path!("/dashboard") view=DemosPage />
+                    <Route path=path!("/dashboard/demos") view=RedirectDashboardHome />
+                    <Route path=path!("/:username/projects/:slug") view=DemosPage />
+                    <Route path=path!("/:username/demos/:id") view=DemoEditorPage />
+                    <Route path=path!("/:username/demos/:id/settings") view=SettingsPage />
+                    <Route path=path!("/:username/demos/:id/publish") view=PublishPage />
+                    <Route path=path!("/:username/demos/:id/analytics") view=AnalyticsPage />
+                    <Route path=path!("/:username/projects/:slug/demos/:id") view=DemoEditorPage />
+                    <Route path=path!("/:username/projects/:slug/demos/:id/settings") view=SettingsPage />
+                    <Route path=path!("/:username/projects/:slug/demos/:id/publish") view=PublishPage />
+                    <Route path=path!("/:username/projects/:slug/demos/:id/analytics") view=AnalyticsPage />
                 </ParentRoute>
             </Routes>
         </Router>
@@ -108,6 +110,6 @@ pub fn App() -> impl IntoView {
 }
 
 #[component]
-fn RedirectToProjects() -> impl IntoView {
-    view! { <Redirect path="/projects" /> }
+fn RedirectDashboardHome() -> impl IntoView {
+    view! { <Redirect path="/dashboard" /> }
 }

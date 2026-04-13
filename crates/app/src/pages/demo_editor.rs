@@ -27,8 +27,6 @@ enum CanvasState {
     ScriptBuilder,
 }
 
-const DASHBOARD_DEMOS_ROUTE: &str = "/dashboard/demos";
-
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum PublishState {
     Idle,
@@ -79,6 +77,25 @@ fn command_guide_entries(steps: &[Step]) -> Vec<(String, String)> {
             Some((command, description))
         })
         .collect()
+}
+
+fn namespaced_demo_path_from_params(
+    params: &leptos_router::params::ParamsMap,
+    demo_id: &str,
+    suffix: Option<&str>,
+) -> String {
+    let username = params
+        .get("username")
+        .map(|value| api::slugify_segment(&value))
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "user".to_string());
+
+    let project_slug = params
+        .get("slug")
+        .map(|value| api::slugify_segment(&value))
+        .filter(|value| !value.is_empty());
+
+    api::namespaced_demo_path(&username, demo_id, project_slug.as_deref(), suffix)
 }
 
 #[component]
@@ -512,11 +529,15 @@ fn ImportPublishState(
 
     let open_analytics = {
         let analytics_demo_id = import_demo_id.clone();
+        let params = use_params_map();
         Callback::new(move |_| {
             if let Some(window) = web_sys::window() {
+                let path = params.with_untracked(|map| {
+                    namespaced_demo_path_from_params(map, &analytics_demo_id, Some("analytics"))
+                });
                 let _ = window
                     .location()
-                    .set_href(&format!("/dashboard/demos/{}/analytics", analytics_demo_id));
+                    .set_href(&path);
             }
         })
     };
@@ -1067,7 +1088,7 @@ pub fn DemoEditorPage() -> impl IntoView {
                     .unwrap_or(fallback_set_theme_mode)
                 on_back_to_dashboard=Callback::new(move |_| {
                     if let Some(window) = web_sys::window() {
-                        let _ = window.location().set_href(DASHBOARD_DEMOS_ROUTE);
+                        let _ = window.location().set_href(api::dashboard_home_path());
                     }
                 })
                 on_save=save_demo

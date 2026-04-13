@@ -2,14 +2,42 @@ use std::collections::HashMap;
 
 use leptos::prelude::*;
 use leptos::task::spawn_local_scoped;
+use leptos_router::hooks::use_params_map;
 use shared::client::ClientError;
 
 use crate::api;
 use crate::app::{ThemeController, ThemeMode};
+use crate::auth::{SessionState, use_auth_context};
 use crate::components::confirm_dialog::ConfirmDialog;
+
+fn format_timestamp(value: &str) -> String {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return "n/a".to_string();
+    }
+
+    if let Some((date, time_with_zone)) = trimmed.split_once('T') {
+        let time = time_with_zone
+            .split(['Z', '+'])
+            .next()
+            .unwrap_or_default()
+            .chars()
+            .take(5)
+            .collect::<String>();
+        if !time.is_empty() {
+            return format!("{date} {time}");
+        }
+        return date.to_string();
+    }
+
+    trimmed.to_string()
+}
 
 #[component]
 pub fn DemosPage() -> impl IntoView {
+    let params = use_params_map();
+    let auth = use_auth_context();
+
     let (all_demos, set_all_demos) = signal(Vec::<api::DashboardDemo>::new());
     let (projects, set_projects) = signal(Vec::<api::DashboardProject>::new());
     let (title, set_title) = signal(String::new());
@@ -25,6 +53,19 @@ pub fn DemosPage() -> impl IntoView {
     let (pending_delete_demo_title, set_pending_delete_demo_title) = signal(None::<String>);
     let (is_loading, set_is_loading) = signal(true);
     let (load_nonce, set_load_nonce) = signal(0u32);
+
+    let active_project_slug = Signal::derive(move || {
+        params
+            .with(|map| map.get("slug"))
+            .unwrap_or_default()
+            .trim()
+            .to_string()
+    });
+
+    let username_slug = Signal::derive(move || match auth.session_state.get() {
+        SessionState::LoggedIn(user) => api::slugify_segment(&user.username),
+        _ => "user".to_string(),
+    });
 
     let project_lookup = Signal::derive(move || {
         projects
@@ -109,6 +150,21 @@ pub fn DemosPage() -> impl IntoView {
                 set_is_loading.set(false);
             }
         });
+    });
+
+    Effect::new(move |_| {
+        let route_slug = active_project_slug.get();
+        if route_slug.is_empty() {
+            return;
+        }
+
+        if let Some(project) = projects
+            .get()
+            .into_iter()
+            .find(|p| api::slugify_segment(&p.name) == route_slug)
+        {
+            set_project_filter_id.set(project.id);
+        }
     });
 
     let refresh_dashboard = move |_| {
@@ -205,10 +261,10 @@ pub fn DemosPage() -> impl IntoView {
         <section class="page demos-gallery-page">
             <header class="demos-hero">
                 <div>
-                    <p class="demos-eyebrow">"Command Design Workspace"</p>
-                    <h2>"Demos"</h2>
+                    <p class="demos-eyebrow">"Dashboard"</p>
+                    <h2>"Your Demos"</h2>
                     <p>
-                        "Compose, organize, and publish polished interactive demos without the loading jitter."
+                        "Every demo lives here. Projects are optional labels for organization."
                     </p>
                 </div>
                 <div class="demos-hero-actions">
@@ -238,21 +294,23 @@ pub fn DemosPage() -> impl IntoView {
                         prop:value=move || title.get()
                         on:input=move |ev| set_title.set(event_target_value(&ev))
                     />
-                    <select
-                        prop:value=move || new_demo_project_id.get()
-                        on:change=move |ev| set_new_demo_project_id.set(event_target_value(&ev))
-                    >
-                        <option value="">"No project"</option>
-                        <For
-                            each=move || projects.get()
-                            key=|project| project.id.clone()
-                            children=move |project| {
-                                view! {
-                                    <option value={project.id.clone()}>{project.name}</option>
+                    <Show when=move || !projects.get().is_empty() fallback=|| view! { <div></div> }>
+                        <select
+                            prop:value=move || new_demo_project_id.get()
+                            on:change=move |ev| set_new_demo_project_id.set(event_target_value(&ev))
+                        >
+                            <option value="">"No project"</option>
+                            <For
+                                each=move || projects.get()
+                                key=|project| project.id.clone()
+                                children=move |project| {
+                                    view! {
+                                        <option value={project.id.clone()}>{project.name}</option>
+                                    }
                                 }
-                            }
-                        />
-                    </select>
+                            />
+                        </select>
+                    </Show>
                     <button type="button" class="button btn-primary" on:click=create_demo>
                         "Create Demo"
                     </button>
@@ -264,21 +322,26 @@ pub fn DemosPage() -> impl IntoView {
                         prop:value=move || search_query.get()
                         on:input=move |ev| set_search_query.set(event_target_value(&ev))
                     />
-                    <select
-                        prop:value=move || project_filter_id.get()
-                        on:change=move |ev| set_project_filter_id.set(event_target_value(&ev))
+                    <Show
+                        when=move || !projects.get().is_empty()
+                        fallback=move || view! { <div></div> }
                     >
-                        <option value="">"All projects"</option>
-                        <For
-                            each=move || projects.get()
-                            key=|project| project.id.clone()
-                            children=move |project| {
-                                view! {
-                                    <option value={project.id.clone()}>{project.name}</option>
+                        <select
+                            prop:value=move || project_filter_id.get()
+                            on:change=move |ev| set_project_filter_id.set(event_target_value(&ev))
+                        >
+                            <option value="">"All projects"</option>
+                            <For
+                                each=move || projects.get()
+                                key=|project| project.id.clone()
+                                children=move |project| {
+                                    view! {
+                                        <option value={project.id.clone()}>{project.name}</option>
+                                    }
                                 }
-                            }
-                        />
-                    </select>
+                            />
+                        </select>
+                    </Show>
                     <select
                         prop:value=move || published_filter.get()
                         on:change=move |ev| set_published_filter.set(event_target_value(&ev))
@@ -288,6 +351,29 @@ pub fn DemosPage() -> impl IntoView {
                         <option value="draft">"Draft"</option>
                     </select>
                 </div>
+
+                <Show when=move || !projects.get().is_empty()>
+                    <div class="inline-actions">
+                        <a class="button btn-outline" href={api::dashboard_home_path()}>
+                            "All demos"
+                        </a>
+                        <For
+                            each=move || projects.get()
+                            key=|project| project.id.clone()
+                            children=move |project| {
+                                let path = api::namespaced_project_path(
+                                    &username_slug.get(),
+                                    &project.name,
+                                );
+                                view! {
+                                    <a class="button btn-outline" href={path}>
+                                        {project.name}
+                                    </a>
+                                }
+                            }
+                        />
+                    </div>
+                </Show>
             </section>
 
             <Show
@@ -323,11 +409,38 @@ pub fn DemosPage() -> impl IntoView {
                             let deleting_demo_ref_for_label = demo_id.clone();
                             let project_select_demo_id = demo_id.clone();
                             let project_select_demo_id_for_disabled = demo_id.clone();
+
                             let project_name = demo
                                 .project_id
                                 .as_ref()
                                 .and_then(|project_id| project_lookup.get().get(project_id).cloned())
                                 .unwrap_or_else(|| "Unassigned".to_string());
+
+                            let project_slug = demo
+                                .project_id
+                                .as_ref()
+                                .and_then(|project_id| project_lookup.get().get(project_id).cloned())
+                                .map(|name| api::slugify_segment(&name))
+                                .filter(|slug| !slug.is_empty());
+
+                            let editor_path = api::namespaced_demo_path(
+                                &username_slug.get(),
+                                &demo.id,
+                                project_slug.as_deref(),
+                                None,
+                            );
+                            let publish_path = api::namespaced_demo_path(
+                                &username_slug.get(),
+                                &demo.id,
+                                project_slug.as_deref(),
+                                Some("publish"),
+                            );
+                            let analytics_path = api::namespaced_demo_path(
+                                &username_slug.get(),
+                                &demo.id,
+                                project_slug.as_deref(),
+                                Some("analytics"),
+                            );
 
                             view! {
                                 <article class="demo-card">
@@ -350,8 +463,8 @@ pub fn DemosPage() -> impl IntoView {
                                     </p>
 
                                     <div class="demo-card-meta">
-                                        <span>{format!("Version {}", demo.version)}</span>
-                                        <span>{format!("{} steps", demo.steps.len())}</span>
+                                        <span>{format!("Created {}", format_timestamp(&demo.created_at))}</span>
+                                        <span>{format!("Updated {}", format_timestamp(&demo.updated_at))}</span>
                                     </div>
 
                                     <label class="demo-project-selector">
@@ -380,13 +493,13 @@ pub fn DemosPage() -> impl IntoView {
                                     </label>
 
                                     <div class="demo-card-actions">
-                                        <a class="button btn-primary" href={format!("/dashboard/demos/{}", demo.id)}>
+                                        <a class="button btn-primary" href={editor_path}>
                                             "Open Editor"
                                         </a>
-                                        <a class="button btn-outline" href={format!("/dashboard/demos/{}/publish", demo.id)}>
+                                        <a class="button btn-outline" href={publish_path}>
                                             "Publish"
                                         </a>
-                                        <a class="button btn-outline" href={format!("/dashboard/demos/{}/analytics", demo.id)}>
+                                        <a class="button btn-outline" href={analytics_path}>
                                             "Analytics"
                                         </a>
                                         <button

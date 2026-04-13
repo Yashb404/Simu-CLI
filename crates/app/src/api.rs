@@ -110,6 +110,57 @@ fn build_query_path(path: &str, params: Vec<(&str, String)>) -> String {
 
     api_url(&format!("{path}?{query}"))
 }
+
+pub fn slugify_segment(value: &str) -> String {
+    let mut slug = value
+        .trim()
+        .to_ascii_lowercase()
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect::<String>();
+
+    while slug.contains("--") {
+        slug = slug.replace("--", "-");
+    }
+
+    slug.trim_matches('-').to_string()
+}
+
+pub fn namespaced_demo_path(
+    username: &str,
+    demo_id: &str,
+    project_slug: Option<&str>,
+    suffix: Option<&str>,
+) -> String {
+    let user = slugify_segment(username);
+    let mut base = if let Some(slug) = project_slug {
+        format!("/{user}/projects/{}/demos/{demo_id}", slugify_segment(slug))
+    } else {
+        format!("/{user}/demos/{demo_id}")
+    };
+
+    if let Some(suffix) = suffix {
+        let trimmed = suffix.trim_matches('/');
+        if !trimmed.is_empty() {
+            base.push('/');
+            base.push_str(trimmed);
+        }
+    }
+
+    base
+}
+
+pub fn namespaced_project_path(username: &str, project_slug: &str) -> String {
+    format!(
+        "/{}/projects/{}",
+        slugify_segment(username),
+        slugify_segment(project_slug)
+    )
+}
+
+pub fn dashboard_home_path() -> &'static str {
+    "/dashboard"
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DashboardProject {
     pub id: String,
@@ -128,6 +179,8 @@ pub struct DashboardDemo {
     pub theme: Theme,
     pub settings: DemoSettings,
     pub steps: Vec<Step>,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

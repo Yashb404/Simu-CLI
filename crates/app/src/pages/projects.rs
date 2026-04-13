@@ -186,7 +186,7 @@ pub fn ProjectsPage() -> impl IntoView {
             </div>
 
             <div class="inline-actions">
-                <a class="button" href="/dashboard/demos">"Open Demos"</a>
+                <a class="button" href="/dashboard">"Open Dashboard"</a>
             </div>
 
             <ConfirmDialog
