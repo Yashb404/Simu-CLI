@@ -360,7 +360,16 @@ fn UserPreviewState(
         <div class="flex-1 flex h-[calc(100vh-3.5rem)] overflow-hidden">
             <aside class="bg-surface-container-low w-16 md:w-64 border-r border-outline-variant/10 opacity-40 pointer-events-none grayscale"></aside>
             <div class="flex-1 bg-surface flex items-center justify-center p-8 md:p-16">
-                <div class="w-full max-w-5xl bg-surface-container shadow-2xl rounded-xl overflow-hidden flex flex-col min-h-[620px] relative">
+                <div class="relative w-full max-w-5xl h-full max-h-full min-h-0">
+                    <button
+                        class="absolute -top-12 right-0 flex items-center gap-2 rounded-lg border border-primary/30 bg-surface-container px-4 py-2 text-primary shadow-lg transition-all duration-200 hover:bg-surface-container-high"
+                        on:click=move |_| on_open_workspace_guide.run(())
+                    >
+                        <span class="material-symbols-outlined text-[20px]">"help_center"</span>
+                        <span class="text-xs font-bold uppercase tracking-wider">"User Guide"</span>
+                    </button>
+
+                    <div class="w-full h-full max-h-full bg-surface-container shadow-2xl rounded-xl overflow-hidden flex flex-col min-h-0 relative">
                     <div class="h-10 bg-surface-container-highest flex items-center justify-between px-4">
                         <div class="flex items-center gap-2">
                             <div class="flex gap-1.5">
@@ -396,18 +405,11 @@ fn UserPreviewState(
                             guide_open=guide_open
                             set_guide_open=set_guide_open
                             show_header=false
-                            show_internal_guide=true
+                            show_internal_guide=false
                             show_titlebar=false
                         />
                     </div>
-
-                    <button
-                        class="absolute bottom-6 right-6 flex items-center gap-2 bg-surface-container hover:bg-surface-container-high text-primary px-4 py-2 rounded-lg border border-primary/30 shadow-lg transition-all duration-200"
-                        on:click=move |_| on_open_workspace_guide.run(())
-                    >
-                        <span class="material-symbols-outlined text-[20px]">"help_center"</span>
-                        <span class="text-xs font-bold uppercase tracking-wider">"User Guide"</span>
-                    </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1050,7 +1052,9 @@ pub fn DemoEditorPage() -> impl IntoView {
                                     guide_open=guide_open
                                     set_guide_open=set_guide_open
                                     on_open_workspace_guide=Callback::new(move |_| {
-                                        set_guide_open.update(|value| *value = !*value);
+                                        if let Some(window) = web_sys::window() {
+                                            let _ = window.location().set_href("/docs#quick-start");
+                                        }
                                     })
                                 />
                             }
