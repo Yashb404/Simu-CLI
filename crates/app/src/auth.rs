@@ -71,25 +71,6 @@ pub fn provide_auth_context() {
         }
 
         if let Some(window) = web_sys::window() {
-            let callback = Closure::wrap(Box::new(move || {
-                if matches!(
-                    session_state.get_untracked(),
-                    SessionState::LoggedOut | SessionState::Checking | SessionState::Error(_)
-                ) {
-                    refresh_session_state(set_session_state);
-                }
-            }) as Box<dyn FnMut()>);
-
-            if window
-                .set_interval_with_callback_and_timeout_and_arguments_0(
-                    callback.as_ref().unchecked_ref(),
-                    4000,
-                )
-                .is_ok()
-            {
-                callback.forget();
-            }
-
             let focus_refresh = Closure::wrap(Box::new(move || {
                 refresh_session_state(set_session_state);
             }) as Box<dyn FnMut()>);

@@ -131,6 +131,12 @@ pub struct DashboardDemo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardSnapshot {
+    pub projects: Vec<DashboardProject>,
+    pub demos: Vec<DashboardDemo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DashboardDemoDetail {
     pub id: String,
     pub title: String,
@@ -206,6 +212,10 @@ pub async fn logout() -> Result<(), String> {
 
 pub async fn list_projects() -> Result<Vec<DashboardProject>, String> {
     list_projects_with_paging(None, None).await
+}
+
+pub async fn get_dashboard_snapshot() -> Result<DashboardSnapshot, ClientError> {
+    fetch_typed(HttpMethod::Get, &api_url("/api/me/dashboard"), None, true).await
 }
 
 pub async fn list_projects_with_paging(

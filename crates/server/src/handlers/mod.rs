@@ -2,6 +2,7 @@ pub mod analytics;
 pub mod auth;
 pub mod billing;
 pub mod common_errors;
+pub mod dashboard;
 pub mod demos;
 pub mod owned_demo;
 pub mod projects;

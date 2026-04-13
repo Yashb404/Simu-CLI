@@ -11,6 +11,10 @@ pub fn create_router(state: AppState) -> Router {
         .route("/api/health", get(health_check))
         .route("/metrics", get(middleware::metrics::metrics_handler))
         .route("/api/me", get(get_me))
+        .route(
+            "/api/me/dashboard",
+            get(handlers::dashboard::get_my_dashboard),
+        )
         .route("/api/demos", post(handlers::demos::create_demo))
         .route("/api/me/demos", get(handlers::demos::list_my_demos))
         .route(
