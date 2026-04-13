@@ -115,8 +115,10 @@ async fn main() -> anyhow::Result<()> {
         workspace_root.join("crates/embed/dist")
     } else if workspace_root.join("dist-embed").is_dir() {
         workspace_root.join("dist-embed")
+    } else if workspace_root.join("crates/app/embed").is_dir() {
+        workspace_root.join("crates/app/embed")
     } else {
-        workspace_root.join("crates/embed/dist")
+        workspace_root.join("crates/app/embed")
     };
     let static_dir = workspace_root.join("static");
 
