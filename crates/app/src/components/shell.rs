@@ -10,6 +10,12 @@ use crate::auth::{SessionState, refresh_session_state, use_auth_context};
 pub fn AppShell() -> impl IntoView {
     let auth = use_auth_context();
     let location = use_location();
+    let (sidebar_projects, set_sidebar_projects) = signal(Vec::<api::DashboardProject>::new());
+    let (sidebar_projects_open, set_sidebar_projects_open) = signal(true);
+    let (sidebar_project_name, set_sidebar_project_name) = signal(String::new());
+    let (sidebar_project_description, set_sidebar_project_description) = signal(String::new());
+    let (sidebar_project_status, set_sidebar_project_status) = signal(String::new());
+    let (sidebar_project_creating, set_sidebar_project_creating) = signal(false);
     let editor_route = Signal::derive(move || {
         let path = location.pathname.get();
         let mut segments = path.split('/').filter(|segment| !segment.is_empty());
@@ -28,6 +34,83 @@ pub fn AppShell() -> impl IntoView {
         let has_deep_suffix = sixth.is_some();
         (dashboard_editor || namespaced_demo_editor || namespaced_project_demo_editor)
             && !has_deep_suffix
+    });
+
+    Effect::new(move |_| {
+        match auth.session_state.get() {
+            SessionState::LoggedIn(_) => {
+                let set_sidebar_projects = set_sidebar_projects;
+                let set_sidebar_project_status = set_sidebar_project_status;
+                spawn_local(async move {
+                    match api::list_projects().await {
+                        Ok(projects) => {
+                            set_sidebar_projects.set(projects);
+                            set_sidebar_project_status.set(String::new());
+                        }
+                        Err(err) => {
+                            set_sidebar_project_status.set(format!("Projects unavailable: {err}"));
+                        }
+                    }
+                });
+            }
+            _ => {
+                set_sidebar_projects.set(Vec::new());
+                set_sidebar_project_status.set(String::new());
+            }
+        }
+    });
+
+    let create_sidebar_project = move |_| {
+        let name = sidebar_project_name.get();
+        let description = sidebar_project_description.get();
+
+        if name.trim().is_empty() {
+            set_sidebar_project_status.set("Project name is required".to_string());
+            return;
+        }
+
+        set_sidebar_project_creating.set(true);
+        spawn_local({
+            let set_sidebar_projects = set_sidebar_projects;
+            let set_sidebar_project_name = set_sidebar_project_name;
+            let set_sidebar_project_description = set_sidebar_project_description;
+            let set_sidebar_project_status = set_sidebar_project_status;
+            let set_sidebar_project_creating = set_sidebar_project_creating;
+            async move {
+                match api::create_project(
+                    name.trim(),
+                    if description.trim().is_empty() {
+                        None
+                    } else {
+                        Some(description.trim())
+                    },
+                )
+                .await
+                {
+                    Ok(project) => {
+                        set_sidebar_projects.update(|items| items.insert(0, project));
+                        set_sidebar_project_name.set(String::new());
+                        set_sidebar_project_description.set(String::new());
+                        set_sidebar_project_status.set("Project created.".to_string());
+                        set_sidebar_projects_open.set(true);
+                    }
+                    Err(err) => {
+                        set_sidebar_project_status.set(format!("Create failed: {err}"));
+                    }
+                }
+                set_sidebar_project_creating.set(false);
+            }
+        });
+    };
+
+    let sidebar_project_links = Signal::derive(move || {
+        let projects = sidebar_projects.get();
+        let show_all = sidebar_projects_open.get() || projects.len() <= 5;
+
+        projects
+            .into_iter()
+            .take(if show_all { usize::MAX } else { 5 })
+            .collect::<Vec<_>>()
     });
 
     view! {
@@ -74,6 +157,7 @@ pub fn AppShell() -> impl IntoView {
                     }
 
                     let username = user.username;
+                    let username_for_projects = username.clone();
                     let email = user.email.unwrap_or_else(|| "GitHub account".to_string());
                     let avatar_url = user.avatar_url;
                     let initial = username
@@ -105,6 +189,64 @@ pub fn AppShell() -> impl IntoView {
                                         <span>"Dashboard"</span>
                                     </A>
                                 </nav>
+
+                                <section class="sidebar-projects panel">
+                                    <div class="sidebar-projects-header">
+                                        <div>
+                                            <p class="sidebar-projects-kicker">"Projects"</p>
+                                            <p class="muted">"Open or group your demos here."</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            class="button btn-outline sidebar-projects-toggle"
+                                            on:click=move |_| set_sidebar_projects_open.update(|value| *value = !*value)
+                                        >
+                                            {move || if sidebar_projects_open.get() { "Less" } else { "More" }}
+                                        </button>
+                                    </div>
+
+                                    <div class="sidebar-projects-create">
+                                        <input
+                                            class="sidebar-projects-input"
+                                            placeholder="New project"
+                                            prop:value=move || sidebar_project_name.get()
+                                            on:input=move |ev| set_sidebar_project_name.set(event_target_value(&ev))
+                                        />
+                                        <textarea
+                                            class="sidebar-projects-textarea"
+                                            placeholder="Description"
+                                            prop:value=move || sidebar_project_description.get()
+                                            on:input=move |ev| set_sidebar_project_description.set(event_target_value(&ev))
+                                        />
+                                        <button
+                                            type="button"
+                                            class="button btn-primary button-block"
+                                            disabled=move || sidebar_project_creating.get()
+                                            on:click=create_sidebar_project
+                                        >
+                                            {move || if sidebar_project_creating.get() { "Creating..." } else { "Create Project" }}
+                                        </button>
+                                        <Show when=move || !sidebar_project_status.get().is_empty()>
+                                            <p class="sidebar-projects-status">{move || sidebar_project_status.get()}</p>
+                                        </Show>
+                                    </div>
+
+                                    <div class="sidebar-projects-list">
+                                        <For
+                                            each=move || sidebar_project_links.get()
+                                            key=|project| project.id.clone()
+                                            children=move |project| {
+                                                let path = api::namespaced_project_path(&username_for_projects, &project.name);
+                                                view! {
+                                                    <A href={path}>
+                                                        <span class="sidebar-project-dot"></span>
+                                                        <span class="sidebar-project-name">{project.name}</span>
+                                                    </A>
+                                                }
+                                            }
+                                        />
+                                    </div>
+                                </section>
 
                                 <div class="sidebar-auth">
                                     <div class="sidebar-auth-profile">

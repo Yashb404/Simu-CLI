@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use leptos::prelude::*;
+use leptos_meta::Title;
 use leptos::task::spawn_local_scoped;
 use leptos_router::hooks::use_params_map;
 use shared::client::ClientError;
@@ -17,6 +18,11 @@ fn format_timestamp(value: &OffsetDateTime) -> String {
         .unwrap_or_else(|_| value.to_string())
 }
 
+fn format_count_label(total: usize, label: &str) -> String {
+    let suffix = if total == 1 { "" } else { "s" };
+    format!("{total} {label}{suffix}")
+}
+
 #[component]
 pub fn DemosPage() -> impl IntoView {
     let params = use_params_map();
@@ -24,15 +30,18 @@ pub fn DemosPage() -> impl IntoView {
 
     let (all_demos, set_all_demos) = signal(Vec::<api::DashboardDemo>::new());
     let (projects, set_projects) = signal(Vec::<api::DashboardProject>::new());
-    let (title, set_title) = signal(String::new());
+    let (demo_title, set_demo_title) = signal(String::new());
     let (new_demo_project_id, set_new_demo_project_id) = signal(String::new());
+    let (project_name, set_project_name) = signal(String::new());
+    let (project_description, set_project_description) = signal(String::new());
     let (project_filter_id, set_project_filter_id) = signal(String::new());
     let (search_query, set_search_query) = signal(String::new());
     let (published_filter, set_published_filter) = signal("all".to_string());
-    let (status, set_status) = signal("Loading demos...".to_string());
+    let (status, set_status) = signal("Loading dashboard...".to_string());
     let (requires_login, set_requires_login) = signal(false);
     let (deleting_demo_id, set_deleting_demo_id) = signal(None::<String>);
     let (updating_demo_project_id, set_updating_demo_project_id) = signal(None::<String>);
+    let (creating_project, set_creating_project) = signal(false);
     let (pending_delete_demo_id, set_pending_delete_demo_id) = signal(None::<String>);
     let (pending_delete_demo_title, set_pending_delete_demo_title) = signal(None::<String>);
     let (is_loading, set_is_loading) = signal(true);
@@ -51,6 +60,19 @@ pub fn DemosPage() -> impl IntoView {
         _ => "user".to_string(),
     });
 
+    let active_project_name = Signal::derive(move || {
+        let route_slug = active_project_slug.get();
+        if route_slug.is_empty() {
+            return None;
+        }
+
+        projects
+            .get()
+            .into_iter()
+            .find(|project| api::slugify_segment(&project.name) == route_slug)
+            .map(|project| project.name)
+    });
+
     let project_lookup = Signal::derive(move || {
         projects
             .get()
@@ -63,6 +85,7 @@ pub fn DemosPage() -> impl IntoView {
         let project_filter = project_filter_id.get();
         let query = search_query.get().trim().to_ascii_lowercase();
         let published = published_filter.get();
+        let project_lookup = project_lookup.get();
 
         all_demos
             .get()
@@ -92,9 +115,51 @@ pub fn DemosPage() -> impl IntoView {
                     .unwrap_or_default()
                     .to_ascii_lowercase()
                     .contains(&query);
-                title_match || slug_match
+                let project_name_match = demo
+                    .project_id
+                    .as_ref()
+                    .and_then(|project_id| project_lookup.get(project_id))
+                    .map(|name| name.to_ascii_lowercase().contains(&query))
+                    .unwrap_or(false);
+                let project_slug_match = demo
+                    .project_id
+                    .as_ref()
+                    .and_then(|project_id| project_lookup.get(project_id))
+                    .map(|name| api::slugify_segment(name).contains(&query))
+                    .unwrap_or(false);
+                title_match || slug_match || project_name_match || project_slug_match
             })
             .collect::<Vec<_>>()
+    });
+
+    let dashboard_path = Signal::derive(move || {
+        let username = username_slug.get();
+        let selected_project_id = project_filter_id.get();
+
+        if selected_project_id.trim().is_empty() {
+            if let Some(project_name) = active_project_name.get() {
+                format!("/{username}/projects/{}", api::slugify_segment(&project_name))
+            } else {
+                format!("/{username}/dashboard/projects/all")
+            }
+        } else {
+            let project_name = projects
+                .get()
+                .into_iter()
+                .find(|project| project.id == selected_project_id)
+                .map(|project| project.name)
+                .unwrap_or_else(|| "all".to_string());
+            format!("/{username}/projects/{}", api::slugify_segment(&project_name))
+        }
+    });
+
+    let dashboard_counts = Signal::derive(move || {
+        let demos = all_demos.get();
+        let projects = projects.get();
+        let published = demos.iter().filter(|demo| demo.published).count();
+        let drafts = demos.len().saturating_sub(published);
+
+        (demos.len(), published, drafts, projects.len())
     });
 
     Effect::new(move |_| {
@@ -139,6 +204,7 @@ pub fn DemosPage() -> impl IntoView {
     Effect::new(move |_| {
         let route_slug = active_project_slug.get();
         if route_slug.is_empty() {
+            set_project_filter_id.set(String::new());
             return;
         }
 
@@ -148,6 +214,8 @@ pub fn DemosPage() -> impl IntoView {
             .find(|p| api::slugify_segment(&p.name) == route_slug)
         {
             set_project_filter_id.set(project.id);
+        } else {
+            set_project_filter_id.set(String::new());
         }
     });
 
@@ -156,7 +224,7 @@ pub fn DemosPage() -> impl IntoView {
     };
 
     let create_demo = move |_| {
-        let demo_title = title.get();
+        let demo_title = demo_title.get();
         let selected_project = new_demo_project_id.get();
 
         if demo_title.trim().is_empty() {
@@ -173,16 +241,58 @@ pub fn DemosPage() -> impl IntoView {
         spawn_local_scoped({
             let set_all_demos = set_all_demos;
             let set_status = set_status;
-            let set_title = set_title;
+            let set_demo_title = set_demo_title;
             async move {
                 match api::create_demo(demo_title.trim(), project_id.as_deref()).await {
                     Ok(demo) => {
                         set_all_demos.update(|items| items.insert(0, demo));
-                        set_title.set(String::new());
+                        set_demo_title.set(String::new());
                         set_status.set("Demo created.".to_string());
                     }
                     Err(err) => set_status.set(format!("Create failed: {err}")),
                 }
+            }
+        });
+    };
+
+    let create_project = move |_| {
+        let name = project_name.get();
+        let description = project_description.get();
+
+        if name.trim().is_empty() {
+            set_status.set("Project name is required".to_string());
+            return;
+        }
+
+        set_creating_project.set(true);
+        spawn_local_scoped({
+            let set_projects = set_projects;
+            let set_status = set_status;
+            let set_project_name = set_project_name;
+            let set_project_description = set_project_description;
+            let set_new_demo_project_id = set_new_demo_project_id;
+            let set_creating_project = set_creating_project;
+            async move {
+                match api::create_project(
+                    name.trim(),
+                    if description.trim().is_empty() {
+                        None
+                    } else {
+                        Some(description.trim())
+                    },
+                )
+                .await
+                {
+                    Ok(project) => {
+                        set_projects.update(|items| items.insert(0, project.clone()));
+                        set_new_demo_project_id.set(project.id.clone());
+                        set_project_name.set(String::new());
+                        set_project_description.set(String::new());
+                        set_status.set("Project created.".to_string());
+                    }
+                    Err(err) => set_status.set(format!("Create failed: {err}")),
+                }
+                set_creating_project.set(false);
             }
         });
     };
@@ -242,90 +352,35 @@ pub fn DemosPage() -> impl IntoView {
     };
 
     view! {
-        <section class="page demos-gallery-page">
-            <header class="demos-hero">
-                <div>
-                    <p class="demos-eyebrow">"Dashboard"</p>
-                    <h2>"Your Demos"</h2>
-                    <p>
-                        "Every demo lives here. Projects are optional labels for organization."
-                    </p>
-                </div>
-                <div class="demos-hero-actions">
-                    <ThemeModeToggle />
-                    <button type="button" class="button btn-outline" on:click=refresh_dashboard>
-                        "Refresh"
-                    </button>
-                </div>
-            </header>
-
-            <p class="status">{move || status.get()}</p>
-
-            <Show when=move || requires_login.get()>
-                <div class="panel">
-                    <h3>"Authentication Required"</h3>
-                    <p>"Sign in to load and create demos."</p>
-                    <a class="button btn-primary" href={api::login_url()}>
-                        "Login with GitHub"
-                    </a>
-                </div>
-            </Show>
-
-            <section class="demos-toolbar panel">
-                <div class="demos-create-row">
+        <Title text="SimuCLI Dashboard | Precision Engine" />
+        <section class="page dashboard-page">
+            <header class="dashboard-topbar panel">
+                <div class="dashboard-search-shell">
+                    <span class="dashboard-search-icon">"search"</span>
                     <input
-                        placeholder="Name your next demo"
-                        prop:value=move || title.get()
-                        on:input=move |ev| set_title.set(event_target_value(&ev))
-                    />
-                    <Show when=move || !projects.get().is_empty() fallback=|| view! { <div></div> }>
-                        <select
-                            prop:value=move || new_demo_project_id.get()
-                            on:change=move |ev| set_new_demo_project_id.set(event_target_value(&ev))
-                        >
-                            <option value="">"No project"</option>
-                            <For
-                                each=move || projects.get()
-                                key=|project| project.id.clone()
-                                children=move |project| {
-                                    view! {
-                                        <option value={project.id.clone()}>{project.name}</option>
-                                    }
-                                }
-                            />
-                        </select>
-                    </Show>
-                    <button type="button" class="button btn-primary" on:click=create_demo>
-                        "Create Demo"
-                    </button>
-                </div>
-
-                <div class="demos-filter-row">
-                    <input
-                        placeholder="Search by title or slug"
+                        class="dashboard-search-input"
+                        placeholder="Search demos or project namespace..."
                         prop:value=move || search_query.get()
                         on:input=move |ev| set_search_query.set(event_target_value(&ev))
                     />
-                    <Show
-                        when=move || !projects.get().is_empty()
-                        fallback=move || view! { <div></div> }
+                </div>
+
+                <div class="dashboard-filter-shell">
+                    <select
+                        prop:value=move || project_filter_id.get()
+                        on:change=move |ev| set_project_filter_id.set(event_target_value(&ev))
                     >
-                        <select
-                            prop:value=move || project_filter_id.get()
-                            on:change=move |ev| set_project_filter_id.set(event_target_value(&ev))
-                        >
-                            <option value="">"All projects"</option>
-                            <For
-                                each=move || projects.get()
-                                key=|project| project.id.clone()
-                                children=move |project| {
-                                    view! {
-                                        <option value={project.id.clone()}>{project.name}</option>
-                                    }
+                        <option value="">"All projects"</option>
+                        <For
+                            each=move || projects.get()
+                            key=|project| project.id.clone()
+                            children=move |project| {
+                                view! {
+                                    <option value={project.id.clone()}>{project.name}</option>
                                 }
-                            />
-                        </select>
-                    </Show>
+                            }
+                        />
+                    </select>
                     <select
                         prop:value=move || published_filter.get()
                         on:change=move |ev| set_published_filter.set(event_target_value(&ev))
@@ -334,30 +389,202 @@ pub fn DemosPage() -> impl IntoView {
                         <option value="published">"Published"</option>
                         <option value="draft">"Draft"</option>
                     </select>
+                    <button type="button" class="button btn-outline" on:click=refresh_dashboard>
+                        "Reload"
+                    </button>
                 </div>
 
-                <Show when=move || !projects.get().is_empty()>
-                    <div class="inline-actions">
-                        <a class="button btn-outline" href={api::dashboard_home_path()}>
-                            "All demos"
-                        </a>
-                        <For
-                            each=move || projects.get()
-                            key=|project| project.id.clone()
-                            children=move |project| {
-                                let path = api::namespaced_project_path(
-                                    &username_slug.get(),
-                                    &project.name,
-                                );
+                <div class="dashboard-topbar-actions">
+                    <ThemeModeToggle />
+                    {move || match auth.session_state.get() {
+                        SessionState::LoggedIn(user) => {
+                            let username = user.username;
+                            let email = user.email.unwrap_or_else(|| "GitHub account".to_string());
+                            let avatar = user.avatar_url;
+                            let initial = username
+                                .chars()
+                                .next()
+                                .unwrap_or('U')
+                                .to_ascii_uppercase();
+
+                            let avatar_view = if let Some(url) = avatar {
                                 view! {
-                                    <a class="button btn-outline" href={path}>
-                                        {project.name}
-                                    </a>
+                                    <img class="dashboard-avatar" src={url} alt="GitHub user avatar" />
                                 }
+                                .into_any()
+                            } else {
+                                view! {
+                                    <span class="dashboard-avatar dashboard-avatar-fallback">{initial}</span>
+                                }
+                                .into_any()
+                            };
+
+                            view! {
+                                <div class="dashboard-profile">
+                                    <div class="dashboard-profile-copy">
+                                        <p class="dashboard-profile-username">{format!("@{username}")}</p>
+                                        <p class="dashboard-profile-email">{email}</p>
+                                    </div>
+                                    {avatar_view}
+                                </div>
                             }
-                        />
+                            .into_any()
+                        }
+                        _ => view! {
+                            <div class="dashboard-profile">
+                                <div class="dashboard-profile-copy">
+                                    <p class="dashboard-profile-username">"Guest"</p>
+                                    <p class="dashboard-profile-email">"Login required"</p>
+                                </div>
+                            </div>
+                        }
+                        .into_any(),
+                    }}
+                </div>
+            </header>
+
+            <header class="dashboard-hero panel">
+                <div class="dashboard-hero-copy">
+                    <p class="dashboard-eyebrow">"Workspace"</p>
+                    <h2>
+                        {move || {
+                            if let Some(project_name) = active_project_name.get() {
+                                format!("{project_name} demos")
+                            } else {
+                                "Your Demos".to_string()
+                            }
+                        }}
+                    </h2>
+                    <p>
+                        "Every demo lives here. Projects are optional labels for organization."
+                    </p>
+                    <p class="dashboard-path">{move || dashboard_path.get()}</p>
+                </div>
+
+                <div class="dashboard-hero-actions">
+                    <button type="button" class="button btn-primary" on:click=create_demo>
+                        "Create Demo"
+                    </button>
+                </div>
+            </header>
+
+            <p class="status">{move || status.get()}</p>
+
+            <Show when=move || requires_login.get()>
+                <div class="panel dashboard-auth-panel">
+                    <h3>"Authentication Required"</h3>
+                    <p>"Sign in to load and create demos."</p>
+                    <a class="button btn-primary" href={api::login_url()}>
+                        "Login with GitHub"
+                    </a>
+                </div>
+            </Show>
+
+            <section class="dashboard-control-stage">
+                <section class="dashboard-stats">
+                    <article class="dashboard-stat">
+                        <span class="dashboard-stat-label">"Demos"</span>
+                        <strong>{move || format_count_label(dashboard_counts.get().0, "demo")}</strong>
+                    </article>
+                    <article class="dashboard-stat">
+                        <span class="dashboard-stat-label">"Published"</span>
+                        <strong>{move || format_count_label(dashboard_counts.get().1, "demo")}</strong>
+                    </article>
+                    <article class="dashboard-stat">
+                        <span class="dashboard-stat-label">"Drafts"</span>
+                        <strong>{move || format_count_label(dashboard_counts.get().2, "demo")}</strong>
+                    </article>
+                    <article class="dashboard-stat">
+                        <span class="dashboard-stat-label">"Projects"</span>
+                        <strong>{move || format_count_label(dashboard_counts.get().3, "project")}</strong>
+                    </article>
+                </section>
+
+                <section class="dashboard-bento">
+                    <div class="panel dashboard-card-form dashboard-card-form--primary">
+                        <h3>"Create Demo"</h3>
+                        <div class="dashboard-form-grid">
+                            <input
+                                placeholder="Name your next demo"
+                                prop:value=move || demo_title.get()
+                                on:input=move |ev| set_demo_title.set(event_target_value(&ev))
+                            />
+                            <Show when=move || !projects.get().is_empty() fallback=|| view! { <div></div> }>
+                                <select
+                                    prop:value=move || new_demo_project_id.get()
+                                    on:change=move |ev| set_new_demo_project_id.set(event_target_value(&ev))
+                                >
+                                    <option value="">"No project"</option>
+                                    <For
+                                        each=move || projects.get()
+                                        key=|project| project.id.clone()
+                                        children=move |project| {
+                                            view! {
+                                                <option value={project.id.clone()}>{project.name}</option>
+                                            }
+                                        }
+                                    />
+                                </select>
+                            </Show>
+                            <button type="button" class="button btn-primary" on:click=create_demo>
+                                "Create Demo"
+                            </button>
+                        </div>
+                        <p class="dashboard-card-note">"New demos appear immediately in the grid below."</p>
                     </div>
-                </Show>
+
+                    <div class="panel dashboard-card-form dashboard-card-form--project">
+                        <h3>"New Project"</h3>
+                        <div class="dashboard-form-grid dashboard-form-grid--project">
+                            <input
+                                placeholder="Project name"
+                                prop:value=move || project_name.get()
+                                on:input=move |ev| set_project_name.set(event_target_value(&ev))
+                            />
+                            <textarea
+                                placeholder="Description (optional)"
+                                prop:value=move || project_description.get()
+                                on:input=move |ev| set_project_description.set(event_target_value(&ev))
+                            />
+                            <button
+                                type="button"
+                                class="button btn-outline"
+                                disabled=move || creating_project.get()
+                                on:click=create_project
+                            >
+                                {move || if creating_project.get() { "Creating..." } else { "Create Project" }}
+                            </button>
+                        </div>
+                        <p class="dashboard-card-note">"Projects are optional grouping labels for demos."</p>
+                    </div>
+
+                    <div class="panel dashboard-card-form dashboard-card-form--filters">
+                        <h3>"Project Shortcuts"</h3>
+                        <Show when=move || !projects.get().is_empty()>
+                            <div class="dashboard-project-chips dashboard-project-chips--dense">
+                                <a class="button btn-outline" href={api::dashboard_home_path()}>
+                                    "All demos"
+                                </a>
+                                <For
+                                    each=move || projects.get()
+                                    key=|project| project.id.clone()
+                                    children=move |project| {
+                                        let path = api::namespaced_project_path(
+                                            &username_slug.get(),
+                                            &project.name,
+                                        );
+                                        view! {
+                                            <a class="button btn-outline" href={path}>
+                                                {project.name}
+                                            </a>
+                                        }
+                                    }
+                                />
+                            </div>
+                        </Show>
+                        <p class="dashboard-card-note">"Use the sidebar for the full project drawer."</p>
+                    </div>
+                </section>
             </section>
 
             <Show
@@ -371,14 +598,17 @@ pub fn DemosPage() -> impl IntoView {
                                 <article class="demo-card skeleton"></article>
                             </section>
                         }
-                            .into_any()
+                        .into_any()
                     } else {
                         view! {
-                            <p class="empty-state">
-                                "No demos match your filters yet. Create one and it will appear here immediately."
-                            </p>
+                            <div class="panel dashboard-empty-card">
+                                <h3>"No matching demos"</h3>
+                                <p>
+                                    "Create a demo or clear the current filters to show the full workspace."
+                                </p>
+                            </div>
                         }
-                            .into_any()
+                        .into_any()
                     }
                 }
             >
@@ -425,11 +655,13 @@ pub fn DemosPage() -> impl IntoView {
                                 project_slug.as_deref(),
                                 Some("analytics"),
                             );
-
                             view! {
                                 <article class="demo-card">
                                     <div class="demo-card-top">
-                                        <h3>{demo.title.clone()}</h3>
+                                        <div>
+                                            <span class="demo-card-kicker">"Demo Name"</span>
+                                            <h3>{demo.title.clone()}</h3>
+                                        </div>
                                         <span class=move || {
                                             if demo.published {
                                                 "demo-state-pill published"
@@ -441,14 +673,17 @@ pub fn DemosPage() -> impl IntoView {
                                         </span>
                                     </div>
 
-                                    <p class="demo-card-subtitle">
-                                        "Project: "
-                                        <span class="subtle-badge">{project_name}</span>
-                                    </p>
-
-                                    <div class="demo-card-meta">
-                                        <span>{format!("Created {}", format_timestamp(&demo.created_at))}</span>
-                                        <span>{format!("Updated {}", format_timestamp(&demo.updated_at))}</span>
+                                    <div class="demo-card-body">
+                                        <p class="demo-card-path">{format!("/{}/demos/{}", username_slug.get(), demo.id)}</p>
+                                        <p class="demo-card-subtitle">
+                                            "Project: "
+                                            <span class="subtle-badge">{project_name}</span>
+                                        </p>
+                                        <div class="demo-card-meta">
+                                            <span>{format!("Created {}", format_timestamp(&demo.created_at))}</span>
+                                            <span>{format!("Updated {}", format_timestamp(&demo.updated_at))}</span>
+                                            <span>{format!("v{} • {} steps", demo.version, demo.steps.len())}</span>
+                                        </div>
                                     </div>
 
                                     <label class="demo-project-selector">
@@ -510,6 +745,24 @@ pub fn DemosPage() -> impl IntoView {
                     />
                 </section>
             </Show>
+
+            <div class="panel dashboard-footer-void">
+                <div>
+                    <p class="dashboard-eyebrow">"Engine Heartbeat Nominal"</p>
+                    <p class="dashboard-footer-line">
+                        {move || {
+                            let (demos, published, _, projects) = dashboard_counts.get();
+                            format!(
+                                "{} | {} | {}",
+                                format_count_label(demos, "demo"),
+                                format_count_label(published, "published demo"),
+                                format_count_label(projects, "project")
+                            )
+                        }}
+                    </p>
+                </div>
+                <p class="dashboard-footer-note">"Projects are only labels; every demo still has a direct namespace route."</p>
+            </div>
 
             <ConfirmDialog
                 open=Signal::derive(move || pending_delete_demo_id.get().is_some())
