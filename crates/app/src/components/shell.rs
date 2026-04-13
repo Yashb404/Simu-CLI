@@ -391,7 +391,9 @@ pub fn AppShell() -> impl IntoView {
                                     </div>
 
                                     <div class="ml-6 flex items-center gap-6">
-                                        <ThemeModeToggle />
+                                        <Show when=move || false>
+                                            <ThemeModeToggle />
+                                        </Show>
                                         <div class="flex items-center gap-3 border-l border-zinc-800 pl-4">
                                             <div class="text-right">
                                                 <p class="mono-text text-[11px] font-bold leading-none text-[#4ae176]">{username_for_profile}</p>

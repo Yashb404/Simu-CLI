@@ -185,21 +185,23 @@ fn TopNav(
                         }
                     }
                 >
-                    <div class="flex items-center gap-2 rounded-lg border border-outline-variant/20 bg-surface-container-low px-2 py-1">
-                        <span class="text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">"Theme"</span>
-                        <select
-                            class="rounded-md border border-outline-variant bg-surface-container px-2 py-1 text-xs font-semibold text-on-surface outline-none"
-                            prop:value=move || theme_mode.get().as_str()
-                            on:change=move |ev| {
-                                let value = event_target_value(&ev);
-                            set_theme_mode.set(ThemeMode::parse(&value));
-                            }
-                        >
-                            <option value="terminal">"Terminal"</option>
-                            <option value="dark">"Dark"</option>
-                            <option value="light">"Light"</option>
-                        </select>
-                    </div>
+                    <Show when=move || false>
+                        <div class="flex items-center gap-2 rounded-lg border border-outline-variant/20 bg-surface-container-low px-2 py-1">
+                            <span class="text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">"Theme"</span>
+                            <select
+                                class="rounded-md border border-outline-variant bg-surface-container px-2 py-1 text-xs font-semibold text-on-surface outline-none"
+                                prop:value=move || theme_mode.get().as_str()
+                                on:change=move |ev| {
+                                    let value = event_target_value(&ev);
+                                set_theme_mode.set(ThemeMode::parse(&value));
+                                }
+                            >
+                                <option value="terminal">"Terminal"</option>
+                                <option value="dark">"Dark"</option>
+                                <option value="light">"Light"</option>
+                            </select>
+                        </div>
+                    </Show>
 
                     <div class="hidden md:flex bg-surface-container-low p-1 rounded-lg border border-outline-variant/20">
                         <button

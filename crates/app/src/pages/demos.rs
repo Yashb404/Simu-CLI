@@ -458,7 +458,9 @@ pub fn DemosPage() -> impl IntoView {
                                type="search" />
                     </div>
                     <div class="db-topbar-right">
-                        <ThemeModeToggle />
+                        <Show when=move || false>
+                            <ThemeModeToggle />
+                        </Show>
                         <div class="db-profile">
                             <div>
                                 <div class="db-profile-name">
