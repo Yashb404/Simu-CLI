@@ -10,6 +10,27 @@ pub fn ShareDemoPage() -> impl IntoView {
             .get("slug")
             .unwrap_or_else(|| "unknown".to_string())
     };
+
+    Effect::new(move |_| {
+        let current_slug = slug();
+        if current_slug == "unknown" {
+            return;
+        }
+
+        if let Some(window) = web_sys::window() {
+            let in_iframe = window
+                .parent()
+                .ok()
+                .flatten()
+                .map(|parent| !js_sys::Object::is(window.as_ref(), parent.as_ref()))
+                .unwrap_or(false);
+
+            if in_iframe {
+                let _ = window.location().set_href(&format!("/embed/{current_slug}"));
+            }
+        }
+    });
+
     let embed_src = move || {
         format!("/embed/{}", slug())
     };
