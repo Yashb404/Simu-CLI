@@ -14,11 +14,16 @@ pub fn DemoViewPage() -> impl IntoView {
             .unwrap_or_else(|| "demo-id".to_string())
     });
     let (demo_id, set_demo_id) = signal(initial_demo_id.get());
-    let page_origin = api::browser_origin();
-    let iframe_origin = page_origin.clone();
-    let script_origin = page_origin.clone();
+    let api_base = api::api_base();
+    let iframe_origin = api_base.clone();
+    let script_origin = api_base.clone();
     let embed_src = Signal::derive(move || {
-        format!("/embed/{}", demo_id.get())
+        format!(
+            "{}/embed-runtime/index.html?demo_id={}&api_base={}",
+            api::api_base(),
+            demo_id.get(),
+            api::api_base()
+        )
     });
 
     let iframe_snippet = Signal::derive(move || {

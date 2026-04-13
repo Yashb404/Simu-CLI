@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SimuCLI Embed Local Test</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        min-height: 100%;
+        background: #0b0d10;
+        color: #e7e4ec;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      }
+      .page {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: 28px;
+        letter-spacing: -0.02em;
+      }
+      p {
+        margin: 0 0 18px;
+        color: #a5abb8;
+      }
+      #simucli-embed {
+        width: 100%;
+        min-height: 480px;
+        border: 1px solid #2a2f38;
+        border-radius: 10px;
+        overflow: hidden;
+        background: #050505;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <h1>SimuCLI Embed Smoke Test</h1>
+      <p>This page mounts a single embed instance using static/embed.js.</p>
+
+      <div id="simucli-embed"></div>
+      <script
+        src="http://localhost:8080/static/embed.js"
+        data-demo="frontend-demo-1-e48044c4"
+        data-target="#simucli-embed"
+        data-api-base="http://localhost:8080"
+        data-height="560px"
+      ></script>
+    </main>
+  </body>
+</html>

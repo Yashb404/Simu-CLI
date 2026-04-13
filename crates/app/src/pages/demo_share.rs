@@ -1,6 +1,8 @@
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 
+use crate::api;
+
 #[component]
 pub fn ShareDemoPage() -> impl IntoView {
     let params = use_params_map();
@@ -17,6 +19,11 @@ pub fn ShareDemoPage() -> impl IntoView {
             return;
         }
 
+        let api_base = api::api_base();
+        let runtime_url = format!(
+            "{api_base}/embed-runtime/index.html?demo_id={current_slug}&api_base={api_base}"
+        );
+
         if let Some(window) = web_sys::window() {
             let in_iframe = window
                 .parent()
@@ -26,13 +33,17 @@ pub fn ShareDemoPage() -> impl IntoView {
                 .unwrap_or(false);
 
             if in_iframe {
-                let _ = window.location().set_href(&format!("/embed/{current_slug}"));
+                let _ = window.location().set_href(&runtime_url);
             }
         }
     });
 
     let embed_src = move || {
-        format!("/embed/{}", slug())
+        let api_base = api::api_base();
+        format!(
+            "{api_base}/embed-runtime/index.html?demo_id={}&api_base={api_base}",
+            slug()
+        )
     };
 
     view! {
