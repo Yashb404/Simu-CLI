@@ -4,6 +4,7 @@ use shared::{
     dto::UpdateDemoRequest,
     models::demo::{Demo, DemoSettings, Step, Theme},
 };
+use time::OffsetDateTime;
 use uuid::Uuid;
 use web_sys::js_sys;
 
@@ -179,8 +180,8 @@ pub struct DashboardDemo {
     pub theme: Theme,
     pub settings: DemoSettings,
     pub steps: Vec<Step>,
-    pub created_at: String,
-    pub updated_at: String,
+    pub created_at: OffsetDateTime,
+    pub updated_at: OffsetDateTime,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

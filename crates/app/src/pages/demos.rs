@@ -4,33 +4,17 @@ use leptos::prelude::*;
 use leptos::task::spawn_local_scoped;
 use leptos_router::hooks::use_params_map;
 use shared::client::ClientError;
+use time::OffsetDateTime;
 
 use crate::api;
 use crate::app::{ThemeController, ThemeMode};
 use crate::auth::{SessionState, use_auth_context};
 use crate::components::confirm_dialog::ConfirmDialog;
 
-fn format_timestamp(value: &str) -> String {
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
-        return "n/a".to_string();
-    }
-
-    if let Some((date, time_with_zone)) = trimmed.split_once('T') {
-        let time = time_with_zone
-            .split(['Z', '+'])
-            .next()
-            .unwrap_or_default()
-            .chars()
-            .take(5)
-            .collect::<String>();
-        if !time.is_empty() {
-            return format!("{date} {time}");
-        }
-        return date.to_string();
-    }
-
-    trimmed.to_string()
+fn format_timestamp(value: &OffsetDateTime) -> String {
+    value
+        .format(&time::format_description::well_known::Rfc3339)
+        .unwrap_or_else(|_| value.to_string())
 }
 
 #[component]
