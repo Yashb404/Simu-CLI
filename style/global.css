@@ -184,6 +184,24 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+body {
+  background-color: var(--bg, #0e0e10);
+  color: var(--ink, #e7e4ec);
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg, #0e0e10);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--surface-container, #19191d);
+}
+
 /* Keep overlay support but disabled for productivity dashboard themes */
 body::after {
   content: "";
