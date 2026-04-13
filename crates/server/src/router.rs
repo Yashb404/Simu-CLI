@@ -155,6 +155,7 @@ mod tests {
                 db_max_connections: 5,
                 session_timeout: time::Duration::days(7),
                 session_cookie_secure: false,
+                session_cookie_same_site: crate::config::SessionCookieSameSite::Lax,
                 log_level: "server=debug".to_string(),
                 cors_allowed_origins: vec!["https://app.example.test".to_string()],
             },

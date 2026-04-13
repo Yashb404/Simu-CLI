@@ -33,6 +33,7 @@ pub fn test_config() -> Config {
         db_max_connections: 5,
         session_timeout: time::Duration::days(7),
         session_cookie_secure: false,
+        session_cookie_same_site: server::config::SessionCookieSameSite::Lax,
         log_level: "error".to_string(),
         cors_allowed_origins: vec!["http://localhost:8080".to_string()],
     }

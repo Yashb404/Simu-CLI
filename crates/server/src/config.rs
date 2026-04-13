@@ -2,6 +2,26 @@ use anyhow::{Context, Result};
 use std::env;
 use time::Duration;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SessionCookieSameSite {
+    Lax,
+    Strict,
+    None,
+}
+
+impl SessionCookieSameSite {
+    fn from_env_value(value: &str) -> Result<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "lax" => Ok(Self::Lax),
+            "strict" => Ok(Self::Strict),
+            "none" => Ok(Self::None),
+            _ => anyhow::bail!(
+                "SESSION_COOKIE_SAME_SITE must be one of: lax, strict, none"
+            ),
+        }
+    }
+}
+
 /// Wrapper for secrets that should not appear in debug logs
 #[derive(Clone)]
 pub struct Secret(pub String);
@@ -47,6 +67,9 @@ pub struct Config {
 
     /// Whether session cookies must be marked secure
     pub session_cookie_secure: bool,
+
+    /// SameSite policy for session cookies.
+    pub session_cookie_same_site: SessionCookieSameSite,
 
     /// Logging level (defaults to "server=debug,tower_sessions=debug")
     pub log_level: String,
@@ -142,6 +165,19 @@ fn require_secure_cookie_compatible_api_url(api_url: &str, secure: bool) -> Resu
     Ok(())
 }
 
+fn require_same_site_policy_compatibility(
+    secure: bool,
+    same_site: &SessionCookieSameSite,
+) -> Result<()> {
+    if matches!(same_site, SessionCookieSameSite::None) && !secure {
+        anyhow::bail!(
+            "SESSION_COOKIE_SAME_SITE=none requires SESSION_COOKIE_SECURE=true"
+        );
+    }
+
+    Ok(())
+}
+
 impl Config {
     /// Load configuration from environment variables
     ///
@@ -218,7 +254,11 @@ impl Config {
             .unwrap_or_else(|_| "false".to_string())
             .parse::<bool>()
             .context("SESSION_COOKIE_SECURE must be true or false")?;
+        let session_cookie_same_site = SessionCookieSameSite::from_env_value(
+            &env::var("SESSION_COOKIE_SAME_SITE").unwrap_or_else(|_| "lax".to_string()),
+        )?;
         require_secure_cookie_compatible_api_url(&api_url, session_cookie_secure)?;
+        require_same_site_policy_compatibility(session_cookie_secure, &session_cookie_same_site)?;
 
         let log_level = env::var("RUST_LOG")
             .unwrap_or_else(|_| "server=debug,tower_sessions=debug".to_string());
@@ -235,6 +275,7 @@ impl Config {
             db_max_connections,
             session_timeout: Duration::days(session_timeout_days),
             session_cookie_secure,
+            session_cookie_same_site,
             log_level,
             cors_allowed_origins,
         })
@@ -321,5 +362,12 @@ mod tests {
         assert!(require_secure_cookie_compatible_api_url("https://example.com", true).is_ok());
         assert!(require_secure_cookie_compatible_api_url("http://localhost:3001", false).is_ok());
         assert!(require_secure_cookie_compatible_api_url("http://localhost:3001", true).is_err());
+    }
+
+    #[test]
+    fn same_site_none_requires_secure_cookie() {
+        assert!(require_same_site_policy_compatibility(true, &SessionCookieSameSite::None).is_ok());
+        assert!(require_same_site_policy_compatibility(false, &SessionCookieSameSite::Lax).is_ok());
+        assert!(require_same_site_policy_compatibility(false, &SessionCookieSameSite::None).is_err());
     }
 }

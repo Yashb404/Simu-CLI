@@ -3,6 +3,7 @@ use axum::http::{HeaderValue, Method, header};
 use axum::response::Html;
 use axum::routing::get_service;
 use governor::{Quota, RateLimiter};
+use server::config::SessionCookieSameSite;
 use server::{config, middleware, router, state};
 use sqlx::postgres::PgPoolOptions;
 use std::{net::SocketAddr, num::NonZeroU32, sync::Arc};
@@ -64,9 +65,15 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("Session store initialized");
 
+    let same_site = match config.session_cookie_same_site {
+        SessionCookieSameSite::Lax => SameSite::Lax,
+        SessionCookieSameSite::Strict => SameSite::Strict,
+        SessionCookieSameSite::None => SameSite::None,
+    };
+
     let session_layer = SessionManagerLayer::new(session_store)
         .with_secure(config.session_cookie_secure)
-        .with_same_site(SameSite::Lax)
+        .with_same_site(same_site)
         .with_expiry(Expiry::OnInactivity(config.session_timeout));
 
     let rate_limit_quota = NonZeroU32::new(config.rate_limit_requests_per_minute)
