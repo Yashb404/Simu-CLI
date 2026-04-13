@@ -1,5 +1,6 @@
 pub mod analytics;
 pub mod demo_editor;
+pub mod embed_fallback;
 pub mod demo_share;
 pub mod demo_view;
 pub mod demos;
