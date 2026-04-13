@@ -9,8 +9,8 @@ use crate::auth::provide_auth_context;
 use crate::components::shell::AppShell;
 use crate::pages::{
     analytics::AnalyticsPage, demo_editor::DemoEditorPage, demo_share::ShareDemoPage,
-    demo_view::DemoViewPage, demos::DemosPage, docs::DocsPage, landing::LandingPage,
-    publish::PublishPage, settings::SettingsPage,
+    demo_view::DemoViewPage, demos::DemosPage, docs::DocsPage, docs::DocsSectionPage,
+    landing::LandingPage, publish::PublishPage, settings::SettingsPage,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -89,6 +89,8 @@ pub fn App() -> impl IntoView {
             <Routes fallback=|| view! { <p>"Not Found"</p> }>
                 <Route path=path!("/") view=LandingPage />
                 <Route path=path!("/docs") view=DocsPage />
+                <Route path=path!("/docs/:section") view=DocsSectionPage />
+                <Route path=path!("/docs/:category/:section") view=DocsSectionPage />
                 <Route path=path!("/d/:slug") view=ShareDemoPage />
                 <Route path=path!("/demo/view") view=DemoViewPage />
 

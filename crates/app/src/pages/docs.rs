@@ -1,8 +1,208 @@
 use leptos::prelude::*;
 use leptos_router::components::A;
+use leptos_router::hooks::use_params_map;
+
+use crate::api;
+use crate::auth::{SessionState, use_auth_context};
+
+#[derive(Clone, Copy)]
+struct DocsSection {
+    title: &'static str,
+    summary: &'static str,
+    details: &'static str,
+}
+
+fn docs_section_for(path: &str) -> DocsSection {
+    match path {
+        "api" => DocsSection {
+            title: "API Reference",
+            summary: "Browse the public endpoints and client methods exposed by SimuCLI.",
+            details: "This section is the entry point for developers who need the request shapes, response contracts, and integration points behind the documentation runtime.",
+        },
+        "changelog" => DocsSection {
+            title: "Changelog",
+            summary: "Track product and documentation updates across releases.",
+            details: "Use this page to review release notes, feature additions, and any behavior changes that affect published demos or embeds.",
+        },
+        "community" => DocsSection {
+            title: "Community",
+            summary: "Find support, examples, and contribution paths.",
+            details: "This page collects the collaboration surface around the project so users can get help and stay aligned with the current workflow.",
+        },
+        "workspace/projects" => DocsSection {
+            title: "Creating Projects",
+            summary: "Organize demos into named project groups.",
+            details: "Projects are optional containers for related demos. Use them to keep launch work, experiments, and product areas separate.",
+        },
+        "workspace/demos" => DocsSection {
+            title: "Managing Demos",
+            summary: "Keep drafts, published demos, and analytics organized.",
+            details: "This page explains how demos move through the workspace so teams can publish assets without losing track of status or ownership.",
+        },
+        "editor/recording" => DocsSection {
+            title: "Recording Casts",
+            summary: "Capture terminal sessions as guided demo flows.",
+            details: "Recorded casts are useful when you want to preserve an exact command sequence and replay it consistently for documentation or marketing.",
+        },
+        "editor/manual-authoring" => DocsSection {
+            title: "Manual Authoring",
+            summary: "Author precise demo flows by hand.",
+            details: "Manual authoring gives you more control over the narrative, timing, and output text without depending on a live recorder.",
+        },
+        "editor/step-configuration" => DocsSection {
+            title: "Step Configuration",
+            summary: "Tune prompts, pauses, and command steps.",
+            details: "The step model should stay explicit and easy to scan so the player can execute the sequence exactly as authored.",
+        },
+        "publishing/deploying" => DocsSection {
+            title: "Deploying",
+            summary: "Promote a draft demo into a stable public asset.",
+            details: "Use publishing to turn an internal demo into something you can share, embed, or surface in a campaign landing page.",
+        },
+        "publishing/analytics" => DocsSection {
+            title: "Analytics",
+            summary: "Measure engagement and completion trends.",
+            details: "Analytics helps you understand where users stop, what they replay, and which demos actually drive engagement.",
+        },
+        "integration/script-iframe" => DocsSection {
+            title: "Script / Iframe",
+            summary: "Embed the runtime with a script tag or an iframe.",
+            details: "Script-based embedding is the lightest path. If you need isolation, an iframe keeps the runtime sandboxed while remaining interactive.",
+        },
+        "integration/react-vue" => DocsSection {
+            title: "React / Vue Wrappers",
+            summary: "Use thin framework wrappers around the same runtime.",
+            details: "Wrappers should stay small and forward the same demo, API, and sizing settings into the player surface.",
+        },
+        _ => DocsSection {
+            title: "Documentation Section",
+            summary: "The requested page could not be found.",
+            details: "Use the sidebar or top navigation to jump to a supported documentation section.",
+        },
+    }
+}
+
+#[derive(Clone, Copy)]
+struct DocsTopic {
+    path: &'static str,
+    title: &'static str,
+    summary: &'static str,
+}
+
+const DOC_TOPICS: &[DocsTopic] = &[
+    DocsTopic {
+        path: "/docs/api",
+        title: "API Reference",
+        summary: "Browse the public endpoints and client methods exposed by SimuCLI.",
+    },
+    DocsTopic {
+        path: "/docs/changelog",
+        title: "Changelog",
+        summary: "Track product and documentation updates across releases.",
+    },
+    DocsTopic {
+        path: "/docs/community",
+        title: "Community",
+        summary: "Find support, examples, and contribution paths.",
+    },
+    DocsTopic {
+        path: "/docs/workspace/projects",
+        title: "Creating Projects",
+        summary: "Organize demos into named project groups.",
+    },
+    DocsTopic {
+        path: "/docs/workspace/demos",
+        title: "Managing Demos",
+        summary: "Keep drafts, published demos, and analytics organized.",
+    },
+    DocsTopic {
+        path: "/docs/editor/recording",
+        title: "Recording Casts",
+        summary: "Capture terminal sessions as guided demo flows.",
+    },
+    DocsTopic {
+        path: "/docs/editor/manual-authoring",
+        title: "Manual Authoring",
+        summary: "Author precise demo flows by hand.",
+    },
+    DocsTopic {
+        path: "/docs/editor/step-configuration",
+        title: "Step Configuration",
+        summary: "Tune prompts, pauses, and command steps.",
+    },
+    DocsTopic {
+        path: "/docs/publishing/deploying",
+        title: "Deploying",
+        summary: "Promote a draft demo into a stable public asset.",
+    },
+    DocsTopic {
+        path: "/docs/publishing/analytics",
+        title: "Analytics",
+        summary: "Measure engagement and completion trends.",
+    },
+    DocsTopic {
+        path: "/docs/integration/script-iframe",
+        title: "Script / Iframe",
+        summary: "Embed the runtime with a script tag or an iframe.",
+    },
+    DocsTopic {
+        path: "/docs/integration/react-vue",
+        title: "React / Vue Wrappers",
+        summary: "Use thin framework wrappers around the same runtime.",
+    },
+];
+
+fn topic_matches_query(topic: &DocsTopic, query: &str) -> bool {
+    if query.trim().is_empty() {
+        return true;
+    }
+
+    let query = query.trim().to_ascii_lowercase();
+    topic.path.to_ascii_lowercase().contains(&query)
+        || topic.title.to_ascii_lowercase().contains(&query)
+        || topic.summary.to_ascii_lowercase().contains(&query)
+}
 
 #[component]
-fn DocsHeader() -> impl IntoView {
+fn DocsSectionRoute() -> impl IntoView {
+    let params = use_params_map();
+    let path = move || {
+        let map = params.read();
+        match (map.get("category"), map.get("section"), map.get("subsection")) {
+            (Some(category), Some(section), Some(subsection)) => {
+                format!("{}/{}/{}", category, section, subsection)
+            }
+            (Some(category), Some(section), None) => format!("{}/{}", category, section),
+            (Some(section), None, None) => section,
+            _ => "unknown".to_string(),
+        }
+    };
+
+    move || {
+        let section = docs_section_for(&path());
+        view! {
+            <section class="min-h-screen bg-[#0e0e10] px-6 py-24 text-[#e7e4ec]">
+                <div class="mx-auto max-w-4xl">
+                    <p class="mb-4 font-mono text-xs uppercase tracking-[0.2em] text-[#4ae176]">"Documentation"</p>
+                    <h1 class="mb-6 text-5xl font-black tracking-tighter text-white">{section.title}</h1>
+                    <p class="mb-6 max-w-2xl text-lg leading-relaxed text-[#acaab1]">{section.summary}</p>
+                    <div class="rounded-xl border border-[#47474e] bg-[#19191d] p-8 text-[#e7e4ec]">
+                        <p class="leading-relaxed text-[#acaab1]">{section.details}</p>
+                    </div>
+                    <div class="mt-8 flex flex-wrap gap-4">
+                        <A attr:class="rounded bg-[#4ae176] px-4 py-2 font-bold text-[#004b1e] transition-colors hover:bg-[#38d36a]" href="/docs">"Back to overview"</A>
+                        <A attr:class="rounded border border-[#47474e] bg-[#25252b] px-4 py-2 font-bold transition-colors hover:bg-[#2b2c32]" href="/dashboard">"Open dashboard"</A>
+                    </div>
+                </div>
+            </section>
+        }
+    }
+}
+
+#[component]
+fn DocsHeader(search_query: ReadSignal<String>, set_search_query: WriteSignal<String>) -> impl IntoView {
+    let auth = use_auth_context();
+
     view! {
         <header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-14 bg-[#0e0e10] border-b border-[#19191d]">
             <div class="flex items-center gap-8">
@@ -15,23 +215,35 @@ fn DocsHeader() -> impl IntoView {
                 </nav>
             </div>
             <div class="flex items-center gap-4">
-                <div class="hidden md:flex bg-surface-container-low border border-outline-variant/30 px-3 py-1.5 rounded items-center gap-2">
+                <label class="hidden md:flex bg-surface-container-low border border-outline-variant/30 px-3 py-1.5 rounded items-center gap-2">
                     <span class="material-symbols-outlined text-sm text-on-surface-variant">"search"</span>
-                    <span class="text-xs text-on-surface-variant font-label">"Search documentation..."</span>
-                    <span class="text-[10px] text-outline px-1 border border-outline-variant/50 rounded">"Cmd+K"</span>
-                </div>
-                <button class="flex items-center gap-2 px-3 py-1.5 bg-surface-container-highest hover:bg-surface-bright text-xs font-bold transition-all border border-outline-variant/20 rounded-lg">
-                    <span class="material-symbols-outlined text-sm">"terminal"</span>
-                    "Deploy"
-                </button>
-                <button class="flex items-center gap-2 px-4 py-1.5 bg-white text-black text-xs font-bold transition-all rounded hover:bg-zinc-200">
-                    <img
-                        alt="GitHub Logo"
-                        class="w-4 h-4"
-                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuDZoB3jLn7hN2woyYRN7frwsvBszEBna9m5L03wKgDjiuvbuY0Ni3zXpa7auNyU3kgLABuWF6lraoC5gtqsSOve_7ETsjSj9rdZDQaudLOHcZZY_XkO2XmRNwmn2jKrkxlHhASgyENIPfZNlkghP7bll0vrTVmRguQTVpMhsmnIY80VRUyarxhk73Wk8jP5ECxDd_GXXJFb-BJbO31ix-tzL9hgXVabXfXDEer55cnf-12UklRaWjBkNtObSde3OwvXspT5AGlrBD4"
+                    <input
+                        class="w-64 bg-transparent text-xs text-on-surface outline-none placeholder:text-on-surface-variant"
+                        placeholder="Search docs..."
+                        prop:value=move || search_query.get()
+                        on:input=move |event| set_search_query.set(event_target_value(&event))
                     />
-                    "Login with GitHub"
-                </button>
+                </label>
+                {move || match auth.session_state.get() {
+                    SessionState::LoggedIn(_) => view! {
+                        <A attr:class="flex items-center gap-2 px-4 py-1.5 bg-white text-black text-xs font-bold transition-all rounded hover:bg-zinc-200" href="/dashboard">
+                            <span class="material-symbols-outlined text-sm">"dashboard"</span>
+                            "Go to dashboard"
+                        </A>
+                    }
+                    .into_any(),
+                    _ => view! {
+                        <a class="flex items-center gap-2 px-4 py-1.5 bg-white text-black text-xs font-bold transition-all rounded hover:bg-zinc-200" href={api::login_url()}>
+                            <img
+                                alt="GitHub Logo"
+                                class="w-4 h-4"
+                                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDZoB3jLn7hN2woyYRN7frwsvBszEBna9m5L03wKgDjiuvbuY0Ni3zXpa7auNyU3kgLABuWF6lraoC5gtqsSOve_7ETsjSj9rdZDQaudLOHcZZY_XkO2XmRNwmn2jKrkxlHhASgyENIPfZNlkghP7bll0vrTVmRguQTVpMhsmnIY80VRUyarxhk73Wk8jP5ECxDd_GXXJFb-BJbO31ix-tzL9hgXVabXfXDEer55cnf-12UklRaWjBkNtObSde3OwvXspT5AGlrBD4"
+                            />
+                            "Login with GitHub"
+                        </a>
+                    }
+                    .into_any(),
+                }}
             </div>
         </header>
     }
@@ -108,24 +320,8 @@ fn DocsToc() -> impl IntoView {
                 <a class="text-xs text-zinc-400 hover:text-primary transition-colors border-l border-zinc-800 pl-4 py-0.5" href="#quick-start">"Quick Start"</a>
                 <a class="text-xs text-zinc-400 hover:text-primary transition-colors border-l border-zinc-800 pl-4 py-0.5" href="#architecture">"Architecture"</a>
             </nav>
-            <div class="mt-12 p-4 bg-surface-container-low border border-outline-variant/10 rounded-lg">
-                <div class="flex items-center gap-2 mb-2">
-                    <span class="material-symbols-outlined text-primary text-sm">"stars"</span>
-                    <span class="text-[10px] font-mono text-white uppercase tracking-widest">"Pro Tip"</span>
-                </div>
-                <p class="text-[11px] text-on-surface-variant leading-tight">
-                    "Use "
-                    <code>"--interactive"</code>
-                    " when recording to pause for user input during playback."
-                </p>
-            </div>
-            <div class="mt-auto">
-                <img
-                    class="w-full h-40 object-cover rounded grayscale opacity-40 mix-blend-screen mb-4"
-                    alt="minimalist dark terminal interface with glowing green line art showing connection nodes and digital flow"
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuASF8rTqrfN0IP1aGFVPPdUZphQhcg3h5Gw7uE4TgC0npvv0W-xofkjslI0096J7nXR2qXWXuYhL09XUxzJIAPIFiREbfxfoNf21nlRSev8MAfxRyNRnX1bBHRvcowrUc_81qlnrM4Z8sMswPzKdguRqKUFL4zrqBsIkMuxrfMAsnjn1Wdi2pkyR6tuBsv9cmWhKTPU-Ubja6IQnlFoduDC1-kuHSgDUBCFUJ2Xvw_gDkZJXlFk5HphUZJt2fNCHHEuflDyjXcuuoY"
-                />
-                <p class="text-[10px] text-zinc-700 italic">"\"Precision at every keystroke.\""</p>
+            <div class="mt-auto rounded-lg border border-outline-variant/10 bg-surface-container-low p-4 text-[11px] leading-tight text-on-surface-variant">
+                "Use the search field above to narrow the docs catalog by title, topic, or route."
             </div>
         </aside>
     }
@@ -133,9 +329,18 @@ fn DocsToc() -> impl IntoView {
 
 #[component]
 pub fn DocsPage() -> impl IntoView {
+    let (search_query, set_search_query) = signal(String::new());
+    let filtered_topics = move || {
+        DOC_TOPICS
+            .iter()
+            .copied()
+            .filter(|topic| topic_matches_query(topic, &search_query.get()))
+            .collect::<Vec<_>>()
+    };
+
     view! {
         <div class="min-h-screen bg-[#0e0e10] text-[#e7e4ec]">
-            <DocsHeader />
+            <DocsHeader search_query set_search_query />
             <div class="flex pt-14 h-screen overflow-hidden">
                 <DocsSidebar />
                 <main class="ml-64 mr-64 flex-1 overflow-y-auto bg-[#0e0e10]">
@@ -162,6 +367,56 @@ pub fn DocsPage() -> impl IntoView {
                                 </div>
                             </div>
                         </header>
+
+                        <section class="mb-20">
+                            <h2 class="text-2xl font-bold tracking-tight text-white mb-4 flex items-center gap-2">
+                                <span class="w-1 h-6 bg-primary"></span>
+                                {move || {
+                                    let count = filtered_topics().len();
+                                    if search_query.get().trim().is_empty() {
+                                        "Docs Index".to_string()
+                                    } else {
+                                        format!("Search Results ({count})")
+                                    }
+                                }}
+                            </h2>
+                            <p class="mb-6 max-w-2xl text-sm text-on-surface-variant">
+                                {move || {
+                                    let query = search_query.get();
+                                    if query.trim().is_empty() {
+                                        "Browse the available documentation pages or use search to jump directly to a topic.".to_string()
+                                    } else {
+                                        format!("Results for \"{}\".", query.trim())
+                                    }
+                                }}
+                            </p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <For
+                                    each=filtered_topics
+                                    key=|topic| topic.path
+                                    children=move |topic| {
+                                        view! {
+                                            <A attr:class="group rounded-xl border border-outline-variant/10 bg-surface-container-low p-5 transition-all hover:border-primary/50 hover:bg-surface-container" href=topic.path>
+                                                <div class="flex items-start justify-between gap-4 mb-3">
+                                                    <div>
+                                                        <h3 class="text-lg font-bold text-white group-hover:text-primary transition-colors">{topic.title}</h3>
+                                                        <p class="text-xs uppercase tracking-[0.18em] text-zinc-500 mt-1">{topic.path}</p>
+                                                    </div>
+                                                    <span class="material-symbols-outlined text-zinc-600 group-hover:text-primary transition-colors">"arrow_forward"</span>
+                                                </div>
+                                                <p class="text-sm leading-relaxed text-on-surface-variant">{topic.summary}</p>
+                                            </A>
+                                        }
+                                    }
+                                />
+                            </div>
+                        </section>
+
+                        <Show when=move || filtered_topics().is_empty()>
+                            <div class="mb-20 rounded-xl border border-outline-variant/10 bg-surface-container-low p-6 text-sm text-on-surface-variant">
+                                "No documentation pages matched your search. Try a section title, topic name, or route fragment."
+                            </div>
+                        </Show>
 
                         <section class="mb-20" id="why-simucli">
                             <h2 class="text-2xl font-bold tracking-tight text-white mb-6 flex items-center gap-2">
@@ -276,4 +531,9 @@ pub fn DocsPage() -> impl IntoView {
             </div>
         </div>
     }
+}
+
+#[component]
+pub fn DocsSectionPage() -> impl IntoView {
+    DocsSectionRoute()
 }
