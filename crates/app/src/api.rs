@@ -4,6 +4,7 @@ use shared::{
     dto::UpdateDemoRequest,
     models::demo::{Demo, DemoSettings, Step, Theme},
 };
+use time::OffsetDateTime;
 use uuid::Uuid;
 use web_sys::js_sys;
 
@@ -93,6 +94,21 @@ fn encode_query_value(value: &str) -> String {
         .collect()
 }
 
+/// Appends URL-encoded query parameters to an API path.
+///
+/// If `params` is empty this returns the same value as `api_url(path)`.
+/// Only parameter values are percent-encoded; keys are used as provided.
+/// The resulting string is the API URL for `path` with the encoded query string appended (e.g. `"/api/x?k=v&k2=v2"`).
+///
+/// # Examples
+///
+/// ```
+/// let p = vec![("q", "hello world".to_string()), ("flag", "1".to_string())];
+/// let out = build_query_path("/api/search", p);
+/// assert!(out.contains("/api/search?"));
+/// assert!(out.contains("q=hello%20world"));
+/// assert!(out.contains("flag=1"));
+/// ```
 fn build_query_path(path: &str, params: Vec<(&str, String)>) -> String {
     if params.is_empty() {
         return api_url(path);
@@ -109,6 +125,100 @@ fn build_query_path(path: &str, params: Vec<(&str, String)>) -> String {
         .join("&");
 
     api_url(&format!("{path}?{query}"))
+}
+
+/// Converts a string into a URL-friendly path segment (slug).
+///
+/// The returned slug is trimmed, lowercased, has every non-ASCII-alphanumeric
+/// character replaced with `-`, collapses consecutive dashes into a single
+/// dash, and has leading/trailing dashes removed.
+///
+/// # Examples
+///
+/// ```
+/// let s = slugify_segment(" Hello, World! ");
+/// assert_eq!(s, "hello-world");
+/// ```
+pub fn slugify_segment(value: &str) -> String {
+    let mut slug = value
+        .trim()
+        .to_ascii_lowercase()
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect::<String>();
+
+    while slug.contains("--") {
+        slug = slug.replace("--", "-");
+    }
+
+    slug.trim_matches('-').to_string()
+}
+
+/// Builds a namespaced demo path for a user, optionally within a project and with an optional trailing suffix.
+///
+/// The `project_slug` when provided produces a path under `/user/projects/{project_slug}/demos/{demo_id}`; when omitted the path is `/user/demos/{demo_id}`. Any `suffix` provided will be appended once, with leading/trailing slashes trimmed.
+///
+/// # Examples
+///
+/// ```
+/// let p1 = namespaced_demo_path("Alice", "123", None, None);
+/// assert_eq!(p1, "/alice/demos/123");
+///
+/// let p2 = namespaced_demo_path("Bob", "abc", Some("My Project"), Some("/view/"));
+/// assert_eq!(p2, "/bob/projects/my-project/demos/abc/view");
+/// ```
+pub fn namespaced_demo_path(
+    username: &str,
+    demo_id: &str,
+    project_slug: Option<&str>,
+    suffix: Option<&str>,
+) -> String {
+    let user = slugify_segment(username);
+    let mut base = if let Some(slug) = project_slug {
+        format!("/{user}/projects/{}/demos/{demo_id}", slugify_segment(slug))
+    } else {
+        format!("/{user}/demos/{demo_id}")
+    };
+
+    if let Some(suffix) = suffix {
+        let trimmed = suffix.trim_matches('/');
+        if !trimmed.is_empty() {
+            base.push('/');
+            base.push_str(trimmed);
+        }
+    }
+
+    base
+}
+
+/// Builds a namespaced project URL path for a user's project.
+///
+/// The returned string has the form `/username/projects/project-slug` where `username` and `project_slug` are slugified (lowercased, non-alphanumeric characters replaced by `-`, repeated `-` collapsed, and leading/trailing `-` removed).
+///
+/// # Examples
+///
+/// ```
+/// let p = namespaced_project_path("Alice Smith", "My Project!");
+/// assert_eq!(p, "/alice-smith/projects/my-project");
+/// ```
+pub fn namespaced_project_path(username: &str, project_slug: &str) -> String {
+    format!(
+        "/{}/projects/{}",
+        slugify_segment(username),
+        slugify_segment(project_slug)
+    )
+}
+
+/// Path for the dashboard home.
+///
+/// # Examples
+///
+/// ```
+/// let p = dashboard_home_path();
+/// assert_eq!(p, "/dashboard");
+/// ```
+pub fn dashboard_home_path() -> &'static str {
+    "/dashboard"
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DashboardProject {
@@ -128,6 +238,14 @@ pub struct DashboardDemo {
     pub theme: Theme,
     pub settings: DemoSettings,
     pub steps: Vec<Step>,
+    pub created_at: OffsetDateTime,
+    pub updated_at: OffsetDateTime,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardSnapshot {
+    pub projects: Vec<DashboardProject>,
+    pub demos: Vec<DashboardDemo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -204,10 +322,61 @@ pub async fn logout() -> Result<(), String> {
     send(HttpMethod::Post, &logout_url(), None, true).await
 }
 
+/// Fetches the current user's dashboard projects.
+///
+/// Returns `Ok` with a `Vec<DashboardProject>` on success, `Err` with an error message otherwise.
+///
+/// # Examples
+///
+/// ```no_run
+/// # async fn run() {
+/// let res = list_projects().await;
+/// match res {
+///     Ok(projects) => println!("found {} projects", projects.len()),
+///     Err(err) => eprintln!("list_projects error: {}", err),
+/// }
+/// # }
+/// ```
 pub async fn list_projects() -> Result<Vec<DashboardProject>, String> {
     list_projects_with_paging(None, None).await
 }
 
+/// Fetches the authenticated user's dashboard snapshot containing projects and demos.
+///
+/// # Returns
+///
+/// `Ok(DashboardSnapshot)` with projects and demos on success, `Err(ClientError)` on failure.
+///
+/// # Examples
+///
+/// ```no_run
+/// # async fn example() -> Result<(), crate::api::ClientError> {
+/// let snapshot = crate::api::get_dashboard_snapshot().await?;
+/// // snapshot.projects and snapshot.demos are available
+/// assert!(snapshot.projects.len() >= 0);
+/// # Ok(()) }
+/// ```
+pub async fn get_dashboard_snapshot() -> Result<DashboardSnapshot, ClientError> {
+    fetch_typed(HttpMethod::Get, &api_url("/api/me/dashboard"), None, true).await
+}
+
+/// Lists dashboard projects, optionally limited and offset for paging.
+///
+/// If `limit` is provided, the result set will contain at most that many projects.
+/// If `offset` is provided, the result set will start at that zero-based offset.
+///
+/// # Returns
+///
+/// `Ok(Vec<DashboardProject>)` with the retrieved projects on success, `Err(String)` with an error message on failure.
+///
+/// # Examples
+///
+/// ```
+/// use futures::executor::block_on;
+///
+/// let projects = block_on(list_projects_with_paging(Some(10), Some(0))).unwrap();
+/// assert!(projects.len() <= 10);
+/// ```
 pub async fn list_projects_with_paging(
     limit: Option<u32>,
     offset: Option<u32>,

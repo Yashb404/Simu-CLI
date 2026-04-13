@@ -9,8 +9,8 @@ use crate::auth::provide_auth_context;
 use crate::components::shell::AppShell;
 use crate::pages::{
     analytics::AnalyticsPage, demo_editor::DemoEditorPage, demo_share::ShareDemoPage,
-    demo_view::DemoViewPage, demos::DemosPage, landing::LandingPage, projects::ProjectsPage,
-    publish::PublishPage, settings::SettingsPage,
+    demo_view::DemoViewPage, demos::DemosPage, docs::DocsPage, docs::DocsSectionPage,
+    landing::LandingPage, publish::PublishPage, settings::SettingsPage,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -62,6 +62,18 @@ fn persist_theme_mode(theme: ThemeMode) {
     }
 }
 
+/// Root application component that provides global context, manages persistent theme state, and declares client-side routes.
+///
+/// This component:
+/// - Installs meta and authentication contexts for the app.
+/// - Provides a ThemeController into context and keeps the current theme persisted to local storage and mirrored to the document root `data-theme` attribute.
+/// - Renders the application's router with public routes (e.g., `/`, `/docs`, `/d/:slug`, `/demo/view`) and authenticated routes nested inside the `AppShell` layout (including `/dashboard`, dashboard demo editor/share routes, and username-scoped demo/project routes).
+///
+/// # Examples
+///
+/// ```
+/// let _root_view = App();
+/// ```
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
@@ -88,26 +100,41 @@ pub fn App() -> impl IntoView {
         <Router>
             <Routes fallback=|| view! { <p>"Not Found"</p> }>
                 <Route path=path!("/") view=LandingPage />
+                <Route path=path!("/docs") view=DocsPage />
+                <Route path=path!("/docs/:section") view=DocsSectionPage />
+                <Route path=path!("/docs/:category/:section") view=DocsSectionPage />
                 <Route path=path!("/d/:slug") view=ShareDemoPage />
                 <Route path=path!("/demo/view") view=DemoViewPage />
 
                 <ParentRoute path=path!("") view=AppShell>
-                    <Route path=path!("/projects") view=ProjectsPage />
-                    <Route path=path!("/demos") view=DemosPage />
-                    <Route path=path!("/dashboard") view=RedirectToProjects />
-                    <Route path=path!("/dashboard/projects") view=ProjectsPage />
-                    <Route path=path!("/dashboard/demos") view=DemosPage />
+                    <Route path=path!("/dashboard") view=DemosPage />
+                    <Route path=path!("/dashboard/demos") view=RedirectDashboardHome />
                     <Route path=path!("/dashboard/demos/:id") view=DemoEditorPage />
-                    <Route path=path!("/dashboard/demos/:id/settings") view=SettingsPage />
-                    <Route path=path!("/dashboard/demos/:id/publish") view=PublishPage />
-                    <Route path=path!("/dashboard/demos/:id/analytics") view=AnalyticsPage />
+                    <Route path=path!("/dashboard/demos/:id/share") view=PublishPage />
+                    <Route path=path!("/:username/projects/:slug") view=DemosPage />
+                    <Route path=path!("/:username/demos/:id") view=DemoEditorPage />
+                    <Route path=path!("/:username/demos/:id/settings") view=SettingsPage />
+                    <Route path=path!("/:username/demos/:id/share") view=PublishPage />
+                    <Route path=path!("/:username/demos/:id/analytics") view=AnalyticsPage />
+                    <Route path=path!("/:username/projects/:slug/demos/:id") view=DemoEditorPage />
+                    <Route path=path!("/:username/projects/:slug/demos/:id/settings") view=SettingsPage />
+                    <Route path=path!("/:username/projects/:slug/demos/:id/share") view=PublishPage />
+                    <Route path=path!("/:username/projects/:slug/demos/:id/analytics") view=AnalyticsPage />
                 </ParentRoute>
             </Routes>
         </Router>
     }
 }
 
+/// Redirects the current route to "/dashboard".
+///
+/// # Examples
+///
+/// ```
+/// let view = RedirectDashboardHome();
+/// // renders a Redirect that navigates to "/dashboard"
+/// ```
 #[component]
-fn RedirectToProjects() -> impl IntoView {
-    view! { <Redirect path="/projects" /> }
+fn RedirectDashboardHome() -> impl IntoView {
+    view! { <Redirect path="/dashboard" /> }
 }

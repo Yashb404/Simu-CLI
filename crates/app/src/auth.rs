@@ -37,6 +37,25 @@ pub fn refresh_session_state(set_session_state: WriteSignal<SessionState>) {
     });
 }
 
+/// Publishes an `AuthContext` into the Leptos context and starts reactive session management.
+///
+/// The function creates and provides signals for session state and login/logout flags, triggers
+/// an immediate session refresh, schedules a 9000ms fallback that marks the session check as an
+/// error if it remains `SessionState::Checking`, and re-checks the session when the window gains
+/// focus or the document's visibility changes.
+///
+/// # Examples
+///
+/// ```
+/// use leptos::mount_to_body;
+/// use crate::auth::provide_auth_context;
+///
+/// fn main() {
+///     provide_auth_context();
+///     // mount app...
+///     mount_to_body(|cx| view! { cx, <div>"App"</div> });
+/// }
+/// ```
 pub fn provide_auth_context() {
     let (session_state, set_session_state) = signal(SessionState::Checking);
     let (is_logging_in, set_logging_in) = signal(false);
@@ -71,25 +90,6 @@ pub fn provide_auth_context() {
         }
 
         if let Some(window) = web_sys::window() {
-            let callback = Closure::wrap(Box::new(move || {
-                if matches!(
-                    session_state.get_untracked(),
-                    SessionState::LoggedOut | SessionState::Checking | SessionState::Error(_)
-                ) {
-                    refresh_session_state(set_session_state);
-                }
-            }) as Box<dyn FnMut()>);
-
-            if window
-                .set_interval_with_callback_and_timeout_and_arguments_0(
-                    callback.as_ref().unchecked_ref(),
-                    4000,
-                )
-                .is_ok()
-            {
-                callback.forget();
-            }
-
             let focus_refresh = Closure::wrap(Box::new(move || {
                 refresh_session_state(set_session_state);
             }) as Box<dyn FnMut()>);

@@ -27,8 +27,6 @@ enum CanvasState {
     ScriptBuilder,
 }
 
-const DASHBOARD_DEMOS_ROUTE: &str = "/dashboard/demos";
-
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum PublishState {
     Idle,
@@ -58,6 +56,50 @@ fn normalize_command_match_patterns(steps: &mut [Step]) {
     }
 }
 
+/// Produces a list of (command, description) pairs for command steps.
+///
+/// Scans the provided steps for those whose `step_type` is `StepType::Command`,
+/// selects a command string from `input` if present or `match_pattern` otherwise
+/// (ignoring empty/whitespace values), and pairs it with a short description
+/// (using `short_description`, falling back to `description`, or a sensible
+/// default when both are empty).
+///
+/// # Parameters
+///
+/// - `steps`: Slice of steps to extract command guide entries from.
+///
+/// # Returns
+///
+/// A vector of `(command, description)` tuples for each command step with a
+/// non-empty command string.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// // Construct demo steps and produce guide entries.
+/// // Assume `Step` and `StepType` are available in scope.
+/// let steps = vec![
+///     Step {
+///         step_type: StepType::Command,
+///         input: Some("echo hello".to_string()),
+///         match_pattern: None,
+///         short_description: Some("Greet".to_string()),
+///         description: None,
+///         ..Default::default()
+///     },
+///     Step {
+///         step_type: StepType::Command,
+///         input: None,
+///         match_pattern: Some("ls -la".to_string()),
+///         short_description: None,
+///         description: Some("List files".to_string()),
+///         ..Default::default()
+///     },
+/// ];
+///
+/// let entries = command_guide_entries(&steps);
+/// assert_eq!(entries.len(), 2);
+/// ```
 fn command_guide_entries(steps: &[Step]) -> Vec<(String, String)> {
     steps
         .iter()
@@ -81,7 +123,109 @@ fn command_guide_entries(steps: &[Step]) -> Vec<(String, String)> {
         .collect()
 }
 
-#[component]
+/// Constructs a namespaced demo path using router params, the demo ID, and an optional suffix.
+
+///
+
+/// The function reads "username" and "slug" from `params`, slugifies each segment, and:
+
+/// - uses the slugified `username`, or `"user"` if the username is missing or empty;
+
+/// - uses the slugified `slug` when present and non-empty, otherwise no project segment is included.
+
+/// The resulting path is produced by `api::namespaced_demo_path`.
+
+///
+
+/// # Examples
+
+///
+
+/// ```
+
+/// let mut params = leptos_router::params::ParamsMap::new();
+
+/// params.insert("username".to_string(), "Alice".to_string());
+
+/// params.insert("slug".to_string(), "My Project".to_string());
+
+/// let path = namespaced_demo_path_from_params(&params, "demo-123", Some("share"));
+
+/// // e.g. "/u/alice/d/demo-123/share" (actual format depends on `api::namespaced_demo_path`)
+
+/// assert!(path.contains("demo-123"));
+
+/// ```
+fn namespaced_demo_path_from_params(
+    params: &leptos_router::params::ParamsMap,
+    demo_id: &str,
+    suffix: Option<&str>,
+) -> String {
+    let username = params
+        .get("username")
+        .map(|value| api::slugify_segment(&value))
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "user".to_string());
+
+    let project_slug = params
+        .get("slug")
+        .map(|value| api::slugify_segment(&value))
+        .filter(|value| !value.is_empty());
+
+    api::namespaced_demo_path(&username, demo_id, project_slug.as_deref(), suffix)
+}
+
+/// Top navigation bar for the Demo Editor page.
+///
+/// Renders the sticky header containing:
+/// - Back-to-demos button (calls the provided `on_back_to_dashboard` callback).
+/// - Editable title input bound to `title` / `set_title`.
+/// - Status text derived from `status` (defaults to `STATUS: READY` when empty).
+/// - Developer/User view mode toggle (visible in developer contexts).
+/// - Canvas selector (Editor / Import) and Save / Publish buttons (visible in developer mode),
+///   which call `set_canvas_state`, `on_save`, and `on_publish` respectively.
+/// - A hidden theme selector (present in markup but currently disabled).
+///
+/// Parameters:
+/// - `title`, `set_title`: bind and update the demo title.
+/// - `status`: read-only status text displayed in the header.
+/// - `view_mode`, `set_view_mode`: read and switch between Developer and User views.
+/// - `canvas_state`, `set_canvas_state`: read and switch the active canvas (Editor or Import).
+/// - `theme_mode`, `set_theme_mode`: current theme mode and setter (theme selector is not shown).
+/// - `on_back_to_dashboard`, `on_save`, `on_publish`: action callbacks for header buttons.
+///
+/// # Examples
+///
+/// ```
+/// use leptos::*;
+/// use crate::components::TopNav; // adjust path as needed
+///
+/// #[component]
+/// fn ExampleHeader(cx: Scope) -> impl IntoView {
+///     let (title, set_title) = create_signal(cx, "Untitled demo".to_string());
+///     let (status, _set_status) = create_signal(cx, "".to_string());
+///     let (view_mode, set_view_mode) = create_signal(cx, super::CreatorViewMode::Developer);
+///     let (canvas_state, set_canvas_state) = create_signal(cx, super::CanvasState::ScriptBuilder);
+///     let (theme_mode, set_theme_mode) = create_signal(cx, super::ThemeMode::Terminal);
+///
+///     view! { cx,
+///         <TopNav
+///             title=title
+///             set_title=set_title
+///             status=status
+///             view_mode=view_mode
+///             set_view_mode=set_view_mode
+///             canvas_state=canvas_state
+///             set_canvas_state=set_canvas_state
+///             theme_mode=theme_mode
+///             set_theme_mode=set_theme_mode
+///             on_back_to_dashboard=Callback::from(|_| ())
+///             on_save=Callback::from(|_| ())
+///             on_publish=Callback::from(|_| ())
+///         />
+///     }
+/// }
+/// ```
 fn TopNav(
     title: ReadSignal<String>,
     set_title: WriteSignal<String>,
@@ -107,6 +251,7 @@ fn TopNav(
                 </button>
                 <div class="text-lg font-black text-primary tracking-tighter shrink-0">"SimuCLI Demo Creator"</div>
                 <input
+                    type="text"
                     class="bg-transparent border-none outline-none text-on-surface placeholder:text-zinc-500 text-sm md:text-base min-w-[220px]"
                     prop:value=move || title.get()
                     on:input=move |ev| set_title.set(event_target_value(&ev))
@@ -167,21 +312,23 @@ fn TopNav(
                         }
                     }
                 >
-                    <div class="flex items-center gap-2 rounded-lg border border-outline-variant/20 bg-surface-container-low px-2 py-1">
-                        <span class="text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">"Theme"</span>
-                        <select
-                            class="rounded-md border border-outline-variant bg-surface-container px-2 py-1 text-xs font-semibold text-on-surface outline-none"
-                            prop:value=move || theme_mode.get().as_str()
-                            on:change=move |ev| {
-                                let value = event_target_value(&ev);
-                            set_theme_mode.set(ThemeMode::parse(&value));
-                            }
-                        >
-                            <option value="terminal">"Terminal"</option>
-                            <option value="dark">"Dark"</option>
-                            <option value="light">"Light"</option>
-                        </select>
-                    </div>
+                    <Show when=move || false>
+                        <div class="flex items-center gap-2 rounded-lg border border-outline-variant/20 bg-surface-container-low px-2 py-1">
+                            <span class="text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">"Theme"</span>
+                            <select
+                                class="rounded-md border border-outline-variant bg-surface-container px-2 py-1 text-xs font-semibold text-on-surface outline-none"
+                                prop:value=move || theme_mode.get().as_str()
+                                on:change=move |ev| {
+                                    let value = event_target_value(&ev);
+                                set_theme_mode.set(ThemeMode::parse(&value));
+                                }
+                            >
+                                <option value="terminal">"Terminal"</option>
+                                <option value="dark">"Dark"</option>
+                                <option value="light">"Light"</option>
+                            </select>
+                        </div>
+                    </Show>
 
                     <div class="hidden md:flex bg-surface-container-low p-1 rounded-lg border border-outline-variant/20">
                         <button
@@ -228,6 +375,51 @@ fn TopNav(
     }
 }
 
+/// Sidebar navigation for the editor that provides quick actions for adding steps,
+/// opening the guide, and viewing logs.
+///
+/// The component highlights the active canvas state and invokes the provided callbacks
+/// when the corresponding buttons are clicked.
+///
+/// # Parameters
+///
+/// - `active_canvas`: read signal representing the current `CanvasState`; used to style
+///   the active section (ScriptBuilder vs ImportPublish).
+/// - `on_new_step`: invoked to create a new command step.
+/// - `on_add_output`: invoked to add an output step.
+/// - `on_add_prompt`: invoked to add an input/prompt step.
+/// - `on_add_pause`: invoked to add a pause/delay step.
+/// - `on_open_guide`: invoked to open the workspace guide.
+/// - `on_open_logs`: invoked to open logs/import/publish view.
+///
+/// # Examples
+///
+/// ```no_run
+/// use leptos::*;
+/// use crate::components::SideNav;
+/// use crate::CanvasState;
+///
+/// // Example wiring (runtime setup omitted)
+/// let active_canvas = create_signal(CanvasState::ScriptBuilder);
+/// let on_new_step = Callback::from(move |_| ());
+/// let on_add_output = Callback::from(move |_| ());
+/// let on_add_prompt = Callback::from(move |_| ());
+/// let on_add_pause = Callback::from(move |_| ());
+/// let on_open_guide = Callback::from(move |_| ());
+/// let on_open_logs = Callback::from(move |_| ());
+///
+/// view! {
+///     <SideNav
+///         active_canvas=active_canvas.read_only()
+///         on_new_step=on_new_step
+///         on_add_output=on_add_output
+///         on_add_prompt=on_add_prompt
+///         on_add_pause=on_add_pause
+///         on_open_guide=on_open_guide
+///         on_open_logs=on_open_logs
+///     />
+/// }
+/// ```
 #[component]
 fn SideNav(
     active_canvas: ReadSignal<CanvasState>,
@@ -323,86 +515,38 @@ fn SideNav(
     }
 }
 
-#[component]
-fn GuidePanel(
-    steps: ReadSignal<Vec<Step>>,
-    docs_url: Signal<Option<String>>,
-    open: ReadSignal<bool>,
-    set_open: WriteSignal<bool>,
-) -> impl IntoView {
-    let entries = Signal::derive(move || command_guide_entries(&steps.get()));
-    let open_docs = Callback::new(move |_| {
-        let target_url = docs_url
-            .get()
-            .unwrap_or_else(|| "https://github.com/Yashb404/Simu-CLI#readme".to_string());
-        let normalized = if target_url.starts_with("http://") || target_url.starts_with("https://")
-        {
-            target_url
-        } else {
-            format!("https://{}", target_url)
-        };
-        if let Some(window) = web_sys::window() {
-            let _ = window.open_with_url_and_target(&normalized, "_blank");
-        }
-    });
-
-    view! {
-        <div
-            class=move || {
-                if open.get() {
-                    "w-80 bg-surface-container-low border-l border-outline-variant flex flex-col shadow-2xl relative z-30 transition-transform duration-300"
-                } else {
-                    "hidden lg:flex w-0"
-                }
-            }
-        >
-            <div class="p-6 border-b border-outline-variant flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">"auto_awesome"</span>
-                    <h2 class="text-sm font-black uppercase tracking-widest text-on-surface">"Guide"</h2>
-                </div>
-                <button class="text-zinc-500 hover:text-white transition-colors" on:click=move |_| set_open.set(false)>
-                    <span class="material-symbols-outlined">"close"</span>
-                </button>
-            </div>
-
-            <div class="flex-1 overflow-y-auto p-4 space-y-4">
-                <For
-                    each=move || entries.get()
-                    key=|entry| entry.0.clone()
-                    children=move |entry| {
-                        view! {
-                            <div class="bg-surface-container p-4 rounded border-l-4 border-primary">
-                                <div class="flex items-center gap-2 mb-2">
-                                    <span class="material-symbols-outlined text-primary text-sm">"terminal"</span>
-                                    <span class="font-mono text-xs font-bold text-on-surface">{entry.0.clone()}</span>
-                                </div>
-                                <p class="text-xs text-on-surface-variant leading-relaxed">{entry.1.clone()}</p>
-                            </div>
-                        }
-                    }
-                />
-
-                <Show when=move || entries.get().is_empty()>
-                    <div class="bg-surface-container p-4 rounded border border-outline-variant/20">
-                        <p class="text-xs text-on-surface-variant">"No command guide entries yet. Add command steps or import a cast file."</p>
-                    </div>
-                </Show>
-            </div>
-
-            <div class="p-4 bg-background border-t border-outline-variant">
-                <button
-                    class="w-full bg-surface-container-highest text-on-surface text-xs font-bold py-2.5 rounded hover:bg-surface-bright transition-all flex items-center justify-center gap-2"
-                    on:click=move |_| open_docs.run(())
-                >
-                    <span class="material-symbols-outlined text-sm">"open_in_new"</span>
-                    "Full Documentation"
-                </button>
-            </div>
-        </div>
-    }
-}
-
+/// Renders a centered, read-only preview of the demo as a simulated terminal with a user-facing toolbar.
+///
+/// The component displays a preview panel using the provided demo `title`, `steps`, terminal `prompt_string`,
+/// `not_found_message`, and optional `theme`. It exposes `guide_open` / `set_guide_open` to control the visibility
+/// of the workspace guide and invokes `on_open_workspace_guide` when the "User Guide" button is clicked.
+///
+/// # Examples
+///
+/// ```ignore
+/// use leptos::*;
+///
+/// // create signals in your component/route
+/// let (title, _set_title) = create_signal("My Demo".to_string());
+/// let (steps, _set_steps) = create_signal(Vec::new());
+/// let (prompt_string, _set_prompt) = create_signal("$".to_string());
+/// let (not_found_message, _set_not_found) = create_signal("command not found".to_string());
+/// let (theme, _set_theme) = create_signal(None::<Theme>);
+/// let (guide_open, set_guide_open) = create_signal(false);
+///
+/// view! {
+///     <UserPreviewState
+///         title=title
+///         steps=steps
+///         prompt_string=prompt_string
+///         not_found_message=not_found_message
+///         theme=theme
+///         guide_open=guide_open
+///         set_guide_open=set_guide_open
+///         on_open_workspace_guide=Callback::from(|_| ())
+///     />
+/// }
+/// ```
 #[component]
 fn UserPreviewState(
     title: ReadSignal<String>,
@@ -410,6 +554,8 @@ fn UserPreviewState(
     prompt_string: Signal<String>,
     not_found_message: Signal<String>,
     theme: ReadSignal<Option<Theme>>,
+    guide_open: ReadSignal<bool>,
+    set_guide_open: WriteSignal<bool>,
     on_open_workspace_guide: Callback<()>,
 ) -> impl IntoView {
     let user_mode = Signal::derive(|| false);
@@ -418,7 +564,16 @@ fn UserPreviewState(
         <div class="flex-1 flex h-[calc(100vh-3.5rem)] overflow-hidden">
             <aside class="bg-surface-container-low w-16 md:w-64 border-r border-outline-variant/10 opacity-40 pointer-events-none grayscale"></aside>
             <div class="flex-1 bg-surface flex items-center justify-center p-8 md:p-16">
-                <div class="w-full max-w-5xl bg-surface-container shadow-2xl rounded-xl overflow-hidden flex flex-col min-h-[620px] relative">
+                <div class="relative w-full max-w-5xl h-full max-h-full min-h-0">
+                    <button
+                        class="absolute -top-12 right-0 flex items-center gap-2 rounded-lg border border-primary/30 bg-surface-container px-4 py-2 text-primary shadow-lg transition-all duration-200 hover:bg-surface-container-high"
+                        on:click=move |_| on_open_workspace_guide.run(())
+                    >
+                        <span class="material-symbols-outlined text-[20px]">"help_center"</span>
+                        <span class="text-xs font-bold uppercase tracking-wider">"User Guide"</span>
+                    </button>
+
+                    <div class="w-full h-full max-h-full bg-surface-container shadow-2xl rounded-xl overflow-hidden flex flex-col min-h-0 relative">
                     <div class="h-10 bg-surface-container-highest flex items-center justify-between px-4">
                         <div class="flex items-center gap-2">
                             <div class="flex gap-1.5">
@@ -451,25 +606,57 @@ fn UserPreviewState(
                             not_found_message=not_found_message
                             theme=theme
                             developer_mode=user_mode
+                            guide_open=guide_open
+                            set_guide_open=set_guide_open
                             show_header=false
                             show_internal_guide=false
                             show_titlebar=false
                         />
                     </div>
-
-                    <button
-                        class="absolute bottom-6 right-6 flex items-center gap-2 bg-surface-container hover:bg-surface-container-high text-primary px-4 py-2 rounded-lg border border-primary/30 shadow-lg transition-all duration-200"
-                        on:click=move |_| on_open_workspace_guide.run(())
-                    >
-                        <span class="material-symbols-outlined text-[20px]">"help_center"</span>
-                        <span class="text-xs font-bold uppercase tracking-wider">"User Guide"</span>
-                    </button>
+                    </div>
                 </div>
             </div>
         </div>
     }
 }
 
+/// UI for importing .cast sessions, displaying import progress, and presenting publish results.
+///
+/// Renders an import button, validation/status panels, a progress bar derived from import/publish state,
+/// and — when open — a "Publish Complete" modal that shows an embed snippet and actions to view the demo or navigate to analytics.
+///
+/// # Examples
+///
+/// ```
+/// use leptos::*;
+/// # use crate::components::ImportPublishState;
+/// # use crate::types::{Step, PublishState, ImportCastResponse};
+/// # fn example(cx: Scope) -> impl IntoView {
+/// let (steps, _set_steps) = create_signal(cx, Vec::<Step>::new());
+/// let (status, _set_status) = create_signal(cx, String::new());
+/// let (publish_state, _set_publish_state) = create_signal(cx, PublishState::Idle);
+/// let (last_import_pairs, _set_last_import_pairs) = create_signal(cx, 0usize);
+/// let (last_import_message, _set_last_import_message) = create_signal(cx, String::new());
+/// let (published_slug, _set_published_slug) = create_signal(cx, String::new());
+/// let (publish_modal_open, set_publish_modal_open) = create_signal(cx, false);
+/// let on_import_success = Callback::from(|_resp: ImportCastResponse| {});
+///
+/// view! { cx,
+///     <ImportPublishState
+///         demo_id="demo-123".to_string()
+///         steps=steps.read_only()
+///         status=status.read_only()
+///         publish_state=publish_state.read_only()
+///         last_import_pairs=last_import_pairs.read_only()
+///         last_import_message=last_import_message.read_only()
+///         published_slug=published_slug.read_only()
+///         publish_modal_open=publish_modal_open.read_only()
+///         set_publish_modal_open=set_publish_modal_open
+///         on_import_success=on_import_success
+///     />
+/// }
+/// # }
+/// ```
 #[component]
 fn ImportPublishState(
     demo_id: String,
@@ -512,11 +699,13 @@ fn ImportPublishState(
 
     let open_analytics = {
         let analytics_demo_id = import_demo_id.clone();
+        let params = use_params_map();
         Callback::new(move |_| {
             if let Some(window) = web_sys::window() {
-                let _ = window
-                    .location()
-                    .set_href(&format!("/dashboard/demos/{}/analytics", analytics_demo_id));
+                let path = params.with_untracked(|map| {
+                    namespaced_demo_path_from_params(map, &analytics_demo_id, Some("analytics"))
+                });
+                let _ = window.location().set_href(&path);
             }
         })
     };
@@ -654,6 +843,52 @@ fn ImportPublishState(
     }
 }
 
+/// Renders the script editor and live preview panel for authoring and previewing demo steps.
+///
+/// Displays the left-side script editor (including step list, filter, and optional demo settings)
+/// and the right-side live preview with an "Open Guide" control when the guide is closed.
+/// The component wires editor signals (title, slug, settings, theme, steps, filters, and UI flags)
+/// to the contained controls and preview panel.
+///
+/// # Examples
+///
+/// ```
+/// use leptos::create_signal;
+/// use leptos::SignalGet;
+/// // Construct minimal signals required by the component.
+/// let (title, set_title) = create_signal(String::from("Demo"));
+/// let (slug, set_slug) = create_signal(String::from("demo-slug"));
+/// let (settings, set_settings) = create_signal(None::<crate::DemoSettings>);
+/// let (theme, set_theme) = create_signal(None::<crate::Theme>);
+/// let (steps, set_steps) = create_signal(Vec::<crate::Step>::new());
+/// let (step_filter, set_step_filter) = create_signal(String::new());
+/// let (show_settings, set_show_settings) = create_signal(false);
+/// let (prompt_string, set_prompt_string) = create_signal(String::from("$"));
+/// let (not_found_message, set_not_found_message) = create_signal(String::from("command not found"));
+/// let (guide_open, set_guide_open) = create_signal(false);
+///
+/// // Call the component (typically used inside a Leptos view).
+/// let _view = crate::ScriptBuilderState(
+///     title,
+///     set_title,
+///     slug,
+///     set_slug,
+///     settings,
+///     set_settings,
+///     theme,
+///     set_theme,
+///     steps,
+///     set_steps,
+///     step_filter,
+///     set_step_filter,
+///     show_settings,
+///     set_show_settings,
+///     prompt_string,
+///     not_found_message,
+///     guide_open,
+///     set_guide_open,
+/// );
+/// ```
 #[component]
 fn ScriptBuilderState(
     title: ReadSignal<String>,
@@ -670,12 +905,10 @@ fn ScriptBuilderState(
     set_step_filter: WriteSignal<String>,
     show_settings: ReadSignal<bool>,
     set_show_settings: WriteSignal<bool>,
-    docs_url: Signal<Option<String>>,
     prompt_string: Signal<String>,
     not_found_message: Signal<String>,
     guide_open: ReadSignal<bool>,
     set_guide_open: WriteSignal<bool>,
-    on_open_guide: Callback<()>,
 ) -> impl IntoView {
     let developer_mode = Signal::derive(|| true);
     let filtered_step_count = Signal::derive(move || {
@@ -754,34 +987,49 @@ fn ScriptBuilderState(
             </section>
 
             <section class="w-full xl:w-1/2 min-w-0 min-h-[360px] xl:min-h-0 flex flex-col bg-surface-container-lowest p-6 relative overflow-hidden">
-                <button
-                    class="absolute top-10 right-10 z-30 flex items-center gap-2 bg-surface-container/80 px-4 py-2 rounded-full border border-outline-variant/30 text-[10px] font-bold uppercase tracking-widest text-primary shadow-2xl"
-                    on:click=move |_| on_open_guide.run(())
-                >
-                    <span class="material-symbols-outlined text-sm">"help_center"</span>
-                    "Open Guide"
-                </button>
+                <Show when=move || !guide_open.get()>
+                    <button
+                        class="absolute top-10 right-10 z-30 flex items-center gap-2 bg-surface-container hover:bg-surface-container-high px-4 py-2 rounded-full border border-outline-variant/50 text-[10px] font-bold uppercase tracking-widest text-primary shadow-2xl transition-all"
+                        on:click=move |_| set_guide_open.set(true)
+                    >
+                        <span class="material-symbols-outlined text-sm">"help_center"</span>
+                        "Open Guide"
+                    </button>
+                </Show>
                 <div class="flex-1 min-h-0 rounded-xl overflow-hidden border border-outline-variant/20 shadow-2xl">
-                    <LivePreviewPanel
-                        steps=steps
-                        prompt_string=prompt_string
-                        not_found_message=not_found_message
-                        theme=theme
-                        developer_mode=developer_mode
-                        show_header=false
-                        show_internal_guide=false
-                        show_titlebar=false
-                    />
+                        <LivePreviewPanel
+                            steps=steps
+                            prompt_string=prompt_string
+                            not_found_message=not_found_message
+                            theme=theme
+                            developer_mode=developer_mode
+                            guide_open=guide_open
+                            set_guide_open=set_guide_open
+                            show_header=false
+                            show_internal_guide=true
+                            show_titlebar=false
+                        />
                 </div>
             </section>
             </div>
-            <Show when=move || guide_open.get()>
-                <GuidePanel steps=steps docs_url=docs_url open=guide_open set_open=set_guide_open />
-            </Show>
         </div>
     }
 }
 
+/// Renders the Demo Editor page for creating, previewing, saving, and publishing simulated terminal demos.
+///
+/// This component reads the current demo id from route parameters, loads demo details, and provides the full editor UI:
+/// developer tools (script builder, step list, settings, theme), import/publish controls, and a user preview mode. It manages
+/// editor state (title, slug, steps, settings, theme), save and publish workflows, import result handling, and navigation hooks.
+///
+/// The returned view is fully wired to the page's API interactions and route-based navigation.
+///
+/// # Examples
+///
+/// ```
+/// // Construct the editor view (returned value implements `IntoView`)
+/// let _view = DemoEditorPage();
+/// ```
 #[component]
 pub fn DemoEditorPage() -> impl IntoView {
     let params = use_params_map();
@@ -946,7 +1194,6 @@ pub fn DemoEditorPage() -> impl IntoView {
             let set_status = set_status;
             let set_steps = set_steps;
             let set_published_slug = set_published_slug;
-            let set_publish_modal_open = set_publish_modal_open;
             let set_publish_state = set_publish_state;
             async move {
                 let update_result = api::update_demo_payload(
@@ -973,8 +1220,13 @@ pub fn DemoEditorPage() -> impl IntoView {
                             Ok(published) => {
                                 set_published_slug.set(published.slug);
                                 set_publish_state.set(PublishState::Success);
-                                set_publish_modal_open.set(true);
                                 set_status.set("Published and embed code ready".to_string());
+                                if let Some(window) = web_sys::window() {
+                                    let publish_path = params.with_untracked(|map| {
+                                        namespaced_demo_path_from_params(map, &id, Some("share"))
+                                    });
+                                    let _ = window.location().set_href(&publish_path);
+                                }
                             }
                             Err(err) => {
                                 set_publish_state.set(PublishState::Error);
@@ -1036,20 +1288,6 @@ pub fn DemoEditorPage() -> impl IntoView {
             .unwrap_or_else(|| "command not found".to_string())
     });
 
-    let documentation_url = Signal::derive(move || {
-        settings
-            .get()
-            .and_then(|cfg| cfg.documentation_url)
-            .and_then(|url| {
-                let trimmed = url.trim().to_string();
-                if trimmed.is_empty() {
-                    None
-                } else {
-                    Some(trimmed)
-                }
-            })
-    });
-
     view! {
         <div class="min-h-screen bg-background text-on-surface overflow-hidden">
             <TopNav
@@ -1067,7 +1305,7 @@ pub fn DemoEditorPage() -> impl IntoView {
                     .unwrap_or(fallback_set_theme_mode)
                 on_back_to_dashboard=Callback::new(move |_| {
                     if let Some(window) = web_sys::window() {
-                        let _ = window.location().set_href(DASHBOARD_DEMOS_ROUTE);
+                        let _ = window.location().set_href(api::dashboard_home_path());
                     }
                 })
                 on_save=save_demo
@@ -1114,10 +1352,12 @@ pub fn DemoEditorPage() -> impl IntoView {
                                     prompt_string=prompt_string
                                     not_found_message=not_found_message
                                     theme=theme
+                                    guide_open=guide_open
+                                    set_guide_open=set_guide_open
                                     on_open_workspace_guide=Callback::new(move |_| {
-                                        set_view_mode.set(CreatorViewMode::Developer);
-                                        set_canvas_state.set(CanvasState::ScriptBuilder);
-                                        set_guide_open.set(true);
+                                        if let Some(window) = web_sys::window() {
+                                            let _ = window.location().set_href("/docs#quick-start");
+                                        }
                                     })
                                 />
                             }
@@ -1155,14 +1395,10 @@ pub fn DemoEditorPage() -> impl IntoView {
                                         set_step_filter=set_step_filter
                                         show_settings=show_settings
                                         set_show_settings=set_show_settings
-                                        docs_url=documentation_url
                                         prompt_string=prompt_string
                                         not_found_message=not_found_message
                                         guide_open=guide_open
                                         set_guide_open=set_guide_open
-                                        on_open_guide=Callback::new(move |_| {
-                                            set_guide_open.set(true);
-                                        })
                                     />
                                 }
                                 .into_any(),
