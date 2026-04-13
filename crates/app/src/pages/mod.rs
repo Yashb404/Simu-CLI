@@ -1,4 +1,5 @@
 pub mod analytics;
+pub mod embed_player;
 pub mod demo_editor;
 pub mod demo_share;
 pub mod demo_view;

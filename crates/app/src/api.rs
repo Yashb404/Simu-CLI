@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use shared::{
     client::{ClientError, HttpMethod, fetch, fetch_typed, send},
     dto::UpdateDemoRequest,
+    dto::PublicDemoResponse,
     models::demo::{Demo, DemoSettings, Step, Theme},
 };
 use time::OffsetDateTime;
@@ -485,6 +486,16 @@ pub async fn get_demo_detail(id: &str) -> Result<Demo, String> {
         &api_url(&format!("/api/demos/{id}")),
         None,
         true,
+    )
+    .await
+}
+
+pub async fn get_public_demo(reference: &str) -> Result<PublicDemoResponse, String> {
+    fetch(
+        HttpMethod::Get,
+        &api_url(&format!("/api/public/demos/{reference}")),
+        None,
+        false,
     )
     .await
 }

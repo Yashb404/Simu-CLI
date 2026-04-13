@@ -8,7 +8,11 @@ use axum::{
 pub async fn security_headers_middleware(req: Request<Body>, next: Next) -> Response {
     let path = req.uri().path().to_string();
     let is_embed_route =
-        path.starts_with("/d/") || path == "/embed-runtime" || path.starts_with("/embed-runtime/");
+        path.starts_with("/d/")
+            || path.starts_with("/embed/")
+            || path == "/embed"
+            || path == "/embed-runtime"
+            || path.starts_with("/embed-runtime/");
     let mut response = next.run(req).await;
     let connect_src = if cfg!(debug_assertions) {
         "connect-src 'self' ws: wss:;"

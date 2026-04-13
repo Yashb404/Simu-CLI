@@ -17,9 +17,7 @@
   }
 
   var scriptUrl = new URL(script.src, window.location.href);
-  var runtimeUrl = new URL("/embed-runtime/index.html", scriptUrl.origin);
-  runtimeUrl.searchParams.set("demo_id", demoId);
-  runtimeUrl.searchParams.set("api_base", scriptUrl.origin);
+  var runtimeUrl = new URL("/embed/" + encodeURIComponent(demoId), scriptUrl.origin);
 
   var targetSelector = script.getAttribute("data-target");
   var mountNode = targetSelector ? document.querySelector(targetSelector) : null;

@@ -187,7 +187,7 @@ pub fn PublishPage() -> impl IntoView {
                                 <span class="material-symbols-outlined text-on-surface-variant text-sm">"code"</span>
                             </div>
                             <EmbedCodeGenerator
-                                demo_url=public_url.get()
+                                demo_url=format!("{}/embed/{}", api::browser_origin(), published_slug.get())
                                 script_url=format!("{}/static/embed.js", api::browser_origin())
                                 demo_id=published_slug.get()
                             />

@@ -31,6 +31,26 @@ fn query_param_value(key: &str) -> Option<String> {
     None
 }
 
+#[cfg(target_arch = "wasm32")]
+fn path_segment_value() -> Option<String> {
+    fn decode_component(value: &str) -> String {
+        js_sys::decode_uri_component(value)
+            .ok()
+            .and_then(|s| s.as_string())
+            .unwrap_or_else(|| value.to_string())
+    }
+
+    let path = web_sys::window()?.location().pathname().ok()?;
+    let trimmed = path.trim_matches('/');
+    let last_segment = trimmed.rsplit('/').find(|segment| !segment.is_empty())?;
+    let decoded = decode_component(last_segment);
+    if decoded.is_empty() {
+        None
+    } else {
+        Some(decoded)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EmbedConfig {
     pub demo_id: String,
@@ -55,7 +75,7 @@ pub fn EmbedApp() -> impl IntoView {
         let set_demo = _set_demo;
         let set_status = _set_status;
         let set_config = _set_config;
-        let Some(demo_id) = query_param_value("demo_id") else {
+        let Some(demo_id) = query_param_value("demo_id").or_else(path_segment_value) else {
             set_status.set("Missing demo_id query parameter".to_string());
             return;
         };
