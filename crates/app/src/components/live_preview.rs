@@ -136,6 +136,31 @@ fn line_from_output(output: OutputLine) -> PreviewLine {
     PreviewLine::new(kind, format!("{indent}{prefix}{}", output.text))
 }
 
+/// Produce preview lines representing the configured response for a given command.
+///
+/// Looks up the first step that matches `command`. If none is found, returns a single
+/// `Error` preview line containing `"{command}: {not_found_message}"`. If a matching
+/// command step is found, the returned lines are initialized from that step's configured
+/// `output` (if any) and then extended by converting subsequent steps (until the next
+/// `StepType::Command`) into `PreviewLine`s according to each step's type:
+/// - `Output`: converted via `line_from_output` and appended
+/// - `Comment`: appended as a `Comment` line `"# {description}"` when `description` exists
+/// - `Spinner`: appended as a `Muted` line `"{label} ... {finish_text}"` when configured
+/// - `Prompt`: appended as a `Warning` line `"? {question}"` when configured
+/// - `Cta`: appended as a `Success` line `"{primary_label}: {primary_url}"` when configured
+/// - `Pause`: appended as a `Muted` line `"# pause {delay_ms}ms"`
+/// - `Clear`: clears the accumulated lines
+///
+/// If no lines remain at the end, a single `Comment` line `"# command matched, but no output steps are configured"`
+/// is appended.
+///
+/// # Examples
+///
+/// ```no_run
+/// // Given a set of steps configured elsewhere in the module:
+/// let lines = response_for_command(&steps, "build", "command not found");
+/// // `lines` now contains the preview output for the "build" command, or an error line if not found.
+/// ```
 fn response_for_command(
     steps: &[Step],
     command: &str,
@@ -277,6 +302,35 @@ fn terminal_style(theme: Option<Theme>) -> String {
     )
 }
 
+/// Renders a live, interactive terminal preview panel for a sequence of demo steps.
+///
+/// The component displays a terminal-like UI with an input prompt, a scrollable history of preview lines derived from `steps`, an optional header and titlebar, a developer footer with debug counts, and an optional collapsible mini-guide. It manages local input and history signals, handles the `help` and `clear` commands, resolves command responses from the provided `steps`, and uses `guide_open` / `set_guide_open` to control the guide panel visibility.
+///
+/// # Examples
+///
+/// ```no_run
+/// use leptos::*;
+/// // (Construct appropriate `Step`, `Theme` and signal helpers in your app)
+/// let steps = create_rw_signal(Vec::<Step>::new());
+/// let prompt_string = create_signal(String::from(">"));
+/// let not_found_message = create_signal(String::from("not found"));
+/// let theme = create_rw_signal(None::<Theme>);
+/// let developer_mode = create_signal(false);
+/// let guide_open = create_rw_signal(false);
+/// let set_guide_open = guide_open;
+///
+/// view! {
+///     <LivePreviewPanel
+///         steps=steps
+///         prompt_string=prompt_string
+///         not_found_message=not_found_message
+///         theme=theme
+///         developer_mode=developer_mode
+///         guide_open=guide_open
+///         set_guide_open=set_guide_open
+///     />
+/// }
+/// ```
 #[component]
 pub fn LivePreviewPanel(
     steps: ReadSignal<Vec<Step>>,

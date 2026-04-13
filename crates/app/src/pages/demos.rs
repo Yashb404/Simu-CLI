@@ -13,17 +13,55 @@ use crate::auth::{SessionState, use_auth_context};
 use crate::components::confirm_dialog::ConfirmDialog;
 use crate::components::shell::DashboardSearchContext;
 
+/// Format an OffsetDateTime as an RFC3339 timestamp.
+///
+/// Returns a `String` containing the RFC3339-formatted timestamp. If RFC3339
+/// formatting fails, falls back to `value.to_string()`.
+///
+/// # Examples
+///
+/// ```
+/// use time::OffsetDateTime;
+/// let dt = OffsetDateTime::from_unix_timestamp(0).unwrap();
+/// let s = format_timestamp(&dt);
+/// assert!(s.starts_with("1970-01-01T00:00:00"));
+/// ```
 fn format_timestamp(value: &OffsetDateTime) -> String {
     value
         .format(&time::format_description::well_known::Rfc3339)
         .unwrap_or_else(|_| value.to_string())
 }
 
+/// Builds a concise count label, pluralizing the provided label by appending `s` when the count is not 1.
+///
+/// # Examples
+///
+/// ```
+/// assert_eq!(format_count_label(1, "item"), "1 item");
+/// assert_eq!(format_count_label(3, "item"), "3 items");
+/// ```
+///
+/// # Returns
+///
+/// A `String` containing the count followed by the (possibly pluralized) label, e.g. `"3 items"`.
 fn format_count_label(total: usize, label: &str) -> String {
     let suffix = if total == 1 { "" } else { "s" };
     format!("{total} {label}{suffix}")
 }
 
+/// Renders the dashboard UI for viewing, filtering, creating, and managing demos and projects.
+///
+/// This component provides the full "Demos" page: it loads the dashboard snapshot, exposes
+/// controls for searching and filtering demos, panels for creating demos and projects, per-demo
+/// actions (reassign, open editor, share, analytics, delete), and an authentication prompt when
+/// sign-in is required.
+///
+/// # Examples
+///
+/// ```
+/// // Instantiate the component (returned value implements `IntoView`).
+/// let _view = DemosPage();
+/// ```
 #[component]
 pub fn DemosPage() -> impl IntoView {
     let params = use_params_map();
@@ -883,6 +921,17 @@ pub fn DemosPage() -> impl IntoView {
     }
 }
 
+/// Renders a three-button toggle that lets the user select the UI theme mode.
+///
+/// Reads a `ThemeController` from context and updates its `ThemeMode` when a button is clicked;
+/// each button reflects the current mode with an active style.
+///
+/// # Examples
+///
+/// ```
+/// let view = ThemeModeToggle();
+/// // `view` implements `IntoView` and can be mounted into the app.
+/// ```
 #[component]
 pub fn ThemeModeToggle() -> impl IntoView {
     let controller = use_context::<ThemeController>();
@@ -947,6 +996,14 @@ pub fn ThemeModeToggle() -> impl IntoView {
     }
 }
 
+/// Renders the terminal (console) SVG icon as a view.
+///
+/// # Examples
+///
+/// ```rust
+/// // Obtain the view and embed it in your UI
+/// let icon_view = terminal_icon();
+/// ```
 fn terminal_icon() -> impl IntoView {
     view! {
         <svg class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
@@ -957,6 +1014,13 @@ fn terminal_icon() -> impl IntoView {
     }
 }
 
+/// Renders a moon-shaped SVG icon used for the dark theme toggle.
+///
+/// # Examples
+///
+/// ```
+/// let _icon = moon_icon();
+/// ```
 fn moon_icon() -> impl IntoView {
     view! {
         <svg class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
@@ -965,6 +1029,15 @@ fn moon_icon() -> impl IntoView {
     }
 }
 
+/// Sun icon SVG used for the light-theme toggle button.
+///
+/// # Examples
+///
+/// ```
+/// // Embed the icon in a view or component
+/// let icon = sun_icon();
+/// let _ = view! { <div>{icon}</div> };
+/// ```
 fn sun_icon() -> impl IntoView {
     view! {
         <svg class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">

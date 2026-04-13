@@ -4,6 +4,19 @@ use leptos::task::spawn_local_scoped;
 use crate::api;
 use crate::components::confirm_dialog::ConfirmDialog;
 
+/// Renders the Projects page UI and manages project listing, creation, and deletion.
+///
+/// The component displays the user's projects, provides a form to create new projects,
+/// shows an authentication prompt when login is required, and presents a confirmation
+/// dialog for deletions. State and API interactions (loading projects, creating, deleting)
+/// are handled internally by the component.
+///
+/// # Examples
+///
+/// ```
+/// // Instantiate the Projects page component (returned value implements `IntoView`)
+/// let view = ProjectsPage();
+/// ```
 #[component]
 pub fn ProjectsPage() -> impl IntoView {
     let (projects, set_projects) = signal(Vec::<api::DashboardProject>::new());

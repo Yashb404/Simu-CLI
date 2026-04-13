@@ -12,6 +12,22 @@ struct DocsSection {
     details: &'static str,
 }
 
+/// Map a documentation route path to its corresponding DocsSection content.
+///
+/// Returns a DocsSection containing the title, summary, and details for the given
+/// route path. If the provided path is not recognized, returns a generic
+/// "Documentation Section" entry indicating the page was not found.
+///
+/// # Examples
+///
+/// ```
+/// let s = docs_section_for("api");
+/// assert_eq!(s.title, "API Reference");
+/// assert!(s.summary.contains("public endpoints"));
+///
+/// let missing = docs_section_for("nonexistent");
+/// assert_eq!(missing.title, "Documentation Section");
+/// ```
 fn docs_section_for(path: &str) -> DocsSection {
     match path {
         "api" => DocsSection {
@@ -152,6 +168,34 @@ const DOC_TOPICS: &[DocsTopic] = &[
     },
 ];
 
+/// Determines whether a documentation topic matches a search query.
+///
+/// Matching is case-insensitive and succeeds if the trimmed query is contained
+/// in the topic's `path`, `title`, or `summary`. A query that is empty or
+/// contains only whitespace matches every topic.
+///
+/// # Parameters
+///
+/// - `query`: The search string to match against the topic's path, title, and summary.
+///
+/// # Returns
+///
+/// `true` if the topic contains the trimmed, case-insensitive query in its path,
+/// title, or summary, `false` otherwise.
+///
+/// # Examples
+///
+/// ```
+/// let topic = DocsTopic {
+///     path: "/workspace/projects",
+///     title: "Projects",
+///     summary: "Manage and organize projects",
+/// };
+/// assert!(topic_matches_query(&topic, "projects"));
+/// assert!(topic_matches_query(&topic, "workspace"));
+/// assert!(topic_matches_query(&topic, "  ")); // empty query matches all
+/// assert!(!topic_matches_query(&topic, "auth"));
+/// ```
 fn topic_matches_query(topic: &DocsTopic, query: &str) -> bool {
     if query.trim().is_empty() {
         return true;
@@ -163,6 +207,25 @@ fn topic_matches_query(topic: &DocsTopic, query: &str) -> bool {
         || topic.summary.to_ascii_lowercase().contains(&query)
 }
 
+/// Renders a documentation section page determined from router parameters.
+///
+/// The component reads `category`, `section`, and `subsection` route parameters and
+/// constructs a path string as `"{category}/{section}/{subsection}"`,
+/// `"{category}/{section}"`, `"{section}"`, or `"unknown"` when parameters are missing,
+/// then looks up and displays the corresponding `DocsSection` (title, summary, details).
+///
+/// # Returns
+///
+/// A view that displays the selected documentation section with navigation links.
+///
+/// # Examples
+///
+/// ```
+/// // The component is used directly in a Leptos app's view tree.
+/// let view = DocsSectionRoute();
+/// // `view` can be mounted by the Leptos runtime as part of the app.
+/// assert!(true); // placeholder: runtime mounting is required to fully exercise the component
+/// ```
 #[component]
 fn DocsSectionRoute() -> impl IntoView {
     let params = use_params_map();
@@ -203,6 +266,24 @@ fn DocsSectionRoute() -> impl IntoView {
     }
 }
 
+/// Renders the top fixed documentation header with navigation links, a search input bound to the provided signals, and an auth-dependent action button (dashboard link when logged in, GitHub login otherwise).
+///
+/// - `search_query`: read signal providing the current search text shown in the header's search input.
+/// - `set_search_query`: write signal used to update the search text when the user types in the input.
+///
+/// # Examples
+///
+/// ```
+/// use leptos::*;
+///
+/// // create signals to hold the search query
+/// let (search_query, set_search_query) = create_signal(String::new());
+///
+/// // include the header in a view
+/// view! {
+///     <DocsHeader search_query=search_query set_search_query=set_search_query />
+/// };
+/// ```
 #[component]
 fn DocsHeader(
     search_query: ReadSignal<String>,
@@ -257,6 +338,21 @@ fn DocsHeader(
     }
 }
 
+/// Renders the fixed left-hand documentation sidebar containing section groups, navigation links, and support/feedback anchors.
+///
+/// The sidebar is a static, scrollable navigation panel intended for the docs layout; it does not perform I/O or depend on external state.
+///
+/// # Examples
+///
+/// ```
+/// // Embed the sidebar in a Leptos view
+/// view! {
+///     <div>
+///         <DocsSidebar/>
+///         <main>"Main content"</main>
+///     </div>
+/// }
+/// ```
 #[component]
 fn DocsSidebar() -> impl IntoView {
     view! {
@@ -317,6 +413,22 @@ fn DocsSidebar() -> impl IntoView {
     }
 }
 
+/// Renders the right-side "On this page" table of contents for documentation pages.
+///
+/// Shows anchored links to common section IDs and a small explanatory note about using the search.
+///
+/// # Examples
+///
+/// ```
+/// // Place the TOC inside a page layout so it appears on large screens:
+/// use leptos::*;
+///
+/// view! {
+///     <div>
+///         { DocsToc() }
+///     </div>
+/// };
+/// ```
 #[component]
 fn DocsToc() -> impl IntoView {
     view! {
@@ -335,6 +447,21 @@ fn DocsToc() -> impl IntoView {
     }
 }
 
+/// Renders the documentation index and landing page with a searchable list of documentation topics and static overview sections.
+///
+/// The page displays a header, sidebar, right-side table of contents, and the main content which includes:
+/// - A search-driven grid of documentation topic cards linking to their routes.
+/// - An empty-state message when no topics match the search query.
+/// - Static marketing and guidance sections (Introduction, Why SimuCLI?, Quick Start, Architecture) and a footer.
+///
+/// # Examples
+///
+/// ```
+/// use crate::pages::docs::DocsPage;
+///
+/// let view = DocsPage();
+/// // `view` implements `IntoView` and can be mounted by the application.
+/// ```
 #[component]
 pub fn DocsPage() -> impl IntoView {
     let (search_query, set_search_query) = signal(String::new());
@@ -541,6 +668,17 @@ pub fn DocsPage() -> impl IntoView {
     }
 }
 
+/// Route-level component that renders the documentation section page for the current route.
+///
+/// This component is the top-level entry used by the router to display a docs section
+/// determined from route parameters (`category`, `section`, `subsection`).
+///
+/// # Examples
+///
+/// ```
+/// // Used directly as a route target in a Leptos app:
+/// let _view = DocsSectionPage();
+/// ```
 #[component]
 pub fn DocsSectionPage() -> impl IntoView {
     DocsSectionRoute()

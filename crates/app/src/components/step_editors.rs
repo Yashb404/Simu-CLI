@@ -322,11 +322,43 @@ pub fn add_default_step(steps: &mut Vec<Step>, step_type: StepType) {
     steps.push(create_default_step(step_type, order));
 }
 
+/// Appends a new default Command step to the end of the provided steps list.
+///
+/// The appended step has its `order` set to the index it occupies (current length of the list)
+/// and is initialized via `create_default_step` for `StepType::Command`.
+///
+/// # Examples
+///
+/// ```
+/// let mut steps: Vec<Step> = Vec::new();
+/// add_command_block(&mut steps);
+/// assert_eq!(steps.len(), 1);
+/// assert!(matches!(steps[0].step_type, StepType::Command));
+/// ```
 pub fn add_command_block(steps: &mut Vec<Step>) {
     let order = steps.len() as i32;
     steps.push(create_default_step(StepType::Command, order));
 }
 
+/// Produces a short, human-readable summary for a step suitable for list or card headers.
+///
+/// The summary is derived from the step's type and key fields:
+/// - Command: uses `input` or `"(empty command)"`; appends `short_description` as `"input - short_description"` when present.
+/// - Output: uses the first output line; if multiple lines, appends `"(+N lines)"`; if no lines, returns `"(no output lines)"`.
+/// - Comment: uses `description` or `"(no comment)"`.
+/// - Prompt: uses the prompt `question` or `"(configure prompt)"`.
+/// - Spinner: uses `"label (duration_ms ms)"` or `"(configure spinner)"`.
+/// - Cta: uses `"primary_label -> primary_url"` or `"(configure cta)"`.
+/// - Pause: returns `"Pause {delay_ms}ms"`.
+/// - Other types: uses `description` or `"(configure step)"`.
+///
+/// # Examples
+///
+/// ```
+/// let step = create_default_step(StepType::Command, 0);
+/// let summary = summarize_step(&step);
+/// assert!(summary.contains("echo") || summary == "(empty command)");
+/// ```
 fn summarize_step(step: &Step) -> String {
     match step.step_type {
         StepType::Command => {
@@ -618,6 +650,26 @@ fn StepEditorRouter(step: Step, on_update: Callback<Step>) -> impl IntoView {
     }
 }
 
+/// Renders an editor UI for a command-type Step and emits updated Step values via the provided callback.
+///
+/// The editor exposes fields for the command input, an optional short description, a match pattern
+/// that determines how user input matches the command, and an optional textual representation of
+/// the command's expected output (one line per row). Each field change clones and updates the
+/// provided `step` and calls `on_update.run(updated_step)`.
+///
+/// # Examples
+///
+/// ```ignore
+/// use leptos::Callback;
+/// // Construct a minimal command step (fields omitted for brevity)
+/// let step = create_default_step(StepType::Command, 0);
+/// let on_update = Callback::from(|updated: Step| {
+///     // handle updated step (e.g., store in state)
+///     dbg!(updated);
+/// });
+/// // Render the editor component (in a Leptos view context)
+/// let _view = CommandBlockEditor(step, on_update);
+/// ```
 #[component]
 fn CommandBlockEditor(step: Step, on_update: Callback<Step>) -> impl IntoView {
     let command_value = step.input.clone().unwrap_or_default();

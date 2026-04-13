@@ -62,6 +62,18 @@ fn persist_theme_mode(theme: ThemeMode) {
     }
 }
 
+/// Root application component that provides global context, manages persistent theme state, and declares client-side routes.
+///
+/// This component:
+/// - Installs meta and authentication contexts for the app.
+/// - Provides a ThemeController into context and keeps the current theme persisted to local storage and mirrored to the document root `data-theme` attribute.
+/// - Renders the application's router with public routes (e.g., `/`, `/docs`, `/d/:slug`, `/demo/view`) and authenticated routes nested inside the `AppShell` layout (including `/dashboard`, dashboard demo editor/share routes, and username-scoped demo/project routes).
+///
+/// # Examples
+///
+/// ```
+/// let _root_view = App();
+/// ```
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
@@ -114,6 +126,14 @@ pub fn App() -> impl IntoView {
     }
 }
 
+/// Redirects the current route to "/dashboard".
+///
+/// # Examples
+///
+/// ```
+/// let view = RedirectDashboardHome();
+/// // renders a Redirect that navigates to "/dashboard"
+/// ```
 #[component]
 fn RedirectDashboardHome() -> impl IntoView {
     view! { <Redirect path="/dashboard" /> }

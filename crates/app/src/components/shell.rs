@@ -13,6 +13,16 @@ pub struct DashboardSearchContext {
     pub set_search_query: WriteSignal<String>,
 }
 
+/// Renders the application shell: global layout, sidebar, header, routing decisions, and session-driven data.
+///
+/// The component provides and manages the dashboard search context, sidebar project state (list, open/closed, creation form, status and loading), mobile sidebar toggle, and determines whether to render a full-bleed editor layout or the standard dashboard shell based on the current route. It reacts to authentication state to load projects, handles creating projects via the API (including validation and status updates), and implements logout behavior.
+///
+/// # Examples
+///
+/// ```
+/// // Create the app shell view (used by the application router or root view)
+/// let _view = AppShell();
+/// ```
 #[component]
 pub fn AppShell() -> impl IntoView {
     let auth = use_auth_context();
@@ -424,6 +434,22 @@ pub fn AppShell() -> impl IntoView {
     }
 }
 
+/// Renders a loading shell layout shown while the session state is being checked.
+///
+/// The shell displays a sidebar placeholder (hidden on small screens), a spinner, a
+/// message about session checking, a "Retry Session Check" button that invokes the
+/// provided `on_retry` callback, and a "Login with GitHub" link that navigates to
+/// `api::login_url()`.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use crates::app::components::shell::ShellSkeleton;
+///
+/// // Render or instantiate the skeleton; the retry callback will be invoked when the
+/// // "Retry Session Check" button is clicked in the UI.
+/// let _view = ShellSkeleton(|| ());
+/// ```
 #[component]
 fn ShellSkeleton(on_retry: impl Fn() + 'static + Copy) -> impl IntoView {
     view! {

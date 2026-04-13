@@ -37,6 +37,25 @@ pub fn refresh_session_state(set_session_state: WriteSignal<SessionState>) {
     });
 }
 
+/// Publishes an `AuthContext` into the Leptos context and starts reactive session management.
+///
+/// The function creates and provides signals for session state and login/logout flags, triggers
+/// an immediate session refresh, schedules a 9000ms fallback that marks the session check as an
+/// error if it remains `SessionState::Checking`, and re-checks the session when the window gains
+/// focus or the document's visibility changes.
+///
+/// # Examples
+///
+/// ```
+/// use leptos::mount_to_body;
+/// use crate::auth::provide_auth_context;
+///
+/// fn main() {
+///     provide_auth_context();
+///     // mount app...
+///     mount_to_body(|cx| view! { cx, <div>"App"</div> });
+/// }
+/// ```
 pub fn provide_auth_context() {
     let (session_state, set_session_state) = signal(SessionState::Checking);
     let (is_logging_in, set_logging_in) = signal(false);

@@ -6,6 +6,16 @@ use leptos_router::hooks::use_params_map;
 use crate::api;
 use crate::components::embed_code_generator::EmbedCodeGenerator;
 
+/// Renders the "Share" page for a demo, showing publish status, generating a public share link after publishing, and providing an embed code generator.
+///
+/// The component reads the route `id` param (falls back to "unknown"), attempts to rehydrate published state on mount, and exposes controls to publish the demo, copy or open the generated share link, and insert an embed snippet when available.
+///
+/// # Examples
+///
+/// ```
+/// // Create the page view and include it in your app's view tree.
+/// let share_view = PublishPage();
+/// ```
 #[component]
 pub fn PublishPage() -> impl IntoView {
     let params = use_params_map();

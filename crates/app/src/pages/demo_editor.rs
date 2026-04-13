@@ -56,6 +56,50 @@ fn normalize_command_match_patterns(steps: &mut [Step]) {
     }
 }
 
+/// Produces a list of (command, description) pairs for command steps.
+///
+/// Scans the provided steps for those whose `step_type` is `StepType::Command`,
+/// selects a command string from `input` if present or `match_pattern` otherwise
+/// (ignoring empty/whitespace values), and pairs it with a short description
+/// (using `short_description`, falling back to `description`, or a sensible
+/// default when both are empty).
+///
+/// # Parameters
+///
+/// - `steps`: Slice of steps to extract command guide entries from.
+///
+/// # Returns
+///
+/// A vector of `(command, description)` tuples for each command step with a
+/// non-empty command string.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// // Construct demo steps and produce guide entries.
+/// // Assume `Step` and `StepType` are available in scope.
+/// let steps = vec![
+///     Step {
+///         step_type: StepType::Command,
+///         input: Some("echo hello".to_string()),
+///         match_pattern: None,
+///         short_description: Some("Greet".to_string()),
+///         description: None,
+///         ..Default::default()
+///     },
+///     Step {
+///         step_type: StepType::Command,
+///         input: None,
+///         match_pattern: Some("ls -la".to_string()),
+///         short_description: None,
+///         description: Some("List files".to_string()),
+///         ..Default::default()
+///     },
+/// ];
+///
+/// let entries = command_guide_entries(&steps);
+/// assert_eq!(entries.len(), 2);
+/// ```
 fn command_guide_entries(steps: &[Step]) -> Vec<(String, String)> {
     steps
         .iter()
@@ -79,6 +123,39 @@ fn command_guide_entries(steps: &[Step]) -> Vec<(String, String)> {
         .collect()
 }
 
+/// Constructs a namespaced demo path using router params, the demo ID, and an optional suffix.
+
+///
+
+/// The function reads "username" and "slug" from `params`, slugifies each segment, and:
+
+/// - uses the slugified `username`, or `"user"` if the username is missing or empty;
+
+/// - uses the slugified `slug` when present and non-empty, otherwise no project segment is included.
+
+/// The resulting path is produced by `api::namespaced_demo_path`.
+
+///
+
+/// # Examples
+
+///
+
+/// ```
+
+/// let mut params = leptos_router::params::ParamsMap::new();
+
+/// params.insert("username".to_string(), "Alice".to_string());
+
+/// params.insert("slug".to_string(), "My Project".to_string());
+
+/// let path = namespaced_demo_path_from_params(&params, "demo-123", Some("share"));
+
+/// // e.g. "/u/alice/d/demo-123/share" (actual format depends on `api::namespaced_demo_path`)
+
+/// assert!(path.contains("demo-123"));
+
+/// ```
 fn namespaced_demo_path_from_params(
     params: &leptos_router::params::ParamsMap,
     demo_id: &str,
@@ -98,7 +175,57 @@ fn namespaced_demo_path_from_params(
     api::namespaced_demo_path(&username, demo_id, project_slug.as_deref(), suffix)
 }
 
-#[component]
+/// Top navigation bar for the Demo Editor page.
+///
+/// Renders the sticky header containing:
+/// - Back-to-demos button (calls the provided `on_back_to_dashboard` callback).
+/// - Editable title input bound to `title` / `set_title`.
+/// - Status text derived from `status` (defaults to `STATUS: READY` when empty).
+/// - Developer/User view mode toggle (visible in developer contexts).
+/// - Canvas selector (Editor / Import) and Save / Publish buttons (visible in developer mode),
+///   which call `set_canvas_state`, `on_save`, and `on_publish` respectively.
+/// - A hidden theme selector (present in markup but currently disabled).
+///
+/// Parameters:
+/// - `title`, `set_title`: bind and update the demo title.
+/// - `status`: read-only status text displayed in the header.
+/// - `view_mode`, `set_view_mode`: read and switch between Developer and User views.
+/// - `canvas_state`, `set_canvas_state`: read and switch the active canvas (Editor or Import).
+/// - `theme_mode`, `set_theme_mode`: current theme mode and setter (theme selector is not shown).
+/// - `on_back_to_dashboard`, `on_save`, `on_publish`: action callbacks for header buttons.
+///
+/// # Examples
+///
+/// ```
+/// use leptos::*;
+/// use crate::components::TopNav; // adjust path as needed
+///
+/// #[component]
+/// fn ExampleHeader(cx: Scope) -> impl IntoView {
+///     let (title, set_title) = create_signal(cx, "Untitled demo".to_string());
+///     let (status, _set_status) = create_signal(cx, "".to_string());
+///     let (view_mode, set_view_mode) = create_signal(cx, super::CreatorViewMode::Developer);
+///     let (canvas_state, set_canvas_state) = create_signal(cx, super::CanvasState::ScriptBuilder);
+///     let (theme_mode, set_theme_mode) = create_signal(cx, super::ThemeMode::Terminal);
+///
+///     view! { cx,
+///         <TopNav
+///             title=title
+///             set_title=set_title
+///             status=status
+///             view_mode=view_mode
+///             set_view_mode=set_view_mode
+///             canvas_state=canvas_state
+///             set_canvas_state=set_canvas_state
+///             theme_mode=theme_mode
+///             set_theme_mode=set_theme_mode
+///             on_back_to_dashboard=Callback::from(|_| ())
+///             on_save=Callback::from(|_| ())
+///             on_publish=Callback::from(|_| ())
+///         />
+///     }
+/// }
+/// ```
 fn TopNav(
     title: ReadSignal<String>,
     set_title: WriteSignal<String>,
@@ -248,6 +375,51 @@ fn TopNav(
     }
 }
 
+/// Sidebar navigation for the editor that provides quick actions for adding steps,
+/// opening the guide, and viewing logs.
+///
+/// The component highlights the active canvas state and invokes the provided callbacks
+/// when the corresponding buttons are clicked.
+///
+/// # Parameters
+///
+/// - `active_canvas`: read signal representing the current `CanvasState`; used to style
+///   the active section (ScriptBuilder vs ImportPublish).
+/// - `on_new_step`: invoked to create a new command step.
+/// - `on_add_output`: invoked to add an output step.
+/// - `on_add_prompt`: invoked to add an input/prompt step.
+/// - `on_add_pause`: invoked to add a pause/delay step.
+/// - `on_open_guide`: invoked to open the workspace guide.
+/// - `on_open_logs`: invoked to open logs/import/publish view.
+///
+/// # Examples
+///
+/// ```no_run
+/// use leptos::*;
+/// use crate::components::SideNav;
+/// use crate::CanvasState;
+///
+/// // Example wiring (runtime setup omitted)
+/// let active_canvas = create_signal(CanvasState::ScriptBuilder);
+/// let on_new_step = Callback::from(move |_| ());
+/// let on_add_output = Callback::from(move |_| ());
+/// let on_add_prompt = Callback::from(move |_| ());
+/// let on_add_pause = Callback::from(move |_| ());
+/// let on_open_guide = Callback::from(move |_| ());
+/// let on_open_logs = Callback::from(move |_| ());
+///
+/// view! {
+///     <SideNav
+///         active_canvas=active_canvas.read_only()
+///         on_new_step=on_new_step
+///         on_add_output=on_add_output
+///         on_add_prompt=on_add_prompt
+///         on_add_pause=on_add_pause
+///         on_open_guide=on_open_guide
+///         on_open_logs=on_open_logs
+///     />
+/// }
+/// ```
 #[component]
 fn SideNav(
     active_canvas: ReadSignal<CanvasState>,
@@ -343,6 +515,38 @@ fn SideNav(
     }
 }
 
+/// Renders a centered, read-only preview of the demo as a simulated terminal with a user-facing toolbar.
+///
+/// The component displays a preview panel using the provided demo `title`, `steps`, terminal `prompt_string`,
+/// `not_found_message`, and optional `theme`. It exposes `guide_open` / `set_guide_open` to control the visibility
+/// of the workspace guide and invokes `on_open_workspace_guide` when the "User Guide" button is clicked.
+///
+/// # Examples
+///
+/// ```ignore
+/// use leptos::*;
+///
+/// // create signals in your component/route
+/// let (title, _set_title) = create_signal("My Demo".to_string());
+/// let (steps, _set_steps) = create_signal(Vec::new());
+/// let (prompt_string, _set_prompt) = create_signal("$".to_string());
+/// let (not_found_message, _set_not_found) = create_signal("command not found".to_string());
+/// let (theme, _set_theme) = create_signal(None::<Theme>);
+/// let (guide_open, set_guide_open) = create_signal(false);
+///
+/// view! {
+///     <UserPreviewState
+///         title=title
+///         steps=steps
+///         prompt_string=prompt_string
+///         not_found_message=not_found_message
+///         theme=theme
+///         guide_open=guide_open
+///         set_guide_open=set_guide_open
+///         on_open_workspace_guide=Callback::from(|_| ())
+///     />
+/// }
+/// ```
 #[component]
 fn UserPreviewState(
     title: ReadSignal<String>,
@@ -416,6 +620,43 @@ fn UserPreviewState(
     }
 }
 
+/// UI for importing .cast sessions, displaying import progress, and presenting publish results.
+///
+/// Renders an import button, validation/status panels, a progress bar derived from import/publish state,
+/// and — when open — a "Publish Complete" modal that shows an embed snippet and actions to view the demo or navigate to analytics.
+///
+/// # Examples
+///
+/// ```
+/// use leptos::*;
+/// # use crate::components::ImportPublishState;
+/// # use crate::types::{Step, PublishState, ImportCastResponse};
+/// # fn example(cx: Scope) -> impl IntoView {
+/// let (steps, _set_steps) = create_signal(cx, Vec::<Step>::new());
+/// let (status, _set_status) = create_signal(cx, String::new());
+/// let (publish_state, _set_publish_state) = create_signal(cx, PublishState::Idle);
+/// let (last_import_pairs, _set_last_import_pairs) = create_signal(cx, 0usize);
+/// let (last_import_message, _set_last_import_message) = create_signal(cx, String::new());
+/// let (published_slug, _set_published_slug) = create_signal(cx, String::new());
+/// let (publish_modal_open, set_publish_modal_open) = create_signal(cx, false);
+/// let on_import_success = Callback::from(|_resp: ImportCastResponse| {});
+///
+/// view! { cx,
+///     <ImportPublishState
+///         demo_id="demo-123".to_string()
+///         steps=steps.read_only()
+///         status=status.read_only()
+///         publish_state=publish_state.read_only()
+///         last_import_pairs=last_import_pairs.read_only()
+///         last_import_message=last_import_message.read_only()
+///         published_slug=published_slug.read_only()
+///         publish_modal_open=publish_modal_open.read_only()
+///         set_publish_modal_open=set_publish_modal_open
+///         on_import_success=on_import_success
+///     />
+/// }
+/// # }
+/// ```
 #[component]
 fn ImportPublishState(
     demo_id: String,
@@ -602,6 +843,52 @@ fn ImportPublishState(
     }
 }
 
+/// Renders the script editor and live preview panel for authoring and previewing demo steps.
+///
+/// Displays the left-side script editor (including step list, filter, and optional demo settings)
+/// and the right-side live preview with an "Open Guide" control when the guide is closed.
+/// The component wires editor signals (title, slug, settings, theme, steps, filters, and UI flags)
+/// to the contained controls and preview panel.
+///
+/// # Examples
+///
+/// ```
+/// use leptos::create_signal;
+/// use leptos::SignalGet;
+/// // Construct minimal signals required by the component.
+/// let (title, set_title) = create_signal(String::from("Demo"));
+/// let (slug, set_slug) = create_signal(String::from("demo-slug"));
+/// let (settings, set_settings) = create_signal(None::<crate::DemoSettings>);
+/// let (theme, set_theme) = create_signal(None::<crate::Theme>);
+/// let (steps, set_steps) = create_signal(Vec::<crate::Step>::new());
+/// let (step_filter, set_step_filter) = create_signal(String::new());
+/// let (show_settings, set_show_settings) = create_signal(false);
+/// let (prompt_string, set_prompt_string) = create_signal(String::from("$"));
+/// let (not_found_message, set_not_found_message) = create_signal(String::from("command not found"));
+/// let (guide_open, set_guide_open) = create_signal(false);
+///
+/// // Call the component (typically used inside a Leptos view).
+/// let _view = crate::ScriptBuilderState(
+///     title,
+///     set_title,
+///     slug,
+///     set_slug,
+///     settings,
+///     set_settings,
+///     theme,
+///     set_theme,
+///     steps,
+///     set_steps,
+///     step_filter,
+///     set_step_filter,
+///     show_settings,
+///     set_show_settings,
+///     prompt_string,
+///     not_found_message,
+///     guide_open,
+///     set_guide_open,
+/// );
+/// ```
 #[component]
 fn ScriptBuilderState(
     title: ReadSignal<String>,
@@ -729,6 +1016,20 @@ fn ScriptBuilderState(
     }
 }
 
+/// Renders the Demo Editor page for creating, previewing, saving, and publishing simulated terminal demos.
+///
+/// This component reads the current demo id from route parameters, loads demo details, and provides the full editor UI:
+/// developer tools (script builder, step list, settings, theme), import/publish controls, and a user preview mode. It manages
+/// editor state (title, slug, steps, settings, theme), save and publish workflows, import result handling, and navigation hooks.
+///
+/// The returned view is fully wired to the page's API interactions and route-based navigation.
+///
+/// # Examples
+///
+/// ```
+/// // Construct the editor view (returned value implements `IntoView`)
+/// let _view = DemoEditorPage();
+/// ```
 #[component]
 pub fn DemoEditorPage() -> impl IntoView {
     let params = use_params_map();

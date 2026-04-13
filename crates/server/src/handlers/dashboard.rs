@@ -10,6 +10,24 @@ pub struct DashboardPayload {
     pub demos: Vec<Demo>,
 }
 
+/// Return the authenticated user's dashboard containing their projects and demos.
+///
+/// Queries the database for projects and demos where `owner_id` matches the authenticated user,
+/// ordering each list by `updated_at` descending, and returns them as a JSON `DashboardPayload`.
+///
+/// # Examples
+///
+/// ```ignore
+/// // Async context required (e.g., inside a tokio test or handler).
+/// # async fn _example() -> anyhow::Result<()> {
+/// let state = /* AppState value */; // provide application state with a DB connection
+/// let auth_user = /* AuthUser value */; // authenticated user extractor
+///
+/// let response = get_my_dashboard(State(state), AuthUser(auth_user)).await?;
+/// let dashboard = response.0; // DashboardPayload { projects, demos }
+/// # Ok(())
+/// # }
+/// ```
 pub async fn get_my_dashboard(
     State(state): State<AppState>,
     AuthUser(user): AuthUser,

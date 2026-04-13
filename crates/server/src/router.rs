@@ -6,6 +6,18 @@ use axum::{
 };
 use shared::models::user::User;
 
+/// Creates and Axum `Router` with the application's HTTP routes and attaches the given shared `AppState`.
+///
+/// The router includes health, metrics, auth, demo management, analytics, billing, project, and API-not-found routes
+/// and is ready to be served by an Axum server after attaching the provided state.
+///
+/// # Examples
+///
+/// ```
+/// // Construct your AppState and create the router
+/// let state = /* construct AppState */ todo!();
+/// let router = create_router(state);
+/// ```
 pub fn create_router(state: AppState) -> Router {
     Router::new()
         .route("/api/health", get(health_check))

@@ -19,6 +19,25 @@ pub fn LandingPage() -> impl IntoView {
     }
 }
 
+/// Renders the landing/marketing page with navigation, CTAs, feature sections, and an optional login error message.
+///
+/// Displays the full marketing UI and wires the login buttons to the authentication context; if `auth_error` is `Some(message)`, a visible, polite-status login failure message is shown to the user.
+///
+/// # Parameters
+///
+/// - `auth_error`: Optional login error message to display in the page when authentication fails.
+///
+/// # Examples
+///
+/// ```
+/// use leptos::*; // assume leptos context in real app
+///
+/// // Render the marketing view with no auth error
+/// let _view = MarketingView(None);
+///
+/// // Render the marketing view with an auth error message
+/// let _view_err = MarketingView(Some("OAuth token expired".to_string()));
+/// ```
 #[component]
 fn MarketingView(auth_error: Option<String>) -> impl IntoView {
     let auth = use_auth_context();
