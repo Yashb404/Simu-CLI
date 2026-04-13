@@ -97,7 +97,7 @@ pub fn EmbedApp() -> impl IntoView {
                                     <span class="terminal-dot yellow"></span>
                                     <span class="terminal-dot green"></span>
                                 </div>
-                                <span class="terminal-titlebar-text">"CLI Demo Studio"</span>
+                                <span class="terminal-titlebar-text">"SimuCLI"</span>
                             </div>
                             <div class="terminal-body" style="padding:16px;">
                                 <p class="terminal-line">"$ init runtime..."</p>

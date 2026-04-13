@@ -288,7 +288,7 @@ pub fn create_default_step(step_type: StepType, order: i32) -> Step {
         }
         StepType::Output => {
             step.output = Some(vec![OutputLine {
-                text: "Hello from CLI Demo Studio".to_string(),
+                text: "Hello from SimuCLI".to_string(),
                 style: OutputStyle::Normal,
                 color: None,
                 prefix: None,

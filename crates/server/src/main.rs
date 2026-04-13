@@ -32,7 +32,7 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    tracing::info!("Starting CLI Demo Studio server...");
+    tracing::info!("Starting SimuCLI server...");
     tracing::debug!(
         "Config: API URL = {}, Port = {}",
         config.api_url,
@@ -219,6 +219,6 @@ fn resolve_migrations_path() -> anyhow::Result<std::path::PathBuf> {
 
 async fn api_landing_page() -> Html<&'static str> {
     Html(
-        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>CLI Demo Studio API</title><style>body{font-family:system-ui,-apple-system,sans-serif;max-width:760px;margin:48px auto;padding:0 16px;line-height:1.5;color:#111}a{color:#0f4c81}code{background:#f4f4f5;padding:2px 6px;border-radius:6px}</style></head><body><h1>CLI Demo Studio API</h1><p>The backend is running.</p><p>Health check: <a href=\"/api/health\">/api/health</a></p><p>If you expected the dashboard at <code>/</code>, ensure frontend build files are available at runtime.</p></body></html>",
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>SimuCLI API</title><style>body{font-family:system-ui,-apple-system,sans-serif;max-width:760px;margin:48px auto;padding:0 16px;line-height:1.5;color:#111}a{color:#0f4c81}code{background:#f4f4f5;padding:2px 6px;border-radius:6px}</style></head><body><h1>SimuCLI API</h1><p>The backend is running.</p><p>Health check: <a href=\"/api/health\">/api/health</a></p><p>If you expected the dashboard at <code>/</code>, ensure frontend build files are available at runtime.</p></body></html>",
     )
 }

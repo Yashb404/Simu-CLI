@@ -84,7 +84,7 @@ pub fn App() -> impl IntoView {
     });
 
     view! {
-        <Title text="CLI Demo Studio" />
+        <Title text="SimuCLI" />
         <Router>
             <Routes fallback=|| view! { <p>"Not Found"</p> }>
                 <Route path=path!("/") view=LandingPage />

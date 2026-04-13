@@ -28,7 +28,7 @@ fn MarketingView(auth_error: Option<String>) -> impl IntoView {
             <header class="landing-header">
                 <div class="landing-brand">
                     <span class="landing-prompt">">_"</span>
-                    <span>"CLI Demo Studio"</span>
+                    <span>"SimuCLI"</span>
                 </div>
                 <a
                     class="landing-login"
@@ -107,7 +107,7 @@ fn MarketingView(auth_error: Option<String>) -> impl IntoView {
                 </section>
             </main>
 
-            <footer class="landing-footer">"2026 CLI Demo Studio"</footer>
+            <footer class="landing-footer">"2026 SimuCLI"</footer>
         </div>
     }
 }

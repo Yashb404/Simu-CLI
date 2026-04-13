@@ -1,6 +1,6 @@
-# CLI Demo Studio
+# SimuCLI
 
-CLI Demo Studio is an open source platform for creating, publishing, and embedding interactive terminal demos.
+SimuCLI is an open source platform for creating, publishing, and embedding interactive terminal demos.
 
 It provides:
 

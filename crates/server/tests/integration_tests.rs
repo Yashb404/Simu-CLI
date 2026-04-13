@@ -1,4 +1,4 @@
-/// Integration tests for the CLI Demo Studio API server.
+/// Integration tests for the SimuCLI API server.
 ///
 /// Tests marked `#[ignore]` require a live Postgres connection via the
 /// `DATABASE_URL` environment variable.  Run them with:
