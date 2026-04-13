@@ -148,7 +148,14 @@ fn response_for_command(
         )];
     };
 
-    let mut lines = Vec::new();
+    let mut lines = steps[command_index]
+        .output
+        .clone()
+        .unwrap_or_default()
+        .into_iter()
+        .map(line_from_output)
+        .collect::<Vec<_>>();
+
     for step in steps.iter().skip(command_index + 1) {
         if matches!(step.step_type, StepType::Command) {
             break;

@@ -324,10 +324,7 @@ pub fn add_default_step(steps: &mut Vec<Step>, step_type: StepType) {
 
 pub fn add_command_block(steps: &mut Vec<Step>) {
     let order = steps.len() as i32;
-    // Add command step
     steps.push(create_default_step(StepType::Command, order));
-    // Add paired output step right after
-    steps.push(create_default_step(StepType::Output, order + 1));
 }
 
 fn summarize_step(step: &Step) -> String {
@@ -629,9 +626,12 @@ fn CommandBlockEditor(step: Step, on_update: Callback<Step>) -> impl IntoView {
         .match_pattern
         .clone()
         .unwrap_or_else(|| command_value.clone());
+    let output_lines = step.output.clone().unwrap_or_default();
+    let output_value = output_lines_to_text(&output_lines);
     let step_for_command = step.clone();
     let step_for_short_description = step.clone();
     let step_for_pattern = step;
+    let step_for_output = step_for_short_description.clone();
 
     view! {
         <div class="command-block-editor flex flex-col gap-4">
@@ -697,6 +697,24 @@ fn CommandBlockEditor(step: Step, on_update: Callback<Step>) -> impl IntoView {
                                 None
                             } else {
                                 Some(next)
+                            };
+                            on_update.run(updated);
+                        }
+                    />
+                </label>
+                <label class="flex flex-col gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
+                    "Output (optional)"
+                    <textarea
+                        class="min-h-36 rounded-2xl border border-outline-variant bg-surface-container-high px-4 py-3 font-mono text-sm normal-case tracking-normal text-on-surface outline-none transition-all duration-200 placeholder:text-on-surface-variant/50 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        placeholder="Write the output for this command here, one line per row. Leave blank if this command has no output."
+                        prop:value=output_value
+                        on:input=move |ev| {
+                            let next = event_target_value(&ev);
+                            let mut updated = step_for_output.clone();
+                            updated.output = if next.trim().is_empty() {
+                                None
+                            } else {
+                                Some(text_to_output_lines(&next))
                             };
                             on_update.run(updated);
                         }
