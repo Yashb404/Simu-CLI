@@ -698,7 +698,7 @@ pub fn DemosPage() -> impl IntoView {
                                         project_slug.as_deref(), None);
                                     let publish_path = api::namespaced_demo_path(
                                         &username_slug.get(), &demo.id,
-                                        project_slug.as_deref(), Some("publish"));
+                                        project_slug.as_deref(), Some("share"));
                                     let analytics_path = api::namespaced_demo_path(
                                         &username_slug.get(), &demo.id,
                                         project_slug.as_deref(), Some("analytics"));
@@ -789,7 +789,7 @@ pub fn DemosPage() -> impl IntoView {
                                                         "Open Editor"
                                                     </a>
                                                     <a class="db-btn-outline" href={publish_path}>
-                                                        "Publish"
+                                                        "Share"
                                                     </a>
                                                     <a class="db-btn-outline" href={analytics_path}>
                                                         "Analytics"

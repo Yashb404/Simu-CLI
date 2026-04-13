@@ -97,14 +97,16 @@ pub fn App() -> impl IntoView {
                 <ParentRoute path=path!("") view=AppShell>
                     <Route path=path!("/dashboard") view=DemosPage />
                     <Route path=path!("/dashboard/demos") view=RedirectDashboardHome />
+                    <Route path=path!("/dashboard/demos/:id") view=DemoEditorPage />
+                    <Route path=path!("/dashboard/demos/:id/share") view=PublishPage />
                     <Route path=path!("/:username/projects/:slug") view=DemosPage />
                     <Route path=path!("/:username/demos/:id") view=DemoEditorPage />
                     <Route path=path!("/:username/demos/:id/settings") view=SettingsPage />
-                    <Route path=path!("/:username/demos/:id/publish") view=PublishPage />
+                    <Route path=path!("/:username/demos/:id/share") view=PublishPage />
                     <Route path=path!("/:username/demos/:id/analytics") view=AnalyticsPage />
                     <Route path=path!("/:username/projects/:slug/demos/:id") view=DemoEditorPage />
                     <Route path=path!("/:username/projects/:slug/demos/:id/settings") view=SettingsPage />
-                    <Route path=path!("/:username/projects/:slug/demos/:id/publish") view=PublishPage />
+                    <Route path=path!("/:username/projects/:slug/demos/:id/share") view=PublishPage />
                     <Route path=path!("/:username/projects/:slug/demos/:id/analytics") view=AnalyticsPage />
                 </ParentRoute>
             </Routes>

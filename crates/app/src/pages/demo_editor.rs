@@ -895,7 +895,6 @@ pub fn DemoEditorPage() -> impl IntoView {
             let set_status = set_status;
             let set_steps = set_steps;
             let set_published_slug = set_published_slug;
-            let set_publish_modal_open = set_publish_modal_open;
             let set_publish_state = set_publish_state;
             async move {
                 let update_result = api::update_demo_payload(
@@ -922,8 +921,13 @@ pub fn DemoEditorPage() -> impl IntoView {
                             Ok(published) => {
                                 set_published_slug.set(published.slug);
                                 set_publish_state.set(PublishState::Success);
-                                set_publish_modal_open.set(true);
                                 set_status.set("Published and embed code ready".to_string());
+                                if let Some(window) = web_sys::window() {
+                                    let publish_path = params.with_untracked(|map| {
+                                        namespaced_demo_path_from_params(map, &id, Some("share"))
+                                    });
+                                    let _ = window.location().set_href(&publish_path);
+                                }
                             }
                             Err(err) => {
                                 set_publish_state.set(PublishState::Error);
