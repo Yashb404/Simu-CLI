@@ -14,21 +14,21 @@ pub fn DemoViewPage() -> impl IntoView {
             .unwrap_or_else(|| "demo-id".to_string())
     });
     let (demo_id, set_demo_id) = signal(initial_demo_id.get());
-    let (api_base, set_api_base) = signal(api::api_base());
-    let page_origin = api::browser_origin();
-    let iframe_origin = page_origin.clone();
-    let script_origin = page_origin.clone();
+    let api_base = api::api_base();
+    let iframe_origin = api_base.clone();
+    let script_origin = api_base.clone();
     let embed_src = Signal::derive(move || {
         format!(
-            "/embed-runtime/index.html?demo_id={}&api_base={}",
+            "{}/embed-runtime/index.html?demo_id={}&api_base={}",
+            api::api_base(),
             demo_id.get(),
-            api_base.get()
+            api::api_base()
         )
     });
 
     let iframe_snippet = Signal::derive(move || {
         generate_iframe_snippet(
-            &format!("{}/demo/view?id={}", iframe_origin, demo_id.get()),
+            &format!("{}/embed/{}", iframe_origin, demo_id.get()),
             "100%",
             "480px",
         )
@@ -53,16 +53,9 @@ pub fn DemoViewPage() -> impl IntoView {
                         on:input=move |ev| set_demo_id.set(event_target_value(&ev))
                     />
                 </label>
-                <label>
-                    "API Base"
-                    <input
-                        prop:value=move || api_base.get()
-                        on:input=move |ev| set_api_base.set(event_target_value(&ev))
-                    />
-                </label>
                 <p>
-                    "Open with query param: "
-                    <code>"/demo/view?id=YOUR_DEMO_ID"</code>
+                    "Open with path: "
+                    <code>"/embed/YOUR_DEMO_ID"</code>
                 </p>
                 <p>
                     "Quick smoke test commands (fallback demo): "

@@ -10,7 +10,8 @@ use crate::components::shell::AppShell;
 use crate::pages::{
     analytics::AnalyticsPage, demo_editor::DemoEditorPage, demo_share::ShareDemoPage,
     demo_view::DemoViewPage, demos::DemosPage, docs::DocsPage, docs::DocsSectionPage,
-    landing::LandingPage, publish::PublishPage, settings::SettingsPage,
+    embed_fallback::EmbedFallbackPage, landing::LandingPage, publish::PublishPage,
+    settings::SettingsPage,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -104,6 +105,7 @@ pub fn App() -> impl IntoView {
                 <Route path=path!("/docs/:section") view=DocsSectionPage />
                 <Route path=path!("/docs/:category/:section") view=DocsSectionPage />
                 <Route path=path!("/d/:slug") view=ShareDemoPage />
+                <Route path=path!("/embed/:id") view=EmbedFallbackPage />
                 <Route path=path!("/demo/view") view=DemoViewPage />
 
                 <ParentRoute path=path!("") view=AppShell>

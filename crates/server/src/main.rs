@@ -111,8 +111,12 @@ async fn main() -> anyhow::Result<()> {
     } else {
         workspace_root.join("crates/app/dist")
     };
-    let embed_dist_dir = if workspace_root.join("dist-embed").is_dir() {
+    let embed_dist_dir = if workspace_root.join("crates/embed/dist").is_dir() {
+        workspace_root.join("crates/embed/dist")
+    } else if workspace_root.join("dist-embed").is_dir() {
         workspace_root.join("dist-embed")
+    } else if workspace_root.join("crates/app/embed").is_dir() {
+        workspace_root.join("crates/app/embed")
     } else {
         workspace_root.join("crates/app/embed")
     };
@@ -140,6 +144,8 @@ async fn main() -> anyhow::Result<()> {
     let app = if has_app_index {
         router::create_router(state.clone())
             .route_service("/", ServeFile::new(app_index.clone()))
+            .route_service("/embed", ServeFile::new(&embed_index))
+            .nest_service("/embed/", embed_static.clone())
             .route_service("/embed-runtime", ServeFile::new(&embed_index))
             .nest_service("/embed-runtime/", embed_static)
             .nest_service("/static", static_assets)
@@ -163,6 +169,8 @@ async fn main() -> anyhow::Result<()> {
     } else {
         router::create_router(state.clone())
             .route("/", axum::routing::get(api_landing_page))
+            .route_service("/embed", ServeFile::new(&embed_index))
+            .nest_service("/embed/", embed_static.clone())
             .route_service("/embed-runtime", ServeFile::new(&embed_index))
             .nest_service("/embed-runtime/", embed_static)
             .nest_service("/static", static_assets)
