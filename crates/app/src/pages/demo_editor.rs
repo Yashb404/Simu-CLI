@@ -226,6 +226,7 @@ fn namespaced_demo_path_from_params(
 ///     }
 /// }
 /// ```
+#[component]
 fn TopNav(
     title: ReadSignal<String>,
     set_title: WriteSignal<String>,
