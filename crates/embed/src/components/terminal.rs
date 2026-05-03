@@ -370,17 +370,19 @@ fn run_terminal_command(
                 &EmbedEvent::interaction(demo_id.clone(), &raw_input),
                 &config.api_base,
             );
-            if let Ok(demo_uuid) = Uuid::parse_str(&demo_id) {
-                let endpoint = format!("{}/api/analytics/events", config.api_base);
-                leptos::task::spawn_local(async move {
-                    let _ = post_analytics_event(
-                        &endpoint,
-                        demo_uuid,
-                        AnalyticsEventType::Interaction,
-                        None,
-                    )
-                    .await;
-                });
+            if !config.api_base.is_empty() {
+                if let Ok(demo_uuid) = Uuid::parse_str(&demo_id) {
+                    let endpoint = format!("{}/api/analytics/events", config.api_base);
+                    leptos::task::spawn_local(async move {
+                        let _ = post_analytics_event(
+                            &endpoint,
+                            demo_uuid,
+                            AnalyticsEventType::Interaction,
+                            None,
+                        )
+                        .await;
+                    });
+                }
             }
         }
 
@@ -398,17 +400,19 @@ fn run_terminal_command(
                 &EmbedEvent::interaction(demo_id.clone(), &raw_input),
                 &config.api_base,
             );
-            if let Ok(demo_uuid) = Uuid::parse_str(&demo_id) {
-                let endpoint = format!("{}/api/analytics/events", config.api_base);
-                leptos::task::spawn_local(async move {
-                    let _ = post_analytics_event(
-                        &endpoint,
-                        demo_uuid,
-                        AnalyticsEventType::Interaction,
-                        None,
-                    )
-                    .await;
-                });
+            if !config.api_base.is_empty() {
+                if let Ok(demo_uuid) = Uuid::parse_str(&demo_id) {
+                    let endpoint = format!("{}/api/analytics/events", config.api_base);
+                    leptos::task::spawn_local(async move {
+                        let _ = post_analytics_event(
+                            &endpoint,
+                            demo_uuid,
+                            AnalyticsEventType::Interaction,
+                            None,
+                        )
+                        .await;
+                    });
+                }
             }
         }
 
@@ -450,34 +454,38 @@ fn run_terminal_command(
             &config.api_base,
         );
 
-        if let Some(demo_uuid) = event_demo_uuid {
-            let endpoint = format!("{}/api/analytics/events", config.api_base);
-            let interaction_step_index = step_index;
-            leptos::task::spawn_local(async move {
-                let _ = post_analytics_event(
-                    &endpoint,
-                    demo_uuid,
-                    AnalyticsEventType::Interaction,
-                    interaction_step_index,
-                )
-                .await;
-            });
-        }
-
-        if is_completion {
-            let _ = post_event_to_parent(&EmbedEvent::completion(demo_id), &config.api_base);
+        if !config.api_base.is_empty() {
             if let Some(demo_uuid) = event_demo_uuid {
                 let endpoint = format!("{}/api/analytics/events", config.api_base);
-                let completion_step_index = step_index;
+                let interaction_step_index = step_index;
                 leptos::task::spawn_local(async move {
                     let _ = post_analytics_event(
                         &endpoint,
                         demo_uuid,
-                        AnalyticsEventType::Completion,
-                        completion_step_index,
+                        AnalyticsEventType::Interaction,
+                        interaction_step_index,
                     )
                     .await;
                 });
+            }
+        }
+
+        if is_completion {
+            let _ = post_event_to_parent(&EmbedEvent::completion(demo_id), &config.api_base);
+            if !config.api_base.is_empty() {
+                if let Some(demo_uuid) = event_demo_uuid {
+                    let endpoint = format!("{}/api/analytics/events", config.api_base);
+                    let completion_step_index = step_index;
+                    leptos::task::spawn_local(async move {
+                        let _ = post_analytics_event(
+                            &endpoint,
+                            demo_uuid,
+                            AnalyticsEventType::Completion,
+                            completion_step_index,
+                        )
+                        .await;
+                    });
+                }
             }
         }
     }
