@@ -92,8 +92,10 @@ pub fn EmbedApp() -> impl IntoView {
         if let Some(demo_data) = parse_inline_demo_config() {
             set_config.set(Some(EmbedConfig {
                 demo_id: demo_data.id.to_string(),
-                // No server needed; analytics calls will be skipped when
-                // api_base is empty.
+                // Empty string is the sentinel that disables server calls.
+                // terminal.rs guards every post_analytics_event call with
+                // !config.api_base.is_empty(), so an empty api_base means
+                // no analytics HTTP requests are ever made.
                 api_base: String::new(),
             }));
             set_demo.set(Some(demo_data));

@@ -23,9 +23,28 @@
   }
 
   var scriptUrl = new URL(script.src, window.location.href);
+
+  // data-runtime-base must be an absolute URL pointing to the separately
+  // deployed standalone terminal runtime (the compiled embed WASM app).
+  // This decouples the iframe entirely from the main website: only the
+  // standalone terminal origin is contacted after the page loads.
+  // When omitted, falls back to /embed-runtime/index.html on the script
+  // origin for backward compatibility.
+  var runtimeBaseAttr = script.getAttribute("data-runtime-base");
+  var runtimeUrl;
+  if (runtimeBaseAttr) {
+    try {
+      runtimeUrl = new URL("/index.html", new URL(runtimeBaseAttr).origin);
+    } catch (e) {
+      console.error("[cli-demo-studio] data-runtime-base must be an absolute URL.", e);
+      return;
+    }
+  } else {
+    runtimeUrl = new URL("/embed-runtime/index.html", scriptUrl.origin);
+  }
+
   var apiBaseAttr = script.getAttribute("data-api-base");
-  var apiBase = apiBaseAttr ? new URL(apiBaseAttr, scriptUrl.origin).origin : scriptUrl.origin;
-  var runtimeUrl = new URL("/embed-runtime/index.html", apiBase);
+  var apiBase = apiBaseAttr ? new URL(apiBaseAttr, scriptUrl.origin).origin : null;
 
   if (demoConfigAttr) {
     // Pass the demo JSON directly in the URL so the runtime never needs to
@@ -34,7 +53,9 @@
   } else {
     // Legacy: runtime will fetch demo data from the server.
     runtimeUrl.searchParams.set("demo_id", demoId);
-    runtimeUrl.searchParams.set("api_base", apiBase);
+    if (apiBase) {
+      runtimeUrl.searchParams.set("api_base", apiBase);
+    }
   }
 
   var targetSelector = script.getAttribute("data-target");
