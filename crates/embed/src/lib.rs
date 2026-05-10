@@ -64,6 +64,16 @@ fn resolved_api_base() -> String {
         .unwrap_or_default()
 }
 
+/// Try to parse an inline `demo_config` query parameter (a JSON-encoded
+/// `PublicDemoResponse`) that was embedded by `embed.js`.  When this
+/// succeeds the runtime works entirely client-side – no server request is
+/// needed to load demo data.
+#[cfg(target_arch = "wasm32")]
+fn parse_inline_demo_config() -> Option<PublicDemoResponse> {
+    let json = query_param_value("demo_config")?;
+    serde_json::from_str::<PublicDemoResponse>(&json).ok()
+}
+
 #[component]
 pub fn EmbedApp() -> impl IntoView {
     let (demo, _set_demo) = signal(Option::<PublicDemoResponse>::None);
@@ -75,8 +85,27 @@ pub fn EmbedApp() -> impl IntoView {
         let set_demo = _set_demo;
         let set_status = _set_status;
         let set_config = _set_config;
+
+        // Prefer inline demo data embedded in the URL by embed.js.  When this
+        // is present the runtime is fully client-side: no network request is
+        // made to load demo content after the page has loaded.
+        if let Some(demo_data) = parse_inline_demo_config() {
+            set_config.set(Some(EmbedConfig {
+                demo_id: demo_data.id.to_string(),
+                // Empty string is the sentinel that disables server calls.
+                // terminal.rs guards every post_analytics_event call with
+                // !config.api_base.is_empty(), so an empty api_base means
+                // no analytics HTTP requests are ever made.
+                api_base: String::new(),
+            }));
+            set_demo.set(Some(demo_data));
+            return;
+        }
+
+        // Legacy fallback: fetch demo data from the server using the demo_id
+        // query parameter.  Analytics events will be sent if api_base is set.
         let Some(demo_id) = query_param_value("demo_id").or_else(path_segment_value) else {
-            set_status.set("Missing demo_id query parameter".to_string());
+            set_status.set("Missing demo_id or demo_config parameter".to_string());
             return;
         };
 

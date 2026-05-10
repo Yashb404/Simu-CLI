@@ -122,12 +122,11 @@ pub fn extract_commands_from_cast(
                     }
                 }
             }
-            "o" => {
+            "o" if is_reading_output => {
                 // Output event: shell returned text
-                if is_reading_output {
-                    current_output.push_str(event_data);
-                }
+                current_output.push_str(event_data);
             }
+            "o" => {}
             _ => {
                 // Ignore unknown event types (e.g., "m" for timing metadata)
             }
