@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 use shared::{
     client::{ClientError, HttpMethod, fetch, fetch_typed, send},
-    dto::UpdateDemoRequest,
     dto::PublicDemoResponse,
+    dto::UpdateDemoRequest,
     models::demo::{Demo, DemoSettings, Step, Theme},
 };
 use time::OffsetDateTime;

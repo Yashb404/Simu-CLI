@@ -230,63 +230,6 @@ Published demos are embedded using a script tag:
 
 If you update demo steps, re-save and re-publish to ensure the embed points to latest published state.
 
-## Frontend Improvement Guide
-
-You asked for specific frontend help. This is the most impactful sequence to improve quality quickly.
-
-### Priority 1: Interaction Clarity
-
-- Add persistent save status near topbar actions (idle, saving, saved, failed)
-- Improve drag and drop affordances with clear insertion marker
-- Persist split-pane size in localStorage and restore on load
-- Add keyboard support for reordering and focus-visible states
-
-### Priority 2: Editor Information Architecture
-
-- Keep script pane focused on authoring only
-- Move advanced settings into collapsible sections with clear defaults
-- Group command and output editing as one workflow block
-- Add quick step templates for common terminal flows
-
-### Priority 3: Visual Consistency
-
-- Establish spacing scale and type scale tokens
-- Normalize card, input, and button states across pages
-- Add empty states and loading skeletons for demos and projects
-- Ensure contrast and readability for long editing sessions
-
-### Priority 4: Runtime Confidence
-
-- Upgrade stage preview from simplified view to full runtime mount
-- Add restart and reset controls in preview
-- Show explicit not-found behavior preview in editor
-- Add publish-time validation warnings for incomplete scripts
-
-### Priority 5: Reliability and Guardrails
-
-- Add integration tests for create/edit/publish/embed loop
-- Add regression tests for command matching behavior
-- Harden CSP while preserving local dev websocket needs
-
-## Troubleshooting
-
-### Commands in embed are not matching
-
-- Save Draft and Publish again after editing command steps
-- Ensure match pattern is not blank unless intended
-- Reload embed host page with hard refresh
-
-### CSP blocks Trunk websocket in development
-
-- Ensure server CSP includes connect-src allowing ws and wss in dev
-- Restart backend after policy changes
-
-### Local machine lags during development
-
-- Check memory pressure and swap usage
-- Stop unnecessary heavy processes
-- Keep only one server process and one trunk process active
-
 ## Contributing
 
 Contributions are welcome.

@@ -15,9 +15,7 @@ impl SessionCookieSameSite {
             "lax" => Ok(Self::Lax),
             "strict" => Ok(Self::Strict),
             "none" => Ok(Self::None),
-            _ => anyhow::bail!(
-                "SESSION_COOKIE_SAME_SITE must be one of: lax, strict, none"
-            ),
+            _ => anyhow::bail!("SESSION_COOKIE_SAME_SITE must be one of: lax, strict, none"),
         }
     }
 }
@@ -170,9 +168,7 @@ fn require_same_site_policy_compatibility(
     same_site: &SessionCookieSameSite,
 ) -> Result<()> {
     if matches!(same_site, SessionCookieSameSite::None) && !secure {
-        anyhow::bail!(
-            "SESSION_COOKIE_SAME_SITE=none requires SESSION_COOKIE_SECURE=true"
-        );
+        anyhow::bail!("SESSION_COOKIE_SAME_SITE=none requires SESSION_COOKIE_SECURE=true");
     }
 
     Ok(())
@@ -368,6 +364,8 @@ mod tests {
     fn same_site_none_requires_secure_cookie() {
         assert!(require_same_site_policy_compatibility(true, &SessionCookieSameSite::None).is_ok());
         assert!(require_same_site_policy_compatibility(false, &SessionCookieSameSite::Lax).is_ok());
-        assert!(require_same_site_policy_compatibility(false, &SessionCookieSameSite::None).is_err());
+        assert!(
+            require_same_site_policy_compatibility(false, &SessionCookieSameSite::None).is_err()
+        );
     }
 }
