@@ -251,17 +251,15 @@ async fn github_callback(
 
     tracing::info!("User {} authenticated successfully", user.username);
 
-    Ok(Redirect::to(&format!(
-        "{}/dashboard",
-        state.config.frontend_url
-    )))
+    // Use relative redirects so callback stays on the same host that initiated login.
+    Ok(Redirect::to("/dashboard"))
 }
 
-async fn logout(State(state): State<AppState>, session: Session) -> Result<Redirect, StatusCode> {
+async fn logout(State(_state): State<AppState>, session: Session) -> Result<Redirect, StatusCode> {
     session.delete().await.map_err(|e| {
         tracing::error!("Failed to delete session: {:?}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    Ok(Redirect::to(&state.config.frontend_url))
+    Ok(Redirect::to("/"))
 }
