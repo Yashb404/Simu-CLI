@@ -2,6 +2,7 @@ use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 
 use crate::api;
+use crate::components::global_header::{CentralHeader, CentralHeaderVariant};
 
 #[component]
 pub fn ShareDemoPage() -> impl IntoView {
@@ -47,8 +48,9 @@ pub fn ShareDemoPage() -> impl IntoView {
     };
 
     view! {
-        <section class="page demo-share-page" style="min-height:100vh;padding:24px;background:#0e0e10;color:#e7e4ec;">
-            <div style="max-width:1200px;margin:0 auto;display:grid;gap:18px;">
+        <section class="page demo-share-page" style="min-height:100vh;background:#0e0e10;color:#e7e4ec;">
+            <CentralHeader variant=CentralHeaderVariant::SharedDemo />
+            <div style="max-width:1200px;margin:0 auto;display:grid;gap:18px;padding:24px;">
                 <header style="display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:12px;">
                     <div>
                         <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#4ae176;">"Shared Demo"</p>

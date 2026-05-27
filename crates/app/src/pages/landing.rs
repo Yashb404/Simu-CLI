@@ -3,6 +3,7 @@ use leptos_router::components::{A, Redirect};
 
 use crate::api;
 use crate::auth::{SessionState, use_auth_context};
+use crate::components::global_header::{CentralHeader, CentralHeaderVariant};
 
 #[component]
 pub fn LandingPage() -> impl IntoView {
@@ -44,40 +45,7 @@ fn MarketingView(auth_error: Option<String>) -> impl IntoView {
 
     view! {
         <div class="min-h-screen bg-[#0e0e10] text-[#e7e4ec]">
-            <header class="fixed top-0 z-50 flex w-full items-center justify-between gap-4 border-b border-[#2b2c32] bg-[#0e0e10] px-6 py-4 text-sm font-medium tracking-tight backdrop-blur">
-                <div class="flex items-center gap-3">
-                    <span class="mono rounded border border-[#4ae176]/30 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#4ae176]">
-                        ">_"
-                    </span>
-                    <span class="text-xl font-black tracking-tighter text-[#4ae176]">"SimuCLI"</span>
-                </div>
-
-                <nav class="hidden items-center gap-8 md:flex">
-                    <a class="border-b-2 border-[#4ae176] pb-1 text-[#4ae176]" href="#features">
-                        "Features"
-                    </a>
-                    <A attr:class="text-[#9f9da1] transition-colors hover:text-[#e7e4ec]" href="/docs">
-                        "Docs"
-                    </A>
-                    <a class="text-[#9f9da1] transition-colors hover:text-[#e7e4ec]" href="#pricing">
-                        "Pricing"
-                    </a>
-                </nav>
-
-                <a
-                    class="rounded-lg bg-[#4ae176] px-4 py-2 font-bold tracking-tight text-[#004b1e] transition-all hover:bg-[#38d36a] active:scale-95"
-                    href={api::login_url()}
-                    on:click=move |_| auth.set_logging_in.set(true)
-                >
-                    {move || {
-                        if auth.is_logging_in.get() {
-                            "Redirecting to GitHub..."
-                        } else {
-                            "Login with GitHub"
-                        }
-                    }}
-                </a>
-            </header>
+            <CentralHeader variant=CentralHeaderVariant::Marketing />
 
             <main class="pt-24">
                 <section class="mx-auto flex max-w-7xl flex-col items-center px-6 py-20 text-center">

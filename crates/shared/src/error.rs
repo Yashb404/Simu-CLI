@@ -26,4 +26,17 @@ impl AppError {
     pub fn bad_gateway(msg: impl Into<String>) -> Self {
         AppError::BadGateway(msg.into())
     }
+
+    /// Stable machine-readable code for API responses.
+    pub fn code(&self) -> &'static str {
+        match self {
+            AppError::NotFound => "NOT_FOUND",
+            AppError::Unauthorized => "UNAUTHORIZED",
+            AppError::Forbidden => "FORBIDDEN",
+            AppError::Validation(_) => "VALIDATION_ERROR",
+            AppError::RateLimited => "RATE_LIMITED",
+            AppError::BadGateway(_) => "BAD_GATEWAY",
+            AppError::Internal => "INTERNAL_ERROR",
+        }
+    }
 }

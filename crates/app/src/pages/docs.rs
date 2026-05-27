@@ -2,8 +2,7 @@ use leptos::prelude::*;
 use leptos_router::components::A;
 use leptos_router::hooks::use_params_map;
 
-use crate::api;
-use crate::auth::{SessionState, use_auth_context};
+use crate::components::global_header::{CentralHeader, CentralHeaderVariant, HeaderSearchModel};
 
 // TODOs for Documentation pages:
 // TODO: Increase docs font size and normalize typography with main app.
@@ -254,20 +253,23 @@ fn DocsSectionRoute() -> impl IntoView {
     move || {
         let section = docs_section_for(&path());
         view! {
-            <section class="min-h-screen bg-[#0e0e10] px-6 py-24 text-[#e7e4ec]">
-                <div class="mx-auto max-w-4xl">
-                    <p class="mb-4 font-mono text-xs uppercase tracking-[0.2em] text-[#4ae176]">"Documentation"</p>
-                    <h1 class="mb-6 text-5xl font-black tracking-tighter text-white">{section.title}</h1>
-                    <p class="mb-6 max-w-2xl text-lg leading-relaxed text-[#acaab1]">{section.summary}</p>
-                    <div class="rounded-xl border border-[#47474e] bg-[#19191d] p-8 text-[#e7e4ec]">
-                        <p class="leading-relaxed text-[#acaab1]">{section.details}</p>
+            <div class="min-h-screen bg-[#0e0e10] text-[#e7e4ec]">
+                <CentralHeader variant=CentralHeaderVariant::Docs />
+                <section class="px-6 py-24 text-[#e7e4ec]">
+                    <div class="mx-auto max-w-4xl">
+                        <p class="mb-4 font-mono text-xs uppercase tracking-[0.2em] text-[#4ae176]">"Documentation"</p>
+                        <h1 class="mb-6 text-5xl font-black tracking-tighter text-white">{section.title}</h1>
+                        <p class="mb-6 max-w-2xl text-lg leading-relaxed text-[#acaab1]">{section.summary}</p>
+                        <div class="rounded-xl border border-[#47474e] bg-[#19191d] p-8 text-[#e7e4ec]">
+                            <p class="leading-relaxed text-[#acaab1]">{section.details}</p>
+                        </div>
+                        <div class="mt-8 flex flex-wrap gap-4">
+                            <A attr:class="rounded bg-[#4ae176] px-4 py-2 font-bold text-[#004b1e] transition-colors hover:bg-[#38d36a]" href="/docs">"Back to overview"</A>
+                            <A attr:class="rounded border border-[#47474e] bg-[#25252b] px-4 py-2 font-bold transition-colors hover:bg-[#2b2c32]" href="/dashboard">"Open dashboard"</A>
+                        </div>
                     </div>
-                    <div class="mt-8 flex flex-wrap gap-4">
-                        <A attr:class="rounded bg-[#4ae176] px-4 py-2 font-bold text-[#004b1e] transition-colors hover:bg-[#38d36a]" href="/docs">"Back to overview"</A>
-                        <A attr:class="rounded border border-[#47474e] bg-[#25252b] px-4 py-2 font-bold transition-colors hover:bg-[#2b2c32]" href="/dashboard">"Open dashboard"</A>
-                    </div>
-                </div>
-            </section>
+                </section>
+            </div>
         }
     }
 }
@@ -290,60 +292,6 @@ fn DocsSectionRoute() -> impl IntoView {
 ///     <DocsHeader search_query=search_query set_search_query=set_search_query />
 /// };
 /// ```
-#[component]
-fn DocsHeader(
-    search_query: ReadSignal<String>,
-    set_search_query: WriteSignal<String>,
-) -> impl IntoView {
-    let auth = use_auth_context();
-
-    view! {
-        <header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-14 bg-[#0e0e10] border-b border-[#19191d]">
-            <div class="flex items-center gap-8">
-                <A attr:class="text-xl font-black tracking-tighter text-white uppercase" href="/">"TERMINAL_DOCS"</A>
-                <nav class="hidden md:flex gap-6">
-                    <A attr:class="font-sans tracking-tight text-sm text-zinc-500 hover:text-zinc-200 transition-colors" href="/">"Home"</A>
-                    <A attr:class="font-sans tracking-tight text-sm text-[#4ae176] font-bold border-b-2 border-[#4ae176] pb-1" href="/docs">"Guides"</A>
-                    <A attr:class="font-sans tracking-tight text-sm text-zinc-500 hover:text-zinc-200 transition-colors" href="/docs/api">"API"</A>
-                    <A attr:class="font-sans tracking-tight text-sm text-zinc-500 hover:text-zinc-200 transition-colors" href="/docs/changelog">"Changelog"</A>
-                    <A attr:class="font-sans tracking-tight text-sm text-zinc-500 hover:text-zinc-200 transition-colors" href="/docs/community">"Community"</A>
-                </nav>
-            </div>
-            <div class="flex items-center gap-4">
-                <label class="hidden md:flex bg-surface-container-low border border-outline-variant/30 px-3 py-1.5 rounded items-center gap-2">
-                    <span class="material-symbols-outlined text-sm text-on-surface-variant">"search"</span>
-                    <input
-                        class="w-64 bg-transparent text-xs text-on-surface outline-none placeholder:text-on-surface-variant"
-                        placeholder="Search docs..."
-                        prop:value=move || search_query.get()
-                        on:input=move |event| set_search_query.set(event_target_value(&event))
-                    />
-                </label>
-                {move || match auth.session_state.get() {
-                    SessionState::LoggedIn(_) => view! {
-                        <A attr:class="flex items-center gap-2 px-4 py-1.5 bg-white text-black text-xs font-bold transition-all rounded hover:bg-zinc-200" href="/dashboard">
-                            <span class="material-symbols-outlined text-sm">"dashboard"</span>
-                            "Go to dashboard"
-                        </A>
-                    }
-                    .into_any(),
-                    _ => view! {
-                        <a class="flex items-center gap-2 px-4 py-1.5 bg-white text-black text-xs font-bold transition-all rounded hover:bg-zinc-200" href={api::login_url()}>
-                            <img
-                                alt="GitHub Logo"
-                                class="w-4 h-4"
-                                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDZoB3jLn7hN2woyYRN7frwsvBszEBna9m5L03wKgDjiuvbuY0Ni3zXpa7auNyU3kgLABuWF6lraoC5gtqsSOve_7ETsjSj9rdZDQaudLOHcZZY_XkO2XmRNwmn2jKrkxlHhASgyENIPfZNlkghP7bll0vrTVmRguQTVpMhsmnIY80VRUyarxhk73Wk8jP5ECxDd_GXXJFb-BJbO31ix-tzL9hgXVabXfXDEer55cnf-12UklRaWjBkNtObSde3OwvXspT5AGlrBD4"
-                            />
-                            "Login with GitHub"
-                        </a>
-                    }
-                    .into_any(),
-                }}
-            </div>
-        </header>
-    }
-}
-
 /// Renders the fixed left-hand documentation sidebar containing section groups, navigation links, and support/feedback anchors.
 ///
 /// The sidebar is a static, scrollable navigation panel intended for the docs layout; it does not perform I/O or depend on external state.
@@ -362,7 +310,10 @@ fn DocsHeader(
 #[component]
 fn DocsSidebar() -> impl IntoView {
     view! {
-        <aside class="fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-64 flex flex-col py-4 bg-[#131316] border-r border-[#19191d] overflow-y-auto z-40">
+        <aside
+            class="fixed left-0 w-64 flex-col py-4 bg-[#131316] border-r border-[#19191d] overflow-y-auto z-40"
+            style="top:4.5rem;height:calc(100vh - 4.5rem);"
+        >
             <div class="px-6 mb-8">
                 <h2 class="text-lg font-bold text-white mb-1">"SimuCLI"</h2>
                 <p class="font-mono text-[10px] uppercase tracking-widest text-[#4ae176]">"v2.4.0-stable"</p>
@@ -438,7 +389,10 @@ fn DocsSidebar() -> impl IntoView {
 #[component]
 fn DocsToc() -> impl IntoView {
     view! {
-        <aside class="fixed right-0 top-14 h-[calc(100vh-3.5rem)] w-64 flex flex-col py-8 px-6 bg-[#0e0e10] border-l border-[#19191d] hidden lg:flex">
+        <aside
+            class="fixed right-0 w-64 flex-col py-8 px-6 bg-[#0e0e10] border-l border-[#19191d] hidden lg:flex"
+            style="top:4.5rem;height:calc(100vh - 4.5rem);"
+        >
             <h4 class="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-6">"On this page"</h4>
             <nav class="flex flex-col gap-4">
                 <a class="text-xs text-zinc-400 hover:text-primary transition-colors border-l border-zinc-800 pl-4 py-0.5" href="#introduction">"Introduction"</a>
@@ -471,6 +425,11 @@ fn DocsToc() -> impl IntoView {
 #[component]
 pub fn DocsPage() -> impl IntoView {
     let (search_query, set_search_query) = signal(String::new());
+    let header_search = HeaderSearchModel {
+        query: search_query,
+        set_query: set_search_query,
+        placeholder: "Search docs, guides, and API routes...",
+    };
     let filtered_topics = move || {
         DOC_TOPICS
             .iter()
@@ -481,11 +440,13 @@ pub fn DocsPage() -> impl IntoView {
 
     view! {
         <div class="min-h-screen bg-[#0e0e10] text-[#e7e4ec]">
-            <DocsHeader search_query set_search_query />
-            <div class="flex pt-14 h-screen overflow-hidden">
-                <DocsSidebar />
-                <main class="ml-64 mr-64 flex-1 overflow-y-auto bg-[#0e0e10]">
-                    <div class="max-w-4xl mx-auto px-12 py-16">
+            <CentralHeader variant=CentralHeaderVariant::Docs search=header_search />
+            <div class="flex min-h-[calc(100vh-4.5rem)] pt-2 lg:h-[calc(100vh-4.5rem)] lg:overflow-hidden">
+                <div class="hidden lg:block">
+                    <DocsSidebar />
+                </div>
+                <main class="flex-1 overflow-y-auto bg-[#0e0e10] lg:ml-64 lg:mr-64">
+                    <div class="mx-auto max-w-4xl px-6 py-12 lg:px-12 lg:py-16">
                         <header class="mb-16" id="introduction">
                             <div class="inline-flex items-center gap-2 px-2 py-0.5 bg-primary/10 border border-primary/20 rounded mb-4">
                                 <span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
@@ -668,7 +629,9 @@ pub fn DocsPage() -> impl IntoView {
                         </footer>
                     </div>
                 </main>
-                <DocsToc />
+                <div class="hidden lg:block">
+                    <DocsToc />
+                </div>
             </div>
         </div>
     }

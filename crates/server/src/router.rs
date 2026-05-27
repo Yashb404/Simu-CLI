@@ -4,6 +4,7 @@ use axum::{
     http::StatusCode,
     routing::{get, patch, post},
 };
+use shared::dto::ApiErrorResponse;
 use shared::models::user::User;
 
 /// Creates and Axum `Router` with the application's HTTP routes and attaches the given shared `AppState`.
@@ -19,96 +20,103 @@ use shared::models::user::User;
 /// let router = create_router(state);
 /// ```
 pub fn create_router(state: AppState) -> Router {
-    Router::new()
-        .route("/api/health", get(health_check))
+    let app: Router<AppState> = Router::new()
+        .route("/", get(root_handler))
         .route("/metrics", get(middleware::metrics::metrics_handler))
-        .route("/api/me", get(get_me))
+        .nest("/api/v1", api_router())
+        // Backward-compatible alias during migration.
+        .nest("/api", api_router())
+        ;
+
+    app.with_state(state)
+}
+
+fn api_router() -> Router<AppState> {
+    Router::new()
+        .route("/health", get(health_check))
+        .route("/me", get(get_me))
         .route(
-            "/api/me/dashboard",
+            "/me/dashboard",
             get(handlers::dashboard::get_my_dashboard),
         )
-        .route("/api/demos", post(handlers::demos::create_demo))
-        .route("/api/me/demos", get(handlers::demos::list_my_demos))
+        .route("/demos", post(handlers::demos::create_demo))
+        .route("/me/demos", get(handlers::demos::list_my_demos))
         .route(
-            "/api/demos/{id}",
+            "/demos/{id}",
             get(handlers::demos::get_demo)
                 .patch(handlers::demos::update_demo)
                 .delete(handlers::demos::delete_demo),
         )
         .route(
-            "/api/demos/{id}/public",
+            "/demos/{id}/public",
             get(handlers::demos::get_public_demo),
         )
         .route(
-            "/api/public/demos/{reference}",
+            "/public/demos/{reference}",
             get(handlers::demos::get_public_demo_by_reference),
         )
         .route(
-            "/api/demos/{id}/publish",
+            "/demos/{id}/publish",
             post(handlers::demos::publish_demo),
         )
         .route(
-            "/api/demos/{id}/import-cast",
+            "/demos/{id}/import-cast",
             post(handlers::demos::import_cast),
         )
         .route(
-            "/api/demos/{id}/og-image",
+            "/demos/{id}/og-image",
             get(handlers::demos::get_demo_og_image),
         )
         .route(
-            "/api/demos/{id}/analytics",
+            "/demos/{id}/analytics",
             get(handlers::analytics::get_demo_analytics),
         )
         .route(
-            "/api/demos/{id}/analytics/referrers",
+            "/demos/{id}/analytics/referrers",
             get(handlers::analytics::get_demo_referrers),
         )
         .route(
-            "/api/demos/{id}/analytics/funnel",
+            "/demos/{id}/analytics/funnel",
             get(handlers::analytics::get_demo_funnel),
         )
         .route(
-            "/api/demos/{id}/analytics/export",
+            "/demos/{id}/analytics/export",
             get(handlers::analytics::export_demo_analytics_csv),
         )
         .route(
-            "/api/demos/{id}/common-errors",
+            "/demos/{id}/common-errors",
             get(handlers::common_errors::get_common_errors),
         )
         .route(
-            "/api/analytics/events",
+            "/analytics/events",
             post(handlers::analytics::post_event),
         )
         .route(
-            "/api/analytics/common-errors",
+            "/analytics/common-errors",
             post(handlers::common_errors::record_common_error),
         )
         .route(
-            "/api/billing/status",
+            "/billing/status",
             get(handlers::billing::get_billing_status),
         )
-        .route("/api/billing/subscribe", post(handlers::billing::subscribe))
-        .route("/api/projects", post(handlers::projects::create_project))
+        .route("/billing/subscribe", post(handlers::billing::subscribe))
+        .route("/projects", post(handlers::projects::create_project))
         .route(
-            "/api/me/projects",
+            "/me/projects",
             get(handlers::projects::list_my_projects),
         )
         .route(
-            "/api/projects/{id}",
+            "/projects/{id}",
             patch(handlers::projects::update_project).delete(handlers::projects::delete_project),
         )
-        .nest("/api/auth", handlers::auth::auth_routes())
-        // Alias for environments/proxies that strip the /api prefix.
         .nest("/auth", handlers::auth::auth_routes())
-        // Never let unmatched API paths fall through to SPA fallback.
         .route(
-            "/api/{*path}",
+            "/{*path}",
             get(api_not_found)
                 .post(api_not_found)
                 .patch(api_not_found)
                 .delete(api_not_found),
         )
-        .with_state(state)
 }
 
 async fn health_check() -> &'static str {
@@ -118,11 +126,26 @@ async fn get_me(AuthUser(user): AuthUser) -> Json<User> {
     Json(user)
 }
 
+async fn root_handler() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "service": "SimuCLI API",
+        "status": "ok",
+        "api_version": "v1"
+    }))
+}
+
 async fn api_not_found() -> (StatusCode, Json<serde_json::Value>) {
+    let body = ApiErrorResponse {
+        error: "API route not found".to_string(),
+        error_code: Some("NOT_FOUND".to_string()),
+        request_id: None,
+        details: None,
+    };
+
     (
         StatusCode::NOT_FOUND,
-        Json(serde_json::json!({
-            "error": "API route not found"
+        Json(serde_json::to_value(body).unwrap_or_else(|_| {
+            serde_json::json!({"error": "API route not found", "error_code": "NOT_FOUND"})
         })),
     )
 }
@@ -179,7 +202,7 @@ mod tests {
         };
         let app = create_router(state);
 
-        let request_result = Request::builder().uri("/api/health").body(Body::empty());
+        let request_result = Request::builder().uri("/api/v1/health").body(Body::empty());
         assert!(request_result.is_ok(), "request must be constructible");
         let request = match request_result {
             Ok(request) => request,

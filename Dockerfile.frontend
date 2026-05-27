@@ -1,0 +1,26 @@
+FROM rust:1.89-bookworm AS builder
+
+WORKDIR /app
+
+RUN rustup target add wasm32-unknown-unknown
+RUN cargo install trunk --locked --version 0.21.14
+
+ARG API_BASE_URL=http://localhost:3001
+ENV API_BASE_URL=${API_BASE_URL}
+
+COPY . .
+
+RUN cd crates/app && trunk build index.html --release
+RUN cd crates/embed && trunk build index.html --release -d ../../dist-embed
+
+FROM nginx:1.27-alpine AS runtime
+
+COPY nginx.frontend.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/crates/app/dist /usr/share/nginx/html
+COPY --from=builder /app/dist-embed /usr/share/nginx/html/embed
+COPY --from=builder /app/dist-embed /usr/share/nginx/html/embed-runtime
+COPY --from=builder /app/static /usr/share/nginx/html/static
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

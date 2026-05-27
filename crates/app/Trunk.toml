@@ -5,8 +5,8 @@ open = false
 # no_autoreload = true
 
 [[proxy]]
-rewrite = "/api/"
-backend = "http://127.0.0.1:3001/api/"
+rewrite = "/api/v1/"
+backend = "http://127.0.0.1:3001/api/v1/"
 
 [[proxy]]
 rewrite = "/auth/"

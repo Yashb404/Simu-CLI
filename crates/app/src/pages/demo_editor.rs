@@ -7,9 +7,11 @@ use shared::{
 };
 
 use crate::api;
-use crate::app::{ThemeController, ThemeMode};
 use crate::components::cast_import::CastImportButton;
 use crate::components::demo_settings_form::DemoSettingsForm;
+use crate::components::global_header::{
+    CentralHeader, CentralHeaderVariant, HeaderAction, HeaderInputModel, HeaderSearchModel,
+};
 use crate::components::live_preview::LivePreviewPanel;
 use crate::components::step_editors::{
     StepListEditor, add_command_block as add_command_block_step, add_default_step,
@@ -167,156 +169,6 @@ fn namespaced_demo_path_from_params(
 ///     }
 /// }
 /// ```
-#[component]
-fn TopNav(
-    title: ReadSignal<String>,
-    set_title: WriteSignal<String>,
-    status: ReadSignal<String>,
-    view_mode: ReadSignal<CreatorViewMode>,
-    set_view_mode: WriteSignal<CreatorViewMode>,
-    canvas_state: ReadSignal<CanvasState>,
-    set_canvas_state: WriteSignal<CanvasState>,
-    theme_mode: Signal<ThemeMode>,
-    set_theme_mode: WriteSignal<ThemeMode>,
-    on_back_to_dashboard: Callback<()>,
-    on_save: Callback<()>,
-    on_publish: Callback<()>,
-) -> impl IntoView {
-    view! {
-        <header class="bg-background border-b border-outline-variant flex flex-wrap justify-between items-center px-6 py-3 gap-3 min-h-14 w-full sticky top-0 z-50">
-            <div class="flex items-center gap-8 min-w-0">
-                <button
-                    class="shrink-0 rounded border border-outline-variant px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant hover:text-on-surface"
-                    on:click=move |_| on_back_to_dashboard.run(())
-                >
-                    "Back to Demos"
-                </button>
-                <div class="text-lg font-black text-primary tracking-tighter shrink-0">"SimuCLI Demo Creator"</div>
-                <input
-                    type="text"
-                    class="bg-transparent border-none outline-none text-on-surface placeholder:text-zinc-500 text-sm md:text-base min-w-[220px]"
-                    prop:value=move || title.get()
-                    on:input=move |ev| set_title.set(event_target_value(&ev))
-                    placeholder="Untitled demo"
-                />
-                <span class="hidden lg:inline text-[10px] font-mono text-zinc-500 uppercase tracking-widest">
-                    {move || {
-                        let current = status.get();
-                        if current.trim().is_empty() {
-                            "STATUS: READY".to_string()
-                        } else {
-                            format!("STATUS: {current}")
-                        }
-                    }}
-                </span>
-            </div>
-
-            <div class="flex items-center gap-3 flex-wrap">
-                <Show when=move || matches!(view_mode.get(), CreatorViewMode::Developer)>
-                    <div class="flex bg-surface-container-low p-1 rounded-lg border border-outline-variant/20">
-                        <button
-                            class=move || {
-                                if matches!(view_mode.get(), CreatorViewMode::Developer) {
-                                    "px-3 py-1 text-xs font-bold bg-surface-container text-primary rounded-md shadow-sm"
-                                } else {
-                                    "px-3 py-1 text-xs font-bold text-zinc-500 hover:text-zinc-200"
-                                }
-                            }
-                            on:click=move |_| set_view_mode.set(CreatorViewMode::Developer)
-                        >
-                            "Dev View"
-                        </button>
-                        <button
-                            class=move || {
-                                if matches!(view_mode.get(), CreatorViewMode::User) {
-                                    "px-3 py-1 text-xs font-bold bg-surface-container text-primary rounded-md shadow-sm"
-                                } else {
-                                    "px-3 py-1 text-xs font-bold text-zinc-500 hover:text-zinc-200"
-                                }
-                            }
-                            on:click=move |_| set_view_mode.set(CreatorViewMode::User)
-                        >
-                            "User View"
-                        </button>
-                    </div>
-                </Show>
-
-                <Show
-                    when=move || matches!(view_mode.get(), CreatorViewMode::Developer)
-                    fallback=move || {
-                        view! {
-                            <button
-                                class="bg-primary px-3 py-1.5 rounded text-sm font-bold text-on-primary hover:opacity-90 active:scale-95 transition-all"
-                                on:click=move |_| set_view_mode.set(CreatorViewMode::Developer)
-                            >
-                                "Back to Developer"
-                            </button>
-                        }
-                    }
-                >
-                    <Show when=move || false>
-                        <div class="flex items-center gap-2 rounded-lg border border-outline-variant/20 bg-surface-container-low px-2 py-1">
-                            <span class="text-[10px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">"Theme"</span>
-                            <select
-                                class="rounded-md border border-outline-variant bg-surface-container px-2 py-1 text-xs font-semibold text-on-surface outline-none"
-                                prop:value=move || theme_mode.get().as_str()
-                                on:change=move |ev| {
-                                    let value = event_target_value(&ev);
-                                set_theme_mode.set(ThemeMode::parse(&value));
-                                }
-                            >
-                                <option value="terminal">"Terminal"</option>
-                                <option value="dark">"Dark"</option>
-                                <option value="light">"Light"</option>
-                            </select>
-                        </div>
-                    </Show>
-
-                    <div class="hidden md:flex bg-surface-container-low p-1 rounded-lg border border-outline-variant/20">
-                        <button
-                            class=move || {
-                                if matches!(canvas_state.get(), CanvasState::ScriptBuilder) {
-                                    "px-3 py-1 text-[10px] font-bold bg-surface-container text-primary rounded-md"
-                                } else {
-                                    "px-3 py-1 text-[10px] font-bold text-zinc-500 hover:text-zinc-200"
-                                }
-                            }
-                            on:click=move |_| set_canvas_state.set(CanvasState::ScriptBuilder)
-                        >
-                            "Editor"
-                        </button>
-                        <button
-                            class=move || {
-                                if matches!(canvas_state.get(), CanvasState::ImportPublish) {
-                                    "px-3 py-1 text-[10px] font-bold bg-surface-container text-primary rounded-md"
-                                } else {
-                                    "px-3 py-1 text-[10px] font-bold text-zinc-500 hover:text-zinc-200"
-                                }
-                            }
-                            on:click=move |_| set_canvas_state.set(CanvasState::ImportPublish)
-                        >
-                            "Import"
-                        </button>
-                    </div>
-
-                    <button
-                        class="bg-surface-container-highest px-3 py-1.5 rounded text-sm font-bold text-on-surface hover:bg-surface-bright transition-colors"
-                        on:click=move |_| on_save.run(())
-                    >
-                        "Save"
-                    </button>
-                    <button
-                        class="bg-primary px-3 py-1.5 rounded text-sm font-bold text-on-primary hover:opacity-90 active:scale-95 transition-all"
-                        on:click=move |_| on_publish.run(())
-                    >
-                        "Publish"
-                    </button>
-                </Show>
-            </div>
-        </header>
-    }
-}
-
 /// Sidebar navigation for the editor that provides quick actions for adding steps,
 /// opening the guide, and viewing logs.
 ///
@@ -1016,14 +868,6 @@ pub fn DemoEditorPage() -> impl IntoView {
     let (publish_state, set_publish_state) = signal(PublishState::Idle);
     let (last_import_pairs, set_last_import_pairs) = signal(0usize);
     let (last_import_message, set_last_import_message) = signal(String::new());
-    let theme_controller = use_context::<ThemeController>();
-    let (_fallback_theme_mode, fallback_set_theme_mode) = signal(ThemeMode::Terminal);
-    let theme_mode = Signal::derive(move || {
-        theme_controller
-            .as_ref()
-            .map(|controller| controller.mode.get())
-            .unwrap_or(ThemeMode::Terminal)
-    });
 
     Effect::new(move |_| {
         let id = demo_id();
@@ -1229,32 +1073,63 @@ pub fn DemoEditorPage() -> impl IntoView {
             .map(|cfg| cfg.not_found_message)
             .unwrap_or_else(|| "command not found".to_string())
     });
+    let header_search = HeaderSearchModel {
+        query: step_filter,
+        set_query: set_step_filter,
+        placeholder: "Filter steps, commands, or states...",
+    };
+    let title_input = HeaderInputModel {
+        value: title,
+        set_value: set_title,
+        placeholder: "Untitled demo",
+    };
 
     view! {
-        <div class="min-h-screen bg-background text-on-surface overflow-hidden">
-            <TopNav
-                title=title
-                set_title=set_title
+        <div class="h-screen flex flex-col bg-background text-on-surface overflow-hidden">
+            <CentralHeader
+                variant=CentralHeaderVariant::Editor
+                left_action=HeaderAction::link("Back", "arrow_back", api::dashboard_home_path())
+                title_input=title_input
+                search=header_search
                 status=status
-                view_mode=view_mode
-                set_view_mode=set_view_mode
-                canvas_state=canvas_state
-                set_canvas_state=set_canvas_state
-                theme_mode=theme_mode
-                set_theme_mode=theme_controller
-                    .as_ref()
-                    .map(|controller| controller.set_mode)
-                    .unwrap_or(fallback_set_theme_mode)
-                on_back_to_dashboard=Callback::new(move |_| {
-                    if let Some(window) = web_sys::window() {
-                        let _ = window.location().set_href(api::dashboard_home_path());
-                    }
-                })
-                on_save=save_demo
-                on_publish=publish_demo
+                center_actions=vec![
+                    HeaderAction::action(
+                        "Editor",
+                        "edit_square",
+                        Callback::new(move |_| set_canvas_state.set(CanvasState::ScriptBuilder)),
+                    ),
+                    HeaderAction::action(
+                        "Import",
+                        "upload_file",
+                        Callback::new(move |_| set_canvas_state.set(CanvasState::ImportPublish)),
+                    ),
+                    HeaderAction::action(
+                        "Guide",
+                        "menu_book",
+                        Callback::new(move |_| {
+                            set_canvas_state.set(CanvasState::ScriptBuilder);
+                            set_guide_open.set(true);
+                        }),
+                    ),
+                    HeaderAction::action(
+                        "Preview",
+                        "visibility",
+                        Callback::new(move |_| {
+                            if matches!(view_mode.get(), CreatorViewMode::Developer) {
+                                set_view_mode.set(CreatorViewMode::User);
+                            } else {
+                                set_view_mode.set(CreatorViewMode::Developer);
+                            }
+                        }),
+                    ),
+                ]
+                right_actions=vec![
+                    HeaderAction::action("Save", "save", save_demo),
+                    HeaderAction::strong_action("Publish", "publish", publish_demo),
+                ]
             />
 
-            <div class="flex h-[calc(100vh-3.5rem)] min-h-0 overflow-hidden">
+            <div class="flex flex-1 min-h-0 overflow-hidden">
                 <Show when=move || !matches!(view_mode.get(), CreatorViewMode::User)>
                     <SideNav
                         active_canvas=canvas_state

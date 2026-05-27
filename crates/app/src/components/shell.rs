@@ -5,7 +5,7 @@ use leptos_router::hooks::use_location;
 
 use crate::api;
 use crate::auth::{SessionState, refresh_session_state, use_auth_context};
-use crate::pages::demos::ThemeModeToggle;
+use crate::components::global_header::{CentralHeader, CentralHeaderVariant, HeaderSearchModel};
 
 #[derive(Clone, Copy)]
 pub struct DashboardSearchContext {
@@ -225,7 +225,11 @@ pub fn AppShell() -> impl IntoView {
                             "fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col border-r border-zinc-800 bg-[#131316] transition-transform duration-200 md:static md:translate-x-0"
                         }
                     };
-
+                    let header_search = HeaderSearchModel {
+                        query: dashboard_search_query,
+                        set_query: set_dashboard_search_query,
+                        placeholder: "Search demos or project namespace...",
+                    };
                     view! {
                         <main class="bg-surface text-on-surface flex h-screen overflow-hidden">
                             <Show when=move || mobile_sidebar_open.get()>
@@ -238,16 +242,6 @@ pub fn AppShell() -> impl IntoView {
                             </Show>
 
                             <aside class=mobile_sidebar_classes>
-                                <div class="flex items-center gap-3 px-6 py-5">
-                                    <span class="material-symbols-outlined text-[#4ae176]" style="font-variation-settings: 'FILL' 1;">
-                                        "terminal"
-                                    </span>
-                                    <div>
-                                        <h1 class="mono-text text-lg font-bold leading-none tracking-tighter text-[#4ae176]">"SimuCLI"</h1>
-                                        <p class="label-text mt-1 text-[10px] uppercase tracking-widest text-zinc-500">{"CLI Studio"}</p>
-                                    </div>
-                                </div>
-
                                 <div class="px-6 pb-4 md:hidden">
                                     <button
                                         type="button"
@@ -386,40 +380,11 @@ pub fn AppShell() -> impl IntoView {
                             </aside>
 
                             <div class="flex min-w-0 flex-1 flex-col bg-surface">
-                                <header class="flex h-16 w-full shrink-0 items-center justify-between border-b border-zinc-900 bg-[#0e0e10] px-6">
-                                    <div class="flex flex-1 items-center max-w-2xl gap-3">
-                                        <button
-                                            type="button"
-                                            class="inline-flex h-10 w-10 items-center justify-center rounded border border-zinc-800 bg-[#131316] text-zinc-300 transition-colors hover:border-[#4ae176] hover:text-white md:hidden"
-                                            aria-label="Open sidebar"
-                                            on:click=move |_| set_mobile_sidebar_open.set(true)
-                                        >
-                                            <span class="material-symbols-outlined text-[20px]">"menu"</span>
-                                        </button>
-                                        <div class="relative w-full">
-                                            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-sm text-zinc-500">"search"</span>
-                                            <input
-                                                class="mono-text w-full rounded border-none bg-[#131316] py-2 pl-10 pr-4 text-sm text-zinc-300 placeholder:text-zinc-600 focus:ring-1 focus:ring-[#4ae176]"
-                                                placeholder="Search demos or project namespace..."
-                                                prop:value=move || dashboard_search_query.get()
-                                                on:input=move |ev| set_dashboard_search_query.set(event_target_value(&ev))
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div class="ml-6 flex items-center gap-6">
-                                        <Show when=move || false>
-                                            <ThemeModeToggle />
-                                        </Show>
-                                        <div class="flex items-center gap-3 border-l border-zinc-800 pl-4">
-                                            <div class="text-right">
-                                                <p class="mono-text text-[11px] font-bold leading-none text-[#4ae176]">{username_for_profile}</p>
-                                                <p class="mt-1 text-[9px] uppercase tracking-tighter text-zinc-500">{"Developer"}</p>
-                                            </div>
-                                            <div class="h-8 w-8 overflow-hidden rounded-full border border-zinc-700">{render_avatar()}</div>
-                                        </div>
-                                    </div>
-                                </header>
+                                <CentralHeader
+                                    variant=CentralHeaderVariant::Workspace
+                                    search=header_search
+                                    on_menu_toggle=Callback::new(move |_| set_mobile_sidebar_open.set(true))
+                                />
 
                                 <section class="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
                                     <Outlet />

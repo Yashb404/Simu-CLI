@@ -7,6 +7,7 @@ use axum::{
 };
 use serde_json::json;
 use shared::error::AppError;
+use shared::dto::ApiErrorResponse;
 use validator::ValidationErrors;
 
 #[derive(Debug)]
@@ -35,11 +36,15 @@ fn error_status_and_message(err: &AppError) -> (StatusCode, String) {
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let (status, message) = error_status_and_message(&self.0);
-        let body = match logging::current_request_id() {
-            Some(request_id) => json!({ "error": message, "request_id": request_id }),
-            None => json!({ "error": message }),
+        // Prefer the shared DTO so frontend and backend agree on the shape.
+        let body = ApiErrorResponse {
+            error: message,
+            error_code: Some(self.0.code().to_string()),
+            request_id: logging::current_request_id(),
+            details: None,
         };
-        (status, Json(body)).into_response()
+
+        (status, Json(serde_json::to_value(body).unwrap_or_else(|_| json!({"error": "Internal serialization error"})))).into_response()
     }
 }
 
@@ -53,11 +58,14 @@ pub struct CorrelatedError {
 impl IntoResponse for CorrelatedError {
     fn into_response(self) -> Response {
         let (status, message) = error_status_and_message(&self.inner.0);
-        let body = match self.request_id {
-            Some(id) => json!({ "error": message, "request_id": id }),
-            None => json!({ "error": message }),
+        let body = ApiErrorResponse {
+            error: message,
+            error_code: Some(self.inner.0.code().to_string()),
+            request_id: self.request_id,
+            details: None,
         };
-        (status, Json(body)).into_response()
+
+        (status, Json(serde_json::to_value(body).unwrap_or_else(|_| json!({"error": "Internal serialization error"})))).into_response()
     }
 }
 

@@ -9,6 +9,8 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 use web_sys::js_sys;
 
+const API_V1_PREFIX: &str = "/api/v1";
+
 fn normalize_base(base: &str) -> String {
     let trimmed = base.trim().trim_end_matches('/');
     let Ok(parsed) = web_sys::Url::new(trimmed) else {
@@ -59,7 +61,7 @@ fn derived_api_base_from_location() -> Option<String> {
 }
 
 pub fn api_base() -> String {
-    if let Some(base) = option_env!("APP_API_BASE_URL") {
+    if let Some(base) = option_env!("API_BASE_URL").or(option_env!("APP_API_BASE_URL")) {
         return normalize_base(base);
     }
     derived_api_base_from_location()
@@ -99,14 +101,14 @@ fn encode_query_value(value: &str) -> String {
 ///
 /// If `params` is empty this returns the same value as `api_url(path)`.
 /// Only parameter values are percent-encoded; keys are used as provided.
-/// The resulting string is the API URL for `path` with the encoded query string appended (e.g. `"/api/x?k=v&k2=v2"`).
+/// The resulting string is the API URL for `path` with the encoded query string appended (e.g. `"/api/v1/x?k=v&k2=v2"`).
 ///
 /// # Examples
 ///
 /// ```
 /// let p = vec![("q", "hello world".to_string()), ("flag", "1".to_string())];
-/// let out = build_query_path("/api/search", p);
-/// assert!(out.contains("/api/search?"));
+/// let out = build_query_path("/api/v1/search", p);
+/// assert!(out.contains("/api/v1/search?"));
 /// assert!(out.contains("q=hello%20world"));
 /// assert!(out.contains("flag=1"));
 /// ```
@@ -298,7 +300,7 @@ struct CreateDemoRequest<'a> {
     project_id: Option<&'a str>,
 }
 pub fn login_url() -> String {
-    api_url("/api/auth/github")
+    api_url(&format!("{API_V1_PREFIX}/auth/github"))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -310,12 +312,12 @@ pub struct CurrentUser {
 }
 
 pub fn logout_url() -> String {
-    api_url("/api/auth/logout")
+    api_url(&format!("{API_V1_PREFIX}/auth/logout"))
 }
 
 pub async fn get_current_user() -> Result<CurrentUser, String> {
     let ts = js_sys::Date::now() as u64;
-    let url = api_url(&format!("/api/me?ts={ts}"));
+    let url = api_url(&format!("{API_V1_PREFIX}/me?ts={ts}"));
     fetch(HttpMethod::Get, &url, None, true).await
 }
 
@@ -358,7 +360,7 @@ pub async fn list_projects() -> Result<Vec<DashboardProject>, String> {
 /// # Ok(()) }
 /// ```
 pub async fn get_dashboard_snapshot() -> Result<DashboardSnapshot, ClientError> {
-    fetch_typed(HttpMethod::Get, &api_url("/api/me/dashboard"), None, true).await
+    fetch_typed(HttpMethod::Get, &api_url(&format!("{API_V1_PREFIX}/me/dashboard")), None, true).await
 }
 
 /// Lists dashboard projects, optionally limited and offset for paging.
@@ -390,7 +392,7 @@ pub async fn list_projects_with_paging(
         params.push(("offset", offset.to_string()));
     }
 
-    let url = build_query_path("/api/me/projects", params);
+    let url = build_query_path(&format!("{API_V1_PREFIX}/me/projects"), params);
     fetch(HttpMethod::Get, &url, None, true).await
 }
 
@@ -402,7 +404,7 @@ pub async fn create_project(
     let body = serde_json::to_string(&payload).map_err(|e| format!("serialize body: {e}"))?;
     fetch(
         HttpMethod::Post,
-        &api_url("/api/projects"),
+        &api_url(&format!("{API_V1_PREFIX}/projects")),
         Some(&body),
         true,
     )
@@ -412,7 +414,7 @@ pub async fn create_project(
 pub async fn delete_project(id: &str) -> Result<(), String> {
     send(
         HttpMethod::Delete,
-        &api_url(&format!("/api/projects/{id}")),
+        &api_url(&format!("{API_V1_PREFIX}/projects/{id}")),
         None,
         true,
     )
@@ -443,7 +445,7 @@ pub async fn list_demos_with_filters(
         params.push(("published", published.to_string()));
     }
 
-    let url = build_query_path("/api/me/demos", params);
+    let url = build_query_path(&format!("{API_V1_PREFIX}/me/demos"), params);
     fetch(HttpMethod::Get, &url, None, true).await
 }
 
@@ -467,13 +469,13 @@ pub async fn list_demos_with_filters_typed(
         params.push(("published", published.to_string()));
     }
 
-    let url = build_query_path("/api/me/demos", params);
+    let url = build_query_path(&format!("{API_V1_PREFIX}/me/demos"), params);
     fetch_typed(HttpMethod::Get, &url, None, true).await
 }
 pub async fn get_demo(id: &str) -> Result<DashboardDemo, String> {
     fetch(
         HttpMethod::Get,
-        &api_url(&format!("/api/demos/{id}")),
+        &api_url(&format!("{API_V1_PREFIX}/demos/{id}")),
         None,
         true,
     )
@@ -483,7 +485,7 @@ pub async fn get_demo(id: &str) -> Result<DashboardDemo, String> {
 pub async fn get_demo_detail(id: &str) -> Result<Demo, String> {
     fetch(
         HttpMethod::Get,
-        &api_url(&format!("/api/demos/{id}")),
+        &api_url(&format!("{API_V1_PREFIX}/demos/{id}")),
         None,
         true,
     )
@@ -493,7 +495,7 @@ pub async fn get_demo_detail(id: &str) -> Result<Demo, String> {
 pub async fn get_public_demo(reference: &str) -> Result<PublicDemoResponse, String> {
     fetch(
         HttpMethod::Get,
-        &api_url(&format!("/api/public/demos/{reference}")),
+        &api_url(&format!("{API_V1_PREFIX}/public/demos/{reference}")),
         None,
         false,
     )
@@ -503,7 +505,7 @@ pub async fn get_public_demo(reference: &str) -> Result<PublicDemoResponse, Stri
 pub async fn create_demo(title: &str, project_id: Option<&str>) -> Result<DashboardDemo, String> {
     let payload = CreateDemoRequest { title, project_id };
     let body = serde_json::to_string(&payload).map_err(|e| format!("serialize body: {e}"))?;
-    fetch(HttpMethod::Post, &api_url("/api/demos"), Some(&body), true).await
+    fetch(HttpMethod::Post, &api_url(&format!("{API_V1_PREFIX}/demos")), Some(&body), true).await
 }
 pub async fn update_demo(
     id: &str,
@@ -530,7 +532,7 @@ pub async fn update_demo_payload(
     let body = serde_json::to_string(payload).map_err(|e| format!("serialize body: {e}"))?;
     fetch(
         HttpMethod::Patch,
-        &api_url(&format!("/api/demos/{id}")),
+        &api_url(&format!("{API_V1_PREFIX}/demos/{id}")),
         Some(&body),
         true,
     )
@@ -565,7 +567,7 @@ pub async fn update_demo_project(
 pub async fn delete_demo(id: &str) -> Result<(), String> {
     send(
         HttpMethod::Delete,
-        &api_url(&format!("/api/demos/{id}")),
+        &api_url(&format!("{API_V1_PREFIX}/demos/{id}")),
         None,
         true,
     )
@@ -575,7 +577,7 @@ pub async fn delete_demo(id: &str) -> Result<(), String> {
 pub async fn publish_demo(id: &str) -> Result<PublishResponse, String> {
     fetch(
         HttpMethod::Post,
-        &api_url(&format!("/api/demos/{id}/publish")),
+        &api_url(&format!("{API_V1_PREFIX}/demos/{id}/publish")),
         None,
         true,
     )
@@ -595,7 +597,7 @@ pub async fn get_analytics_series_with_days(
         params.push(("days", days.to_string()));
     }
 
-    let url = build_query_path(&format!("/api/demos/{id}/analytics"), params);
+    let url = build_query_path(&format!("{API_V1_PREFIX}/demos/{id}/analytics"), params);
     fetch(HttpMethod::Get, &url, None, true).await
 }
 
@@ -612,7 +614,7 @@ pub async fn get_analytics_referrers_with_limit(
         params.push(("limit", limit.to_string()));
     }
 
-    let url = build_query_path(&format!("/api/demos/{id}/analytics/referrers"), params);
+    let url = build_query_path(&format!("{API_V1_PREFIX}/demos/{id}/analytics/referrers"), params);
     fetch(HttpMethod::Get, &url, None, true).await
 }
 
@@ -629,7 +631,7 @@ pub async fn get_analytics_funnel_with_limit(
         params.push(("limit", limit.to_string()));
     }
 
-    let url = build_query_path(&format!("/api/demos/{id}/analytics/funnel"), params);
+    let url = build_query_path(&format!("{API_V1_PREFIX}/demos/{id}/analytics/funnel"), params);
     fetch(HttpMethod::Get, &url, None, true).await
 }
 

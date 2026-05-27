@@ -8,9 +8,9 @@ use shared::client::ClientError;
 use time::OffsetDateTime;
 
 use crate::api;
-use crate::app::{ThemeController, ThemeMode};
 use crate::auth::{SessionState, use_auth_context};
 use crate::components::confirm_dialog::ConfirmDialog;
+use crate::components::global_header::{CentralHeader, CentralHeaderVariant, HeaderSearchModel};
 use crate::components::shell::DashboardSearchContext;
 
 // TODOs specific to the Demos dashboard:
@@ -217,6 +217,11 @@ pub fn DemosPage() -> impl IntoView {
 
         (demos.len(), published, drafts, projects.len())
     });
+    let header_search = HeaderSearchModel {
+        query: search_query,
+        set_query: set_search_query,
+        placeholder: "Search demos or project namespace...",
+    };
 
     Effect::new(move |_| {
         let _ = load_nonce.get();
@@ -415,21 +420,6 @@ pub fn DemosPage() -> impl IntoView {
 
             // ── Sidebar ───────────────────────────────────────────────────────
             <aside class="db-sidebar">
-                <div class="db-sidebar-logo">
-                    <div class="db-logo-row">
-                        // Terminal icon (inline SVG — no external dep)
-                        <svg class="db-logo-ico" viewBox="0 0 20 20" fill="currentColor"
-                             width="18" height="18">
-                            <path d="M2 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2
-                                     2H4a2 2 0 0 1-2-2V4zm3 3 3.5 3L5 13V7zm4.5 5h5"/>
-                        </svg>
-                        <div>
-                            <div class="db-logo-name">"SimuCLI"</div>
-                            <div class="db-logo-sub">"Precision Engine"</div>
-                        </div>
-                    </div>
-                </div>
-
                 <button type="button" class="db-new-project-btn">
                     "New Project"
                     <span>"+"</span>
@@ -496,61 +486,10 @@ pub fn DemosPage() -> impl IntoView {
 
             // ── Main column ───────────────────────────────────────────────────
             <div class="db-main">
-
-                // ── Top bar ───────────────────────────────────────────────────
-                <header class="db-topbar">
-                    <div class="db-search-wrap">
-                        <svg class="db-search-ico" viewBox="0 0 16 16" width="13" height="13"
-                             fill="none" stroke="currentColor" stroke-width="1.5">
-                            <circle cx="7" cy="7" r="4"/>
-                            <path d="M10.5 10.5l3 3"/>
-                        </svg>
-                        // NOTE: wire up to DashboardSearchContext here
-                        <input
-                            class="db-search-input"
-                            placeholder="Search demos or project namespace..."
-                            prop:value=move || search_query.get()
-                            on:input=move |ev| set_search_query.set(event_target_value(&ev))
-                            type="search"
-                        />
-                        <Show when=move || !search_query.get().trim().is_empty()>
-                            <div class="db-search-status" aria-live="polite">
-                                <span class="db-search-spinner" aria-hidden="true"></span>
-                                <span>
-                                    {move || {
-                                        let count = search_result_count.get();
-                                        if count == 1 {
-                                            "1 match".to_string()
-                                        } else {
-                                            format!("{count} matches")
-                                        }
-                                    }}
-                                </span>
-                            </div>
-                        </Show>
-                    </div>
-                    <div class="db-topbar-right">
-                        <Show when=move || false>
-                            <ThemeModeToggle />
-                        </Show>
-                        <div class="db-profile">
-                            <div>
-                                <div class="db-profile-name">
-                                    {move || username_slug.get()}
-                                </div>
-                                <div class="db-profile-role">"Admin Access"</div>
-                            </div>
-                            <div class="db-avatar">
-                                {move || {
-                                    let u = username_slug.get();
-                                    u.chars().next()
-                                     .map(|c| c.to_uppercase().to_string())
-                                     .unwrap_or_else(|| "U".to_string())
-                                }}
-                            </div>
-                        </div>
-                    </div>
-                </header>
+                <CentralHeader
+                    variant=CentralHeaderVariant::Workspace
+                    search=header_search
+                />
 
                 // ── Canvas ────────────────────────────────────────────────────
                 <main class="db-canvas">
@@ -567,7 +506,24 @@ pub fn DemosPage() -> impl IntoView {
                                     }
                                 }}
                             </h2>
-                            <p class="db-page-path">{move || dashboard_path.get()}</p>
+                            <p class="db-page-path">
+                                {move || {
+                                    let query = search_query.get();
+                                    if query.trim().is_empty() {
+                                        dashboard_path.get()
+                                    } else {
+                                        format!(
+                                            "{} • {}",
+                                            dashboard_path.get(),
+                                            if search_result_count.get() == 1 {
+                                                "1 match".to_string()
+                                            } else {
+                                                format!("{} matches", search_result_count.get())
+                                            }
+                                        )
+                                    }
+                                }}
+                            </p>
                         </div>
                         <div class="db-header-actions">
                             <p class="db-status-inline">
@@ -956,131 +912,5 @@ pub fn DemosPage() -> impl IntoView {
                 }
             })
         />
-    }
-}
-
-/// Renders a three-button toggle that lets the user select the UI theme mode.
-///
-/// Reads a `ThemeController` from context and updates its `ThemeMode` when a button is clicked;
-/// each button reflects the current mode with an active style.
-///
-/// # Examples
-///
-/// ```
-/// let view = ThemeModeToggle();
-/// // `view` implements `IntoView` and can be mounted into the app.
-/// ```
-#[component]
-pub fn ThemeModeToggle() -> impl IntoView {
-    let controller = use_context::<ThemeController>();
-    let mode = Signal::derive(move || {
-        controller
-            .as_ref()
-            .map(|theme| theme.mode.get())
-            .unwrap_or(ThemeMode::Terminal)
-    });
-
-    let set_terminal = {
-        let controller = controller;
-        move |_| {
-            if let Some(theme) = controller {
-                theme.set_mode.set(ThemeMode::Terminal);
-            }
-        }
-    };
-
-    let set_dark = {
-        let controller = controller;
-        move |_| {
-            if let Some(theme) = controller {
-                theme.set_mode.set(ThemeMode::Dark);
-            }
-        }
-    };
-
-    let set_light = move |_| {
-        if let Some(theme) = controller {
-            theme.set_mode.set(ThemeMode::Light);
-        }
-    };
-
-    view! {
-        <div class="db-theme-toggle" role="group" aria-label="Theme mode">
-            <button type="button"
-                class=move || if mode.get() == ThemeMode::Terminal {
-                    "db-theme-btn db-theme-btn--active"
-                } else { "db-theme-btn" }
-                aria-label="Terminal theme"
-                on:click=set_terminal>
-                {terminal_icon()}
-            </button>
-            <button type="button"
-                class=move || if mode.get() == ThemeMode::Dark {
-                    "db-theme-btn db-theme-btn--active"
-                } else { "db-theme-btn" }
-                aria-label="Dark theme"
-                on:click=set_dark>
-                {moon_icon()}
-            </button>
-            <button type="button"
-                class=move || if mode.get() == ThemeMode::Light {
-                    "db-theme-btn db-theme-btn--active"
-                } else { "db-theme-btn" }
-                aria-label="Light theme"
-                on:click=set_light>
-                {sun_icon()}
-            </button>
-        </div>
-    }
-}
-
-/// Renders the terminal (console) SVG icon as a view.
-///
-/// # Examples
-///
-/// ```rust
-/// // Obtain the view and embed it in your UI
-/// let icon_view = terminal_icon();
-/// ```
-fn terminal_icon() -> impl IntoView {
-    view! {
-        <svg class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
-            <path d="M3 5.5A2.5 2.5 0 0 1 5.5 3h13A2.5 2.5 0 0 1 21 5.5v13A2.5 2.5 0 0 1 18.5 21h-13A2.5 2.5 0 0 1 3 18.5z" stroke-linecap="round" stroke-linejoin="round" />
-            <path d="m8.5 9 2.5 2.5L8.5 14" stroke-linecap="round" stroke-linejoin="round" />
-            <path d="M12.5 14h3" stroke-linecap="round" />
-        </svg>
-    }
-}
-
-/// Renders a moon-shaped SVG icon used for the dark theme toggle.
-///
-/// # Examples
-///
-/// ```
-/// let _icon = moon_icon();
-/// ```
-fn moon_icon() -> impl IntoView {
-    view! {
-        <svg class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
-            <path d="M20 14.4A8.6 8.6 0 1 1 9.6 4a7 7 0 0 0 10.4 10.4z" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-    }
-}
-
-/// Sun icon SVG used for the light-theme toggle button.
-///
-/// # Examples
-///
-/// ```
-/// // Embed the icon in a view or component
-/// let icon = sun_icon();
-/// let _ = view! { <div>{icon}</div> };
-/// ```
-fn sun_icon() -> impl IntoView {
-    view! {
-        <svg class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
-            <circle cx="12" cy="12" r="3.5" />
-            <path d="M12 2.5v2.5M12 19v2.5M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M2.5 12H5M19 12h2.5M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8" stroke-linecap="round" />
-        </svg>
     }
 }

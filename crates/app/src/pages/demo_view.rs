@@ -3,6 +3,7 @@ use leptos_router::hooks::use_query_map;
 use shared::services::embed_generator::{generate_iframe_snippet, generate_script_snippet};
 
 use crate::api;
+use crate::components::global_header::{CentralHeader, CentralHeaderVariant};
 
 #[component]
 pub fn DemoViewPage() -> impl IntoView {
@@ -42,40 +43,43 @@ pub fn DemoViewPage() -> impl IntoView {
     });
 
     view! {
-        <section class="page demo-view-page">
-            <h2>"MVP Embed Test Page"</h2>
-            <p>"Use this page to validate embed runtime behavior quickly tonight."</p>
-            <div class="panel form-grid">
-                <label>
-                    "Demo ID"
-                    <input
-                        prop:value=move || demo_id.get()
-                        on:input=move |ev| set_demo_id.set(event_target_value(&ev))
-                    />
-                </label>
-                <p>
-                    "Open with path: "
-                    <code>"/embed/YOUR_DEMO_ID"</code>
-                </p>
-                <p>
-                    "Quick smoke test commands (fallback demo): "
-                    <code>"help"</code>
-                    ", "
-                    <code>"run demo"</code>
-                </p>
-            </div>
-            <iframe class="demo-frame-placeholder" src=move || embed_src.get() />
-            <section class="embed-code-generator">
-                <h3>"Embed Code"</h3>
-                <label>
-                    "Iframe snippet"
-                    <textarea readonly rows="4">{move || iframe_snippet.get()}</textarea>
-                </label>
-                <label>
-                    "Script snippet"
-                    <textarea readonly rows="4">{move || script_snippet.get()}</textarea>
-                </label>
+        <div class="min-h-screen bg-[#0e0e10] text-[#e7e4ec]">
+            <CentralHeader variant=CentralHeaderVariant::SharedDemo />
+            <section class="page demo-view-page">
+                <h2>"MVP Embed Test Page"</h2>
+                <p>"Use this page to validate embed runtime behavior quickly tonight."</p>
+                <div class="panel form-grid">
+                    <label>
+                        "Demo ID"
+                        <input
+                            prop:value=move || demo_id.get()
+                            on:input=move |ev| set_demo_id.set(event_target_value(&ev))
+                        />
+                    </label>
+                    <p>
+                        "Open with path: "
+                        <code>"/embed/YOUR_DEMO_ID"</code>
+                    </p>
+                    <p>
+                        "Quick smoke test commands (fallback demo): "
+                        <code>"help"</code>
+                        ", "
+                        <code>"run demo"</code>
+                    </p>
+                </div>
+                <iframe class="demo-frame-placeholder" src=move || embed_src.get() />
+                <section class="embed-code-generator">
+                    <h3>"Embed Code"</h3>
+                    <label>
+                        "Iframe snippet"
+                        <textarea readonly rows="4">{move || iframe_snippet.get()}</textarea>
+                    </label>
+                    <label>
+                        "Script snippet"
+                        <textarea readonly rows="4">{move || script_snippet.get()}</textarea>
+                    </label>
+                </section>
             </section>
-        </section>
+        </div>
     }
 }
