@@ -13,6 +13,13 @@ use crate::auth::{SessionState, use_auth_context};
 use crate::components::confirm_dialog::ConfirmDialog;
 use crate::components::shell::DashboardSearchContext;
 
+// TODOs specific to the Demos dashboard:
+// TODO: Fix search functionality hookup — `DashboardSearchContext` is not returning expected queries.
+// TODO: Simplify dashboard layout to reduce clutter (review panels and controls).
+// TODO: Wire up Library and Analytics buttons to their actions/pages.
+// TODO: Add animations for loading and project/demo transitions (improve perceived latency).
+// TODO: Increase base font size and ensure consistent typography across dashboard.
+
 /// Format an OffsetDateTime as an RFC3339 timestamp.
 ///
 /// Returns a `String` containing the RFC3339-formatted timestamp. If RFC3339
@@ -74,7 +81,7 @@ pub fn DemosPage() -> impl IntoView {
     let (project_name, set_project_name) = signal(String::new());
     let (project_description, set_project_description) = signal(String::new());
     let (project_filter_id, set_project_filter_id) = signal(String::new());
-    let (search_query, _set_search_query) = use_context::<DashboardSearchContext>()
+    let (search_query, set_search_query) = use_context::<DashboardSearchContext>()
         .map(|context| (context.search_query, context.set_search_query))
         .unwrap_or_else(|| signal(String::new()));
     let (published_filter, set_published_filter) = signal("all".to_string());
@@ -172,6 +179,8 @@ pub fn DemosPage() -> impl IntoView {
             })
             .collect::<Vec<_>>()
     });
+
+    let search_result_count = Signal::derive(move || filtered_demos.get().len());
 
     let dashboard_path = Signal::derive(move || {
         let username = username_slug.get();
@@ -497,9 +506,28 @@ pub fn DemosPage() -> impl IntoView {
                             <path d="M10.5 10.5l3 3"/>
                         </svg>
                         // NOTE: wire up to DashboardSearchContext here
-                        <input class="db-search-input"
-                               placeholder="Search demos or project namespace..."
-                               type="search" />
+                        <input
+                            class="db-search-input"
+                            placeholder="Search demos or project namespace..."
+                            prop:value=move || search_query.get()
+                            on:input=move |ev| set_search_query.set(event_target_value(&ev))
+                            type="search"
+                        />
+                        <Show when=move || !search_query.get().trim().is_empty()>
+                            <div class="db-search-status" aria-live="polite">
+                                <span class="db-search-spinner" aria-hidden="true"></span>
+                                <span>
+                                    {move || {
+                                        let count = search_result_count.get();
+                                        if count == 1 {
+                                            "1 match".to_string()
+                                        } else {
+                                            format!("{count} matches")
+                                        }
+                                    }}
+                                </span>
+                            </div>
+                        </Show>
                     </div>
                     <div class="db-topbar-right">
                         <Show when=move || false>
@@ -707,10 +735,20 @@ pub fn DemosPage() -> impl IntoView {
                                     </div>
                                 }.into_any()
                             } else {
+                                let query = search_query.get();
+                                let message = if query.trim().is_empty() {
+                                    "Create a demo or clear the current filters.".to_string()
+                                } else {
+                                    format!(
+                                        "No demos matched \"{}\". Clear search or adjust the current filters.",
+                                        query.trim()
+                                    )
+                                };
+
                                 view! {
                                     <div class="db-empty-state">
                                         <h3>"No matching demos"</h3>
-                                        <p>"Create a demo or clear the current filters."</p>
+                                        <p>{message}</p>
                                     </div>
                                 }.into_any()
                             }

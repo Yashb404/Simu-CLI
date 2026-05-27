@@ -1,0 +1,16 @@
+/* Embed / preview helpers (extracted from landing/components/global) */
+.preview-dim {
+  color: var(--muted);
+}
+
+.preview-ok {
+  color: var(--ink);
+  text-shadow: var(--glow);
+}
+
+/* Layout helper for embed/preview columns */
+.preview-column {
+  position: static;
+}
+
+/* Keep preview-canvas and preview-line in terminal.css (terminal-specific styles) */

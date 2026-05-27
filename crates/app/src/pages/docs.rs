@@ -5,6 +5,12 @@ use leptos_router::hooks::use_params_map;
 use crate::api;
 use crate::auth::{SessionState, use_auth_context};
 
+// TODOs for Documentation pages:
+// TODO: Increase docs font size and normalize typography with main app.
+// TODO: Improve docs search UI/visuals — current search works but needs better styling.
+// TODO: Show a lock icon for docs/topics that are not yet created (visual affordance).
+// TODO: Ensure clicking guide links opens the in-app guide (not external docs redirect).
+
 #[derive(Clone, Copy)]
 struct DocsSection {
     title: &'static str,

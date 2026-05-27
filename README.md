@@ -5,7 +5,7 @@ SimuCLI is an open source platform for creating, publishing, and embedding inter
 It provides:
 
 - A web dashboard to author scripted CLI flows
-- A public embed runtime that can be dropped into external sites
+- A public embed that can be dropped into external sites
 - Analytics endpoints for usage and funnel visibility
 - A Rust-first architecture with shared contracts across server and client
 

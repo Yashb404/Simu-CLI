@@ -1,0 +1,76 @@
+/* Form controls extracted from global.css */
+input,
+textarea,
+select {
+  width: 100%;
+  border: 1px solid var(--border-dim);
+  background-color: color-mix(in srgb, var(--panel-bg) 70%, var(--overlay-bg) 30%);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 0.86rem;
+  padding: 9px 10px;
+  border-radius: 8px;
+  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s, color 0.15s;
+  outline: none;
+  color-scheme: dark;
+  -webkit-appearance: none;
+  appearance: none;
+  caret-color: var(--ink);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: color-mix(in srgb, var(--brand) 30%, var(--border) 70%);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 14%, transparent 86%);
+}
+
+input::placeholder,
+textarea::placeholder,
+select::placeholder {
+  color: color-mix(in srgb, var(--muted) 80%, var(--ink) 20%);
+}
+
+input:hover,
+textarea:hover,
+select:hover {
+  border-color: color-mix(in srgb, var(--brand) 18%, var(--border) 82%);
+}
+
+:root[data-theme="light"] input,
+:root[data-theme="light"] textarea,
+:root[data-theme="light"] select {
+  color-scheme: light;
+  background-color: var(--panel-bg);
+  color: var(--ink);
+}
+
+:root[data-theme="terminal"] input,
+:root[data-theme="terminal"] textarea,
+:root[data-theme="terminal"] select,
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] textarea,
+:root[data-theme="dark"] select {
+  color-scheme: dark;
+  background-color: color-mix(in srgb, var(--panel-bg) 68%, var(--overlay-bg) 32%);
+  color: var(--ink);
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: var(--ink-dim);
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+
+.help-text {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--muted);
+  font-weight: 400;
+  line-height: 1.4;
+  margin-top: 2px;
+}

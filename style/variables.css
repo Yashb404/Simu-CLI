@@ -1,0 +1,82 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap");
+
+:root {
+  --bg: #0b0b10;
+  --panel-bg: #12121a;
+  --overlay-bg: #171722;
+  --surface-container-lowest: #09090b;
+  --surface-container-low: #141416;
+  --surface-container: #1a1a1d;
+  --surface-container-high: #222225;
+  --surface-container-highest: #2c2c30;
+  --ink: #f4f4f5;
+  --ink-dim: #d4d4d8;
+  --outline-variant: #242428;
+  --muted: #a1a1aa;
+  --amber: #f59e0b;
+  --red: #ef4444;
+  --brand: #f4f4f5;
+  --on-primary: #050505;
+  --secondary-container: #1f2937;
+  --brand-hover: #d4d4d8;
+  --border: #27272a;
+  --border-dim: rgba(63, 63, 70, 0.8);
+  --glow: none;
+  --glow-strong: none;
+  --glow-amber: none;
+  --scanline-color: transparent;
+  --font-ui: "Inter", system-ui, sans-serif;
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", monospace;
+}
+
+:root[data-theme="terminal"] {
+  --brand: #4ae176;
+  --on-primary: #004b1e;
+  --brand-hover: #3ac965;
+}
+
+:root[data-theme="dark"] {
+  --border-dim: rgba(63, 63, 70, 0.85);
+}
+
+:root[data-theme="light"] {
+  --bg: #f5f5f7;
+  --panel-bg: #ffffff;
+  --overlay-bg: #f0f2f5;
+  --surface-container-lowest: #f8f9fb;
+  --surface-container-low: #f1f3f6;
+  --surface-container: #ebedf1;
+  --surface-container-high: #e5e8ed;
+  --surface-container-highest: #dce1e8;
+  --ink: #111827;
+  --ink-dim: #1f2937;
+  --outline-variant: #cfd4dc;
+  --muted: #6b7280;
+  --amber: #d97706;
+  --red: #dc2626;
+  --brand: #111827;
+  --on-primary: #f9fafb;
+  --brand-hover: #1f2937;
+  --border-dim: rgba(161, 161, 170, 0.6);
+}
+
+/* Dashboard theme tokens (high-contrast / terminal aesthetic) */
+:root {
+  --db-bg:      #0e0e10;
+  --db-bg1:     #131316;
+  --db-bg2:     #19191d;
+  --db-bg3:     #25252b;
+  --db-border:  rgba(255,255,255,0.07);
+  --db-border2: rgba(255,255,255,0.13);
+  --db-green:   #4ae176;
+  --db-green-dim: rgba(74,225,118,0.12);
+  --db-green-on: #004b1e;
+  --db-text:    #e7e4ec;
+  --db-muted:   #75757c;
+  --db-muted2:  #4a4a52;
+  --db-danger:  #ed7f64;
+  --db-mono: 'JetBrains Mono', monospace;
+  --db-sans: 'Inter', sans-serif;
+  --db-label: 'Space Grotesk', sans-serif;
+}

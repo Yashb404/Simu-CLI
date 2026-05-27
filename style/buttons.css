@@ -1,0 +1,65 @@
+/* Buttons extracted from global.css */
+button,
+.button {
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  font-weight: 560;
+  border: 1px solid var(--border-dim);
+  background: color-mix(in srgb, var(--overlay-bg) 88%, var(--border) 12%);
+  color: var(--ink-dim);
+  padding: 9px 13px;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+  border-radius: 8px;
+  transition: color 0.12s, border-color 0.12s, background-color 0.12s;
+}
+
+button:hover,
+.button:hover {
+  color: var(--ink);
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--overlay-bg) 72%, var(--border) 28%);
+}
+
+.btn-primary {
+  border-color: color-mix(in srgb, var(--brand) 60%, var(--border) 40%);
+  color: #050505;
+  background: var(--brand);
+}
+
+.btn-primary:hover {
+  background: var(--brand-hover);
+  border-color: var(--brand-hover);
+}
+
+.btn-primary-light {
+  border-color: color-mix(in srgb, var(--brand) 40%, var(--border) 60%);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 10%, transparent 90%);
+}
+
+.btn-primary-light:hover {
+  background: color-mix(in srgb, var(--brand) 18%, transparent 82%);
+  color: var(--brand-hover);
+  border-color: color-mix(in srgb, var(--brand-hover) 50%, var(--border) 50%);
+}
+
+.btn-danger {
+  border-color: var(--red);
+  color: var(--red);
+  background: color-mix(in srgb, var(--red) 9%, transparent 91%);
+}
+
+.btn-danger:hover {
+  background: color-mix(in srgb, var(--red) 16%, transparent 84%);
+}
+
+.logout-button { font-weight: 600; }
+
+.btn-outline {
+  border-color: var(--border-dim);
+  color: var(--ink-dim);
+}
+
+.button-block { width: 100%; text-align: center; }

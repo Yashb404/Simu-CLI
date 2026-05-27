@@ -1,0 +1,83 @@
+/* Terminal / preview and dialog styles extracted from global.css */
+.terminal-header,
+.terminal-output,
+.preview-canvas,
+.code-block {
+  font-family: "Fira Code", "JetBrains Mono", monospace;
+}
+
+.terminal-output {
+  border: 1px solid var(--border-dim);
+  min-height: 200px;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: #050505;
+  color: #e9ffe9;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.preview-canvas {
+  background: #050505;
+  border: 1px solid var(--border-dim);
+  padding: 12px;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: #d8fbd8;
+}
+
+.preview-line { margin: 0; padding: 1px 0; white-space: pre-wrap; word-break: break-all; }
+.command-line { color: var(--amber); }
+.output-line { color: #d8fbd8; font-family: "Fira Code", "JetBrains Mono", monospace; margin: 0; }
+.muted-line { color: var(--muted); font-style: italic; }
+.fallback-line { color: var(--muted); font-style: italic; }
+.code-block { border: 1px solid var(--border-dim); background: #050505; color: #d8fbd8; padding: 12px; font-size: 0.83rem; line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
+
+/* Terminal chrome */
+.terminal-chrome { background: var(--panel-bg); border: 1px solid var(--border-dim); border-radius: 0; overflow: hidden; display: flex; flex-direction: column; }
+.terminal-titlebar { background: var(--overlay-bg); border-bottom: 1px solid var(--border-dim); padding: 7px 12px; display: flex; align-items: center; gap: 10px; font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; user-select: none; }
+.terminal-dots { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+.terminal-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+.terminal-dot.red { background: #ff5f57; }
+.terminal-dot.yellow { background: #ffbd2e; }
+.terminal-dot.green { background: #28c940; }
+.terminal-titlebar-text { flex: 1; text-align: center; color: var(--muted); }
+.terminal-guide-toggle { border: 1px solid var(--border-dim); background: transparent; color: var(--ink-dim); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 8px; }
+.terminal-guide-toggle:hover { color: var(--ink); border-color: var(--border); }
+.terminal-guide { border-bottom: 1px solid var(--border-dim); background: #070707; padding: 10px 14px; position: relative; z-index: 10; }
+.terminal-guide-heading { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+.terminal-guide-list { margin: 0; padding: 0 0 0 18px; display: flex; flex-direction: column; gap: 4px; }
+.terminal-guide-item { color: var(--ink-dim); font-size: 0.8rem; display: flex; align-items: center; gap: 8px; }
+.terminal-guide-item code { font-family: "Fira Code", "JetBrains Mono", monospace; font-size: 0.78rem; }
+.terminal-guide-marker { color: var(--muted); font-family: "Fira Code", "JetBrains Mono", monospace; font-size: 0.72rem; min-width: 26px; }
+.terminal-guide-item.is-next { color: #79f79a; }
+.terminal-guide-item.is-next .terminal-guide-marker { color: #79f79a; }
+.terminal-guide-item.is-done { color: #8ab89b; }
+.terminal-guide-item.is-done .terminal-guide-marker { color: #8ab89b; }
+.terminal-chrome.is-compact .terminal-titlebar { padding: 6px 10px; }
+.terminal-chrome.is-compact .terminal-guide { padding: 8px 10px; }
+.terminal-chrome.is-compact .terminal-guide-heading { margin-bottom: 6px; }
+.terminal-chrome.is-compact .terminal-guide-list { gap: 2px; }
+.terminal-chrome.is-compact .terminal-body { min-height: 160px; max-height: 280px; padding: 10px 10px; }
+.terminal-chrome.is-compact .terminal-line { font-size: 0.78rem; line-height: 1.55; }
+.terminal-chrome.is-compact .terminal-input-row { padding: 6px 8px; }
+.terminal-chrome.is-compact .terminal-input,
+.terminal-chrome.is-compact .terminal-prompt-label { font-size: 0.78rem; }
+.terminal-chrome.is-compact .terminal-run-btn,
+.terminal-chrome.is-compact .terminal-guide-toggle { font-size: 0.64rem; padding: 2px 7px; }
+.terminal-body { background: #050505; padding: 12px 14px; flex: 1; overflow-y: auto; min-height: 220px; max-height: 400px; position: relative; z-index: 1; }
+.terminal-line { font-family: "Fira Code", "JetBrains Mono", monospace; font-size: 0.84rem; line-height: 1.65; margin: 0; white-space: pre-wrap; word-break: break-all; color: var(--ink); }
+.terminal-line.cmd { color: var(--amber); }
+.terminal-line.comment { color: var(--muted); }
+.terminal-input-row { display: flex; align-items: center; gap: 0; border-top: 1px solid var(--border-dim); background: #050505; padding: 8px 10px; }
+.terminal-prompt-label { color: #79f79a; font-family: "Fira Code", "JetBrains Mono", monospace; font-size: 0.84rem; padding-right: 6px; white-space: nowrap; flex-shrink: 0; text-shadow: none; }
+.terminal-input { flex: 1; background: transparent; border: none; color: #e9ffe9; font-family: "Fira Code", "JetBrains Mono", monospace; font-size: 0.84rem; padding: 0; caret-color: #79f79a; outline: none; box-shadow: none; }
+.terminal-run-btn { background: transparent; border: 1px solid var(--border-dim); color: var(--ink-dim); font-family: var(--font-ui); font-size: 0.72rem; padding: 3px 8px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.06em; margin-left: 6px; transition: color 0.1s, border-color 0.1s; }
+.terminal-run-btn:hover { color: var(--ink); border-color: var(--border); text-shadow: none; }
+
+/* Confirm dialog */
+.dialog-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); display: grid; place-items: center; padding: 16px; z-index: 10020; }
+.dialog-panel { width: min(520px, 100%); border: 1px solid var(--border); background: var(--panel-bg); box-shadow: var(--glow-strong); padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.dialog-header h3 { font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--amber); text-shadow: var(--glow-amber); }
+.dialog-message { color: var(--ink); font-size: 0.85rem; line-height: 1.6; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }

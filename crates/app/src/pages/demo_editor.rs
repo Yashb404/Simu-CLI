@@ -15,6 +15,14 @@ use crate::components::step_editors::{
     StepListEditor, add_command_block as add_command_block_step, add_default_step,
 };
 
+// TODOs for Demo Editor / Creator:
+// TODO: Standardize terminal components and settings across creator, embed, and user views.
+// TODO: Persist terminal color choices so they reflect in the embedded terminal.
+// TODO: Simplify demo creator UX toward a scratch-style drag-and-drop flow.
+// TODO: Fix asciinema/ascii-cinema import flow — `ImportCastResponse` handling may be incomplete.
+// TODO: Add clear loading/transition animations when switching projects or opening a demo.
+// TODO: Ensure font sizing and terminal appearance match the dashboard/editor aesthetic.
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum CreatorViewMode {
     Developer,

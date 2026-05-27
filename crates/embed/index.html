@@ -8,6 +8,12 @@
       @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap");
       *{box-sizing:border-box;margin:0;padding:0}
       html,body{height:100%;background:#050505;color:#00ff41;font-family:"IBM Plex Mono",monospace;font-size:14px}
+      /* TODOs for embed runtime:
+        TODO: Align terminal styles and font-size with dashboard/editor (font currently 14px, may be small).
+        TODO: Ensure terminal color/theme changes persist when demo creator updates settings.
+        TODO: Implement embed-specific mini guide and ensure it uses the terminal mini guide view.
+        TODO: Fix guide routing so embed/user views open in-app guide instead of redirecting to documentation.
+      */
       .terminal-chrome{display:flex;flex-direction:column;height:100%;border:1px solid rgba(0,255,65,0.25);background:#0e0e0e}
       .terminal-titlebar{background:#111;border-bottom:1px solid rgba(0,255,65,0.25);padding:7px 12px;display:flex;align-items:center;gap:10px;font-size:0.72rem;color:#1a6e2e;text-transform:uppercase;letter-spacing:0.08em;user-select:none}
       .terminal-dots{display:flex;gap:6px}
