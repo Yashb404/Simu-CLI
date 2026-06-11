@@ -3,9 +3,11 @@ use axum::{
     Json, Router,
     http::StatusCode,
     routing::{get, patch, post},
+    extract::DefaultBodyLimit
 };
 use shared::dto::ApiErrorResponse;
 use shared::models::user::User;
+
 
 /// Creates and Axum `Router` with the application's HTTP routes and attaches the given shared `AppState`.
 ///
@@ -35,10 +37,7 @@ fn api_router() -> Router<AppState> {
     Router::new()
         .route("/health", get(health_check))
         .route("/me", get(get_me))
-        .route(
-            "/me/dashboard",
-            get(handlers::dashboard::get_my_dashboard),
-        )
+        .route("/me/dashboard", get(handlers::dashboard::get_my_dashboard))
         .route("/demos", post(handlers::demos::create_demo))
         .route("/me/demos", get(handlers::demos::list_my_demos))
         .route(
@@ -47,64 +46,27 @@ fn api_router() -> Router<AppState> {
                 .patch(handlers::demos::update_demo)
                 .delete(handlers::demos::delete_demo),
         )
-        .route(
-            "/demos/{id}/public",
-            get(handlers::demos::get_public_demo),
-        )
-        .route(
-            "/public/demos/{reference}",
-            get(handlers::demos::get_public_demo_by_reference),
-        )
-        .route(
-            "/demos/{id}/publish",
-            post(handlers::demos::publish_demo),
-        )
+        .route("/demos/{id}/public", get(handlers::demos::get_public_demo))
+        .route("/public/demos/{reference}", get(handlers::demos::get_public_demo_by_reference))
+        .route("/demos/{id}/publish", post(handlers::demos::publish_demo))
         .route(
             "/demos/{id}/import-cast",
-            post(handlers::demos::import_cast),
+            post(handlers::demos::import_cast)
+                // FIX S-07: Reject payloads > 5MB at the network layer to prevent RAM exhaustion
+                .layer(DefaultBodyLimit::max(5 * 1024 * 1024)), 
         )
-        .route(
-            "/demos/{id}/og-image",
-            get(handlers::demos::get_demo_og_image),
-        )
-        .route(
-            "/demos/{id}/analytics",
-            get(handlers::analytics::get_demo_analytics),
-        )
-        .route(
-            "/demos/{id}/analytics/referrers",
-            get(handlers::analytics::get_demo_referrers),
-        )
-        .route(
-            "/demos/{id}/analytics/funnel",
-            get(handlers::analytics::get_demo_funnel),
-        )
-        .route(
-            "/demos/{id}/analytics/export",
-            get(handlers::analytics::export_demo_analytics_csv),
-        )
-        .route(
-            "/demos/{id}/common-errors",
-            get(handlers::common_errors::get_common_errors),
-        )
-        .route(
-            "/analytics/events",
-            post(handlers::analytics::post_event),
-        )
-        .route(
-            "/analytics/common-errors",
-            post(handlers::common_errors::record_common_error),
-        )
-        .route(
-            "/billing/status",
-            get(handlers::billing::get_billing_status),
-        )
+        .route("/demos/{id}/og-image", get(handlers::demos::get_demo_og_image))
+        .route("/demos/{id}/analytics", get(handlers::analytics::get_demo_analytics))
+        .route("/demos/{id}/analytics/referrers", get(handlers::analytics::get_demo_referrers))
+        .route("/demos/{id}/analytics/funnel", get(handlers::analytics::get_demo_funnel))
+        .route("/demos/{id}/analytics/export", get(handlers::analytics::export_demo_analytics_csv))
+        .route("/demos/{id}/common-errors", get(handlers::common_errors::get_common_errors))
+        .route("/analytics/events", post(handlers::analytics::post_event))
+        .route("/analytics/common-errors", post(handlers::common_errors::record_common_error))
+        .route("/billing/status", get(handlers::billing::get_billing_status))
         .route("/billing/subscribe", post(handlers::billing::subscribe))
         .route("/projects", post(handlers::projects::create_project))
-        .route(
-            "/me/projects",
-            get(handlers::projects::list_my_projects),
-        )
+        .route("/me/projects", get(handlers::projects::list_my_projects))
         .route(
             "/projects/{id}",
             patch(handlers::projects::update_project).delete(handlers::projects::delete_project),
@@ -118,6 +80,7 @@ fn api_router() -> Router<AppState> {
                 .delete(api_not_found),
         )
 }
+
 
 async fn health_check() -> &'static str {
     "OK"
