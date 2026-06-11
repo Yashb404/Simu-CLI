@@ -15,6 +15,7 @@ use oauth2::{AuthorizationCode, CsrfToken, RedirectUrl, Scope, TokenResponse};
 use serde::Deserialize;
 use shared::{error::AppError, models::user::User};
 use tower_sessions::Session;
+use subtle::ConstantTimeEq;
 
 pub fn auth_routes() -> Router<AppState> {
     Router::new()
@@ -54,13 +55,7 @@ async fn github_login(
             (StatusCode::INTERNAL_SERVER_ERROR, "Session error").into_response()
         })?;
 
-    session
-        .insert("oauth_redirect_uri", redirect_uri)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to store OAuth redirect URI in session: {:?}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Session error").into_response()
-        })?;
+    // NOTE: Removed session storage of `oauth_redirect_uri` to prevent S-04 poisoning.
 
     let destination = auth_url.to_string();
 
@@ -136,36 +131,24 @@ async fn github_callback(
         (StatusCode::INTERNAL_SERVER_ERROR, "Session error").into_response()
     })?;
 
-    if stored_csrf != Some(query.state.clone()) {
-        tracing::warn!(
-            "CSRF token mismatch during GitHub callback. Session likely changed host/origin between login and callback."
-        );
-        return Err((StatusCode::UNAUTHORIZED, "CSRF token mismatch").into_response());
-    }
-
+    // Consume the token immediately to prevent replay attacks (L-07)
     if let Err(err) = session.remove::<String>("csrf_token").await {
         tracing::warn!("Failed to clear CSRF token from session: {err:?}");
     }
 
-    let redirect_uri: Option<String> = session.get("oauth_redirect_uri").await.map_err(|e| {
-        tracing::error!(
-            "Failed to retrieve OAuth redirect URI from session: {:?}",
-            e
-        );
-        (StatusCode::INTERNAL_SERVER_ERROR, "Session error").into_response()
-    })?;
+    // Validate using constant-time string comparison to prevent timing attacks (S-02)
+    let is_valid_csrf = stored_csrf
+        .as_deref()
+        .map(|s| s.as_bytes().ct_eq(query.state.as_bytes()).into())
+        .unwrap_or(false);
 
-    if let Err(err) = session.remove::<String>("oauth_redirect_uri").await {
-        tracing::warn!("Failed to clear OAuth redirect URI from session: {err:?}");
+    if !is_valid_csrf {
+        tracing::warn!("CSRF token mismatch during GitHub callback.");
+        return Err((StatusCode::UNAUTHORIZED, "CSRF token mismatch").into_response());
     }
 
-    let redirect_uri = redirect_uri.unwrap_or_else(|| state.config.github_redirect_uri());
-
-    // Validate the redirect URI against the configured allow-list
-    if redirect_uri != state.config.github_redirect_uri() {
-        tracing::warn!("Unexpected OAuth redirect URI in session: {redirect_uri}");
-        return Err((StatusCode::BAD_REQUEST, "Invalid redirect URI").into_response());
-    }
+    // Reconstruct redirect_uri directly from config as the source of truth (S-04)
+    let redirect_uri = state.config.github_redirect_uri();
 
     let client = github_oauth_client(&state.config)
         .map_err(|e| {
@@ -240,6 +223,12 @@ async fn github_callback(
         ApiError(AppError::Internal).into_response()
     })?;
 
+    // Fix S-03: Cycle the session ID before elevating privileges to prevent session fixation
+    session.cycle_id().await.map_err(|e| {
+        tracing::error!("Failed to cycle session ID: {:?}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, "Session error").into_response()
+    })?;
+
     // Store user ID in session
     session
         .insert(USER_SESSION_KEY, user.id)
@@ -251,15 +240,16 @@ async fn github_callback(
 
     tracing::info!("User {} authenticated successfully", user.username);
 
-    // Use relative redirects so callback stays on the same host that initiated login.
-    Ok(Redirect::to("/dashboard"))
+    // Use absolute redirect based on config to prevent trapping users on the API port
+    Ok(Redirect::to(&format!("{}/dashboard", state.config.frontend_url)))
 }
 
-async fn logout(State(_state): State<AppState>, session: Session) -> Result<Redirect, StatusCode> {
+async fn logout(State(state): State<AppState>, session: Session) -> Result<Redirect, StatusCode> {
     session.delete().await.map_err(|e| {
         tracing::error!("Failed to delete session: {:?}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    Ok(Redirect::to("/"))
+    // Absolute redirect to the frontend base URL
+    Ok(Redirect::to(&format!("{}/", state.config.frontend_url)))
 }
