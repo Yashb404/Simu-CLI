@@ -175,16 +175,8 @@ pub async fn update_demo(
 ) -> HandlerResult<Json<Demo>> {
     payload.validate()?;
 
-    let mut title = existing.title;
     let mut project_id = existing.project_id;
-    let mut slug = existing.slug;
-    let mut theme = existing.theme.clone();
-    let mut settings = existing.settings.clone();
-    let mut steps = existing.steps.clone();
 
-    if let Some(new_title) = payload.title {
-        title = new_title;
-    }
     if let Some(project_update) = payload.project_id {
         if let Some(target_project_id) = project_update {
             let project_exists: Option<Uuid> =
@@ -202,30 +194,19 @@ pub async fn update_demo(
         }
         project_id = project_update;
     }
-    if let Some(new_slug) = payload.slug {
-        slug = Some(new_slug);
-    }
-    if let Some(new_theme) = payload.theme {
-        theme = new_theme;
-    }
-    if let Some(new_settings) = payload.settings {
-        settings = new_settings;
-    }
-    if let Some(new_steps) = payload.steps {
-        steps = new_steps;
-    }
+
+    // FIX P-01: Take ownership of `existing` fields instead of blindly `.clone()`-ing the large JSON payload.
+    let title = payload.title.unwrap_or(existing.title);
+    let slug = payload.slug.or(existing.slug);
+    let theme = payload.theme.unwrap_or(existing.theme);
+    let settings = payload.settings.unwrap_or(existing.settings);
+    let steps = payload.steps.unwrap_or(existing.steps);
 
     let updated = sqlx::query_as::<_, Demo>(
         r#"
         UPDATE demos
-        SET title = $1,
-            project_id = $2,
-            slug = $3,
-            engine_mode = $4,
-            theme = $5,
-            settings = $6,
-            steps = $7,
-            updated_at = NOW()
+        SET title = $1, project_id = $2, slug = $3, engine_mode = $4,
+            theme = $5, settings = $6, steps = $7, updated_at = NOW()
         WHERE id = $8 AND owner_id = $9
         RETURNING id, owner_id, project_id, slug, title, engine_mode, theme, settings, steps,
                   published, version, created_at, updated_at
@@ -460,19 +441,6 @@ pub async fn import_cast(
     AuthUser(user): AuthUser,
     mut multipart: axum::extract::Multipart,
 ) -> HandlerResult<impl IntoResponse> {
-    let demo = sqlx::query_as::<_, Demo>(
-        "SELECT id, owner_id, project_id, slug, title, engine_mode, theme, settings, steps, published, version, created_at, updated_at FROM demos WHERE id = $1 AND owner_id = $2"
-    )
-    .bind(demo_id)
-    .bind(user.id)
-    .fetch_optional(&state.db)
-    .await
-    .map_err(|e| {
-        tracing::error!("DB error fetching demo: {:?}", e);
-        ApiError(AppError::Internal)
-    })?
-    .ok_or(ApiError(AppError::NotFound))?;
-
     // Read the cast file from multipart form
     let cast_text = read_cast_field(&mut multipart).await?;
 
@@ -482,6 +450,25 @@ pub async fn import_cast(
     // Parse the cast file
     let interactions = shared::extract_commands_from_cast(&cast_text, &parse_options)
         .map_err(|e| ApiError(AppError::Validation(format!("Cast parsing failed: {}", e))))?;
+
+    // FIX P-02: Use a transaction with SELECT ... FOR UPDATE to prevent concurrent uploads from overwriting each other
+    let mut tx = state.db.begin().await.map_err(|e| {
+        tracing::error!("Failed to begin transaction: {:?}", e);
+        ApiError(AppError::Internal)
+    })?;
+
+    let demo = sqlx::query_as::<_, Demo>(
+        "SELECT id, owner_id, project_id, slug, title, engine_mode, theme, settings, steps, published, version, created_at, updated_at FROM demos WHERE id = $1 AND owner_id = $2 FOR UPDATE"
+    )
+    .bind(demo_id)
+    .bind(user.id)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(|e| {
+        tracing::error!("DB error fetching demo for update: {:?}", e);
+        ApiError(AppError::Internal)
+    })?
+    .ok_or(ApiError(AppError::NotFound))?;
 
     // Convert interactions to steps and append to existing steps
     let mut all_steps = demo.steps;
@@ -495,21 +482,21 @@ pub async fn import_cast(
         ))));
     }
 
-    // Update the demo with new steps
-    let updated_demo = Demo {
-        steps: all_steps,
-        ..demo
-    };
-
+    // Update the demo with new steps inside the transaction
     sqlx::query(
         "UPDATE demos SET steps = $1, version = version + 1, updated_at = now() WHERE id = $2",
     )
-    .bind(SqlxJson(&updated_demo.steps))
+    .bind(SqlxJson(&all_steps))
     .bind(demo_id)
-    .execute(&state.db)
+    .execute(&mut *tx)
     .await
     .map_err(|e| {
         tracing::error!("DB error updating demo: {:?}", e);
+        ApiError(AppError::Internal)
+    })?;
+
+    tx.commit().await.map_err(|e| {
+        tracing::error!("Failed to commit transaction: {:?}", e);
         ApiError(AppError::Internal)
     })?;
 
