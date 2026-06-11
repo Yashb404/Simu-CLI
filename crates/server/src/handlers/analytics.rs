@@ -72,7 +72,8 @@ pub async fn post_event(
 ) -> HandlerResult<StatusCode> {
     payload.validate()?;
 
-    let demo_exists: Option<Uuid> = sqlx::query_scalar("SELECT id FROM demos WHERE id = $1")
+    // FIX S-08: Only allow analytics ingestion for published demos to prevent poisoning
+    let demo_exists: Option<Uuid> = sqlx::query_scalar("SELECT id FROM demos WHERE id = $1 AND published = TRUE")
         .bind(payload.demo_id)
         .fetch_optional(&state.db)
         .await?;
@@ -81,14 +82,19 @@ pub async fn post_event(
         return Err(ApiError(AppError::NotFound));
     }
 
+    // FIX S-11: Truncate raw headers to prevent unbounded storage bloat
+    const MAX_REFERRER: usize = 2048;
+    const MAX_UA: usize = 512;
+
     let referrer = headers
         .get("referer")
         .and_then(|v| v.to_str().ok())
-        .map(|s| s.to_string());
+        .map(|s| s.chars().take(MAX_REFERRER).collect::<String>());
+        
     let user_agent = headers
         .get("user-agent")
         .and_then(|v| v.to_str().ok())
-        .map(|s| s.to_string());
+        .map(|s| s.chars().take(MAX_UA).collect::<String>());
 
     sqlx::query(
         r#"
