@@ -98,17 +98,6 @@ pub fn extract_commands_from_cast(
 
         match event_type {
             "i" => {
-                // A fresh input event after Enter means the previous interaction ended.
-                if is_reading_output {
-                    flush_interaction(
-                        &mut interactions,
-                        &mut current_input,
-                        &mut current_output,
-                        &options.strip_trailing_prompt,
-                    );
-                    is_reading_output = false;
-                }
-
                 // Input event: user typed a character
                 for ch in event_data.chars() {
                     match ch {
@@ -117,6 +106,16 @@ pub fn extract_commands_from_cast(
                             is_reading_output = true;
                         }
                         _ => {
+                            if is_reading_output {
+                                // A fresh character after an Enter means the previous interaction ended.
+                                flush_interaction(
+                                    &mut interactions,
+                                    &mut current_input,
+                                    &mut current_output,
+                                    &options.strip_trailing_prompt,
+                                );
+                                is_reading_output = false;
+                            }
                             current_input.push(ch);
                         }
                     }

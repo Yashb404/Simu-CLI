@@ -12,3 +12,5 @@ target/
 repomix-output.xml
 parser.md
 .vscode
+.agents
+
