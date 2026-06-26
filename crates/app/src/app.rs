@@ -18,7 +18,6 @@ use crate::pages::{
 // TODO: Fix search functionality (dashboard search currently unreliable).
 // TODO: Add a consistent header with quick settings (global access point).
 // TODO: Implement GitHub profile picture and account actions on the header.
-// TODO: Remove or clarify the 'admin access' label on user profiles.
 // TODO: Ensure Settings page is implemented and wired from header/menu.
 
 #[derive(Clone, Copy, PartialEq, Eq)]

@@ -11,10 +11,7 @@ use crate::api;
 use crate::auth::{SessionState, use_auth_context};
 use crate::components::confirm_dialog::ConfirmDialog;
 use crate::components::global_header::{CentralHeader, CentralHeaderVariant, HeaderSearchModel};
-use crate::components::shell::DashboardSearchContext;
-
 // TODOs specific to the Demos dashboard:
-// TODO: Fix search functionality hookup — `DashboardSearchContext` is not returning expected queries.
 // TODO: Simplify dashboard layout to reduce clutter (review panels and controls).
 // TODO: Wire up Library and Analytics buttons to their actions/pages.
 // TODO: Add animations for loading and project/demo transitions (improve perceived latency).
@@ -81,9 +78,7 @@ pub fn DemosPage() -> impl IntoView {
     let (project_name, set_project_name) = signal(String::new());
     let (project_description, set_project_description) = signal(String::new());
     let (project_filter_id, set_project_filter_id) = signal(String::new());
-    let (search_query, set_search_query) = use_context::<DashboardSearchContext>()
-        .map(|context| (context.search_query, context.set_search_query))
-        .unwrap_or_else(|| signal(String::new()));
+    let (search_query, set_search_query) = signal(String::new());
     let (published_filter, set_published_filter) = signal("all".to_string());
     let (status, set_status) = signal("Loading dashboard...".to_string());
     let (requires_login, set_requires_login) = signal(false);
@@ -435,23 +430,6 @@ pub fn DemosPage() -> impl IntoView {
                         </svg>
                         "Workspace"
                     </a>
-                    <a class="db-nav-item" href="#">
-                        <svg viewBox="0 0 20 20" width="15" height="15"
-                             fill="none" stroke="currentColor" stroke-width="1.5">
-                            <rect x="3" y="3" width="6" height="6" rx="1"/>
-                            <rect x="11" y="3" width="6" height="6" rx="1"/>
-                            <rect x="3" y="11" width="6" height="6" rx="1"/>
-                            <rect x="11" y="11" width="6" height="6" rx="1"/>
-                        </svg>
-                        "Library"
-                    </a>
-                    <a class="db-nav-item" href="#">
-                        <svg viewBox="0 0 20 20" width="15" height="15"
-                             fill="none" stroke="currentColor" stroke-width="1.5">
-                            <path d="M3 14l4-4 3 3 4-5 3 3"/>
-                        </svg>
-                        "Analytics"
-                    </a>
 
                     <p class="db-nav-label">"Projects"</p>
                     <For
@@ -471,16 +449,6 @@ pub fn DemosPage() -> impl IntoView {
                 </nav>
 
                 <div class="db-sidebar-footer">
-                    <a class="db-nav-item" href="#">
-                        <svg viewBox="0 0 20 20" width="15" height="15"
-                             fill="none" stroke="currentColor" stroke-width="1.5">
-                            <circle cx="10" cy="10" r="3"/>
-                            <path d="M10 2v2M10 16v2M2 10h2M16 10h2
-                                     M4.2 4.2l1.4 1.4M14.4 14.4l1.4 1.4
-                                     M4.2 15.8l1.4-1.4M14.4 5.6l1.4-1.4"/>
-                        </svg>
-                        "Settings"
-                    </a>
                 </div>
             </aside>
 

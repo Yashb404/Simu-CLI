@@ -7,12 +7,6 @@ use crate::api;
 use crate::auth::{SessionState, refresh_session_state, use_auth_context};
 use crate::components::global_header::{CentralHeader, CentralHeaderVariant, HeaderSearchModel};
 
-#[derive(Clone, Copy)]
-pub struct DashboardSearchContext {
-    pub search_query: ReadSignal<String>,
-    pub set_search_query: WriteSignal<String>,
-}
-
 /// Renders the application shell: global layout, sidebar, header, routing decisions, and session-driven data.
 ///
 /// The component provides and manages the dashboard search context, sidebar project state (list, open/closed, creation form, status and loading), mobile sidebar toggle, and determines whether to render a full-bleed editor layout or the standard dashboard shell based on the current route. It reacts to authentication state to load projects, handles creating projects via the API (including validation and status updates), and implements logout behavior.
@@ -36,11 +30,6 @@ pub fn AppShell() -> impl IntoView {
     let (sidebar_project_form_open, set_sidebar_project_form_open) = signal(true);
     let (dashboard_search_query, set_dashboard_search_query) = signal(String::new());
     let (mobile_sidebar_open, set_mobile_sidebar_open) = signal(false);
-
-    provide_context(DashboardSearchContext {
-        search_query: dashboard_search_query,
-        set_search_query: set_dashboard_search_query,
-    });
 
     let editor_route = Signal::derive(move || {
         let path = location.pathname.get();
