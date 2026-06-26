@@ -324,9 +324,9 @@
 }
 
 .central-header__search {
-  flex: 1 1 240px;
-  min-width: 0;
-  width: min(420px, 100%);
+  flex: 1;
+  width: 100%;
+  max-width: 720px;
   padding: 0 10px;
   gap: 8px;
   overflow: hidden;
