@@ -359,8 +359,9 @@
 
 .central-header__search-input {
   display: block;
-  width: 0;
-  flex: 1 1 0%;
+  flex: 1;
+  min-width: 0;
+  width: auto;
   text-overflow: ellipsis;
   white-space: nowrap;
   -webkit-appearance: none;
